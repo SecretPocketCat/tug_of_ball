@@ -3,15 +3,13 @@ name: Release
 on:
   push:
     tags:
-      - '*'
+      - "*"
 
 env:
   # update with the name of the main binary
-  binary: bevy_github_ci_template
-
+  binary: tennis_rounds
 
 jobs:
-
   # Build for wasm
   release-wasm:
     runs-on: ubuntu-latest
@@ -133,7 +131,7 @@ jobs:
 
   # Build for macOS
   release-macos:
-    runs-on: macOS-latest
+    runs-on: macos-latest
 
     steps:
       - uses: little-core-labs/get-git-tag@v3.0.1
