@@ -3,14 +3,17 @@
 // #![windows_subsystem = "windows"]
 
 use bevy::prelude::*;
+use heron::*;
 use bevy_extensions::panic_on_error;
-use bevy_input::{ActionMap, GamepadMap, BindingError, AxisBinding, ActionInputPlugin};
+use bevy_input::{ActionMap, GamepadMap, BindingError, AxisBinding, ActionInputPlugin, ActionInput};
 use bevy_inspector_egui::{WorldInspectorPlugin, RegisterInspectable};
 use bevy_time::TimePlugin;
 use serde::{Serialize, Deserialize};
-use player::{PlayerPlugin, Player};
+use player::{PlayerPlugin, Player, PlayerMovement, PlayerDash, PlayerSwing};
+use ball::{BallPlugin, Ball};
 
 mod player;
+mod ball;
 
 // todo: ball plugin
 // todo: lvl plugin
@@ -29,17 +32,24 @@ enum InputAxis {
     Y,
 }
 
+type PlayerInput = ActionInput<InputAction, InputAxis>;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(WorldInspectorPlugin::new())
+        .add_plugin(PhysicsPlugin::default())
         .add_plugin(TimePlugin)
         .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::default())
         .add_plugin(PlayerPlugin)
-        // .add_plugin(BallPlugin)
+        .add_plugin(BallPlugin)
         .add_startup_system(setup)
         .add_startup_system(setup_bindings.chain(panic_on_error))
         .register_inspectable::<Player>()
+        .register_inspectable::<PlayerMovement>()
+        .register_inspectable::<PlayerDash>()
+        .register_inspectable::<PlayerSwing>()
+        .register_inspectable::<Ball>()
         .run();
 }
 
