@@ -1,0 +1,11 @@
+[target.x86_64-pc-windows-msvc]
+# rust-lld won't work with dynamic on Win11 :(
+# linker = "rust-lld.exe"
+rustflags = ["-Zshare-generics=n"]
+
+# Optimization
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
