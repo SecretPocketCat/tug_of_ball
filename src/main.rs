@@ -132,7 +132,7 @@ fn setup_bindings(
 
     map
         .bind_button_action(2, InputAction::Dash, KeyCode::Numpad0)?
-        .bind_button_action(2, InputAction::Swing, KeyCode::NumpadEnter)?
+        .bind_button_action(2, InputAction::Swing, KeyCode::NumpadAdd)?
         .bind_axis(
             2,
             InputAxis::X,

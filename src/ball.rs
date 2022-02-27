@@ -10,19 +10,16 @@ use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player}, PlayerI
 
 const BALL_SIZE: f32 = 30.;
 
-#[derive(Component, Inspectable)]
+#[derive(Default, Component, Inspectable)]
 pub struct Ball {
     dir: Vec2,
     size: f32,
 }
 
-impl Default for Ball {
-    fn default() -> Self {
-        Self {
-            size: BALL_SIZE,
-            dir: Default::default(),
-        }
-    }
+#[derive(Default, Component, Inspectable)]
+pub struct BallBounce {
+    time: f32,
+    was_falling: bool,
 }
 
 pub struct BallPlugin;
@@ -31,6 +28,7 @@ impl Plugin for BallPlugin {
         app
             .add_startup_system(setup)
             .add_system(movement)
+            .add_system(bounce)
             .add_system_to_stage(CoreStage::PostUpdate, handle_collisions);
     }
 }
@@ -39,21 +37,45 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    commands.spawn_bundle(SpriteBundle {
-        transform: Transform::from_xyz( -WIN_WIDTH / 2. + 250., 0., 0.),
+    let bounce = commands.spawn_bundle(SpriteBundle {
         texture: asset_server.load("icon.png"),
         sprite: Sprite {
-            color: Color::BLACK,
+            color: Color::YELLOW,
             custom_size: Some(Vec2::splat(BALL_SIZE)),
             ..Default::default()
         },
+        transform: Transform::from_xyz(0., 0., 2.),
         ..Default::default()
-    }).insert(Ball::default())
-    .insert(RigidBody::KinematicPositionBased)
-    .insert(CollisionShape::Sphere {
-        radius: 15.,
-    })
-    .insert(Name::new("Ball"));
+        }).insert(BallBounce {
+            ..Default::default()
+        })
+        .id();
+
+    let shadow = commands.spawn_bundle(SpriteBundle {
+        texture: asset_server.load("icon.png"),
+        sprite: Sprite {
+            color: Color::BLACK,
+            custom_size: Some(Vec2::splat(BALL_SIZE * 0.9)),
+            ..Default::default()
+        },
+        // transform: Transform::from_xyz(0., -8., 0.),
+        ..Default::default()
+        }).id();
+
+    commands.spawn()
+        .insert(Transform::from_xyz( -WIN_WIDTH / 2. + 250., 0., 0.))
+        .insert(GlobalTransform::default())
+        .insert(Ball {
+            size: BALL_SIZE,
+            ..Default::default()
+        })
+        .insert(RigidBody::KinematicPositionBased)
+        .insert(CollisionShape::Sphere {
+            radius: 15.,
+        })
+        .insert(Name::new("Ball"))
+        .add_child(bounce)
+        .add_child(shadow);
 }
 
 fn movement(
@@ -62,13 +84,39 @@ fn movement(
 ) {
     for (mut ball, mut t) in query.iter_mut() {
         // very simple drag
-        ball.dir *= 1. - 1. * time.scaled_delta_seconds();
+        ball.dir *= 1. - 0.25 * time.scaled_delta_seconds();
+        // move
+        // t.translation += ball.dir.to_vec3() * 800. * time.scaled_delta_seconds();
+    }
+}
 
-        // todo: simulate bounces
-        // let bounce = time.time.seconds_since_startup().sin() as f32 * 10. * ball.dir.length() * Vec3::Y;
-        // info!("bounce {}", bounce);
+fn bounce(
+    mut bounce_query: Query<(&mut BallBounce, &mut Transform, &Parent)>,
+    mut ball_q: Query<&mut Ball>,
+    time: ScaledTime,
+) {
+    for (mut ball_bounce, mut t, p) in bounce_query.iter_mut() {
+        let mut ball = ball_q.get_mut(p.0).unwrap();
+        let dir_magn = ball.dir.length();
+        let bounce_t = (ball_bounce.time * 4.).sin().abs();
+        let bounce = bounce_t * dir_magn * 40.;
+        
+        let mut is_faling = bounce < t.translation.y;
 
-        t.translation += ball.dir.to_vec3() * 800. * time.scaled_delta_seconds() /*+ bounce*/;
+        info!("{}, {}", ball_bounce.was_falling, is_faling);
+
+        if !is_faling && ball_bounce.was_falling {
+            ball.dir *= 0.7;
+            // ball_bounce.height_multiplier *= 0.7;
+            info!("{}, {}, {}", ball.dir, dir_magn, bounce_t);
+            if ball.dir.length() < 0.025 {
+                ball.dir = Vec2::ZERO;
+            }
+        }
+
+        t.translation.y = bounce;
+        ball_bounce.time += time.scaled_delta_seconds();
+        ball_bounce.was_falling = is_faling;
     }
 }
 
@@ -76,36 +124,44 @@ fn movement(
 fn handle_collisions(
     mut coll_events: EventReader<CollisionEvent>,
     input: Res<PlayerInput>,
-    mut ball_q: Query<(&mut Ball, &Transform)>,
-    mut player_q: Query<(&Player, &mut PlayerSwing)>,
+    mut ball_q: Query<(&mut Ball, &Children)>,
+    mut ball_bounce_q: Query<&mut BallBounce>,
+    mut player_q: Query<(&Player, &PlayerMovement, &mut PlayerSwing)>,
     wall_q: Query<&Sprite, With<Wall>>,
-    time: ScaledTime,
 ) {
     for ev in coll_events.iter() {
         if ev.is_started() {
             let mut ball;
-            let ball_t;
             let other_e;
+            let bounce_e;
             let (entity_1, entity_2) = ev.rigid_body_entities();
             if let Ok(b) = ball_q.get_mut(entity_1) {
                 ball = b.0;
-                ball_t = b.1;
+                bounce_e = b.1.iter().nth(0).unwrap();
                 other_e = entity_2;
             } else if let Ok(b) = ball_q.get_mut(entity_2) {
                 ball = b.0;
-                ball_t = b.1;
+                bounce_e = b.1.iter().nth(0).unwrap();
                 other_e = entity_1;
             } else {
                 continue;
             }
 
-            if let Ok((player, mut swing)) = player_q.get_mut(other_e) {
+            let mut ball_bounce = ball_bounce_q.get_mut(bounce_e.clone()).unwrap();
+
+            if let Ok((player, movement, mut swing)) = player_q.get_mut(other_e) {
                 if let ActionStatus::Active(ball_speed_multiplier) = swing.status {
                     if !swing.timer.finished() {
                         swing.start_cooldown();
                         // todo: limit angle to roughly 45deg?
-                        let dir = input.get_xy_axes(player.id, &InputAxis::X, &InputAxis::Y);
+                        let mut dir = input.get_xy_axes(player.id, &InputAxis::X, &InputAxis::Y);
+
+                        if dir == Vec2::ZERO {
+                            dir = movement.last_dir;
+                        }
+
                         ball.dir = dir * ball_speed_multiplier;
+                        ball_bounce.time = 0.;
                     }
                 }
             }

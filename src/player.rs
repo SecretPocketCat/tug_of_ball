@@ -57,7 +57,7 @@ pub struct Player {
 pub struct PlayerMovement {
     speed: f32,
     charging_speed: f32,
-    last_dir: Vec2,
+    pub(crate) last_dir: Vec2,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -171,7 +171,7 @@ fn setup(
         let x = if i == 1 { -x } else { x }; 
         let size = Vec2::splat(50.);
         commands.spawn_bundle(SpriteBundle {
-            texture: asset_server.load("icon.png"),
+            // texture: asset_server.load("icon.png"),
             transform: Transform::from_xyz(x, 0., 0.),
             sprite: Sprite {
                 color: if i == 1 { Color::RED } else { Color::MIDNIGHT_BLUE },
