@@ -18,8 +18,9 @@ pub struct Ball {
 
 #[derive(Default, Component, Inspectable)]
 pub struct BallBounce {
-    time: f32,
-    was_falling: bool,
+    gravity: f32,
+    velocity: f32,
+    max_velocity: f32,
 }
 
 pub struct BallPlugin;
@@ -47,6 +48,8 @@ fn setup(
         transform: Transform::from_xyz(0., 0., 2.),
         ..Default::default()
         }).insert(BallBounce {
+            gravity: -380.,
+            max_velocity: 150.,
             ..Default::default()
         })
         .id();
@@ -55,10 +58,9 @@ fn setup(
         texture: asset_server.load("icon.png"),
         sprite: Sprite {
             color: Color::BLACK,
-            custom_size: Some(Vec2::splat(BALL_SIZE * 0.9)),
+            custom_size: Some(Vec2::splat(BALL_SIZE * 0.7)),
             ..Default::default()
         },
-        // transform: Transform::from_xyz(0., -8., 0.),
         ..Default::default()
         }).id();
 
@@ -83,11 +85,29 @@ fn movement(
     time: ScaledTime,
 ) {
     for (mut ball, mut t) in query.iter_mut() {
+        if ball.dir == Vec2::ZERO {
+            continue;
+        }
+
+        let speed = ball.dir.length();
+
+        if speed < 0.025 {
+            ball.dir = Vec2::ZERO;
+            return;
+        }
+
         // very simple drag
-        ball.dir *= 1. - 0.25 * time.scaled_delta_seconds();
+        let drag_mult = if speed < 0.25 { 1. } else { 0.35 };
+        ball.dir *= 1. - drag_mult * time.scaled_delta_seconds();
+
         // move
-        // t.translation += ball.dir.to_vec3() * 800. * time.scaled_delta_seconds();
+        t.translation += ball.dir.to_vec3() * 800. * time.scaled_delta_seconds();
     }
+}
+
+fn get_bounce_velocity(dir_len: f32, max_velocity: f32) -> f32 {
+    // todo: non-linear
+    dir_len.sqrt().min(1.) * max_velocity
 }
 
 fn bounce(
@@ -97,26 +117,26 @@ fn bounce(
 ) {
     for (mut ball_bounce, mut t, p) in bounce_query.iter_mut() {
         let mut ball = ball_q.get_mut(p.0).unwrap();
-        let dir_magn = ball.dir.length();
-        let bounce_t = (ball_bounce.time * 4.).sin().abs();
-        let bounce = bounce_t * dir_magn * 40.;
-        
-        let mut is_faling = bounce < t.translation.y;
 
-        info!("{}, {}", ball_bounce.was_falling, is_faling);
-
-        if !is_faling && ball_bounce.was_falling {
-            ball.dir *= 0.7;
-            // ball_bounce.height_multiplier *= 0.7;
-            info!("{}, {}, {}", ball.dir, dir_magn, bounce_t);
-            if ball.dir.length() < 0.025 {
-                ball.dir = Vec2::ZERO;
-            }
+        if ball.dir == Vec2::ZERO {
+            continue;
         }
 
-        t.translation.y = bounce;
-        ball_bounce.time += time.scaled_delta_seconds();
-        ball_bounce.was_falling = is_faling;
+        ball_bounce.velocity += ball_bounce.gravity * time.scaled_delta_seconds();
+        t.translation.y += ball_bounce.velocity * time.scaled_delta_seconds();
+
+        if t.translation.y <= 0. {
+            ball_bounce.velocity = get_bounce_velocity(ball.dir.length(), ball_bounce.max_velocity);
+        }
+
+        // let dir_len = ball.dir.length();
+        // // ball_bounce.velocity += -30. * time.scaled_delta_seconds();
+        
+        // if ball_bounce.velocity <= 0. {
+        //     ball_bounce.velocity = get_bounce_duration(dir_len);
+        // }
+
+        // t.translation.y += (ball_bounce.velocity - ball_bounce.gravity) * time.scaled_delta_seconds();
     }
 }
 
@@ -161,7 +181,7 @@ fn handle_collisions(
                         }
 
                         ball.dir = dir * ball_speed_multiplier;
-                        ball_bounce.time = 0.;
+                        ball_bounce.velocity = get_bounce_velocity(dir.length(), ball_bounce.max_velocity);
                     }
                 }
             }
