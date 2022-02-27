@@ -11,9 +11,15 @@ use bevy_time::TimePlugin;
 use serde::{Serialize, Deserialize};
 use player::{PlayerPlugin, Player, PlayerMovement, PlayerDash, PlayerSwing};
 use ball::{BallPlugin, Ball};
+use wall::WallPlugin;
 
 mod player;
 mod ball;
+mod wall;
+
+const NAME: &str = "Tennis Rounds";
+const WIN_WIDTH: f32 = 1000.;
+const WIN_HEIGHT: f32 = 600.;
 
 // todo: ball plugin
 // todo: lvl plugin
@@ -36,6 +42,12 @@ type PlayerInput = ActionInput<InputAction, InputAxis>;
 
 fn main() {
     App::new()
+        .insert_resource(WindowDescriptor {
+            title: NAME.to_string(),
+            width: WIN_WIDTH,
+            height: WIN_HEIGHT,
+            ..Default::default()
+        })
         .add_plugins(DefaultPlugins)
         .add_plugin(WorldInspectorPlugin::new())
         .add_plugin(PhysicsPlugin::default())
@@ -43,6 +55,7 @@ fn main() {
         .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::default())
         .add_plugin(PlayerPlugin)
         .add_plugin(BallPlugin)
+        .add_plugin(WallPlugin)
         .add_startup_system(setup)
         .add_startup_system(setup_bindings.chain(panic_on_error))
         .register_inspectable::<Player>()
