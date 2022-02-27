@@ -229,8 +229,7 @@ fn handle_swing_input(
     for (player, mut player_swing, mut coll_layers) in query.iter_mut() {
         if let Some(ActionState::Released(key_data)) = input.get_button_action_state(player.id, &InputAction::Swing) {
             if let ActionStatus::Ready = player_swing.status {
-                // todo: mult based on duration
-                player_swing.status = ActionStatus::Active(key_data.duration);
+                player_swing.status = ActionStatus::Active((key_data.duration * 3.0).clamp(0.35, 1.));
                 player_swing.timer = Timer::from_seconds(player_swing.duration_sec, false);
                 *coll_layers = CollisionLayers::all::<PhysLayer>();
             }

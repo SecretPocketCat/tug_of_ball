@@ -14,6 +14,7 @@ const BALL_SIZE: f32 = 30.;
 pub struct Ball {
     dir: Vec2,
     size: f32,
+    speed: f32,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -69,6 +70,7 @@ fn setup(
         .insert(GlobalTransform::default())
         .insert(Ball {
             size: BALL_SIZE,
+            speed: 1100.,
             ..Default::default()
         })
         .insert(RigidBody::KinematicPositionBased)
@@ -101,12 +103,11 @@ fn movement(
         ball.dir *= 1. - drag_mult * time.scaled_delta_seconds();
 
         // move
-        t.translation += ball.dir.to_vec3() * 800. * time.scaled_delta_seconds();
+        t.translation += ball.dir.to_vec3() * ball.speed * time.scaled_delta_seconds();
     }
 }
 
 fn get_bounce_velocity(dir_len: f32, max_velocity: f32) -> f32 {
-    // todo: non-linear
     dir_len.sqrt().min(1.) * max_velocity
 }
 
@@ -128,15 +129,6 @@ fn bounce(
         if t.translation.y <= 0. {
             ball_bounce.velocity = get_bounce_velocity(ball.dir.length(), ball_bounce.max_velocity);
         }
-
-        // let dir_len = ball.dir.length();
-        // // ball_bounce.velocity += -30. * time.scaled_delta_seconds();
-        
-        // if ball_bounce.velocity <= 0. {
-        //     ball_bounce.velocity = get_bounce_duration(dir_len);
-        // }
-
-        // t.translation.y += (ball_bounce.velocity - ball_bounce.gravity) * time.scaled_delta_seconds();
     }
 }
 
@@ -170,6 +162,8 @@ fn handle_collisions(
             let mut ball_bounce = ball_bounce_q.get_mut(bounce_e.clone()).unwrap();
 
             if let Ok((player, movement, mut swing)) = player_q.get_mut(other_e) {
+                info!("Swing {}", player.id);
+
                 if let ActionStatus::Active(ball_speed_multiplier) = swing.status {
                     if !swing.timer.finished() {
                         swing.start_cooldown();
