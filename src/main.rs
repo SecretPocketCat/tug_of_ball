@@ -61,7 +61,7 @@ fn main() {
         .add_plugin(PlayerPlugin)
         .add_plugin(BallPlugin)
         .add_plugin(WallPlugin)
-        // .add_plugin(DebugPlugin)
+        .add_plugin(DebugPlugin)
         .add_startup_system(setup)
         .add_startup_system(setup_bindings.chain(panic_on_error))
         .run();
@@ -111,8 +111,10 @@ fn setup_bindings(
                 0.2
             );
 
-        gamepad_map.map_gamepad(id - 1, id);
+        // gamepad_map.map_gamepad(id - 1, id);
     }
+
+    gamepad_map.map_gamepad(0, 2);
 
     map
         .bind_button_action(1, InputAction::Dash, KeyCode::Space)?

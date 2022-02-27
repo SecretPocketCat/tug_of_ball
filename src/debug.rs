@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_inspector_egui::{WorldInspectorPlugin, RegisterInspectable};
-use crate::{player::{Player, PlayerMovement, PlayerDash, PlayerSwing}, ball::{Ball, BallBounce}};
+use crate::{player::{Player, PlayerMovement, PlayerDash, PlayerSwing, PlayerScore}, ball::{Ball, BallBounce}};
 
 pub struct DebugPlugin;
 impl Plugin for DebugPlugin {
@@ -11,6 +11,7 @@ impl Plugin for DebugPlugin {
             .register_inspectable::<PlayerMovement>()
             .register_inspectable::<PlayerDash>()
             .register_inspectable::<PlayerSwing>()
+            .register_inspectable::<PlayerScore>()
             .register_inspectable::<Ball>()
             .register_inspectable::<BallBounce>();
     }

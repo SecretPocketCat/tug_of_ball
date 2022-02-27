@@ -8,7 +8,7 @@ use bevy_time::{ScaledTime, ScaledTimeDelta};
 use heron::rapier_plugin::{PhysicsWorld, rapier2d::prelude::{RigidBodyActivation, ColliderSet}};
 use heron::*;
 
-use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer};
+use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, Ball, BallScorable, spawn_ball}};
 
 #[derive(Inspectable, Clone, Copy)]
 pub enum ActionStatus<TActiveData: Default> {
@@ -48,9 +48,10 @@ trait ActionTimer<TActiveData: Default> {
     }
 }
 
-#[derive(Component, Inspectable)]
+#[derive(Default, Component, Inspectable)]
 pub struct Player {
     pub(crate) id: usize,
+    side: f32,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -68,6 +69,11 @@ pub struct PlayerDash {
     speed: f32,
     #[inspectable(ignore)]
     timer: Timer,
+}
+
+#[derive(Default, Component, Inspectable)]
+pub struct PlayerScore {
+    pub(crate) score: usize,
 }
 
 // todo: macro?
@@ -122,12 +128,17 @@ pub struct PlayerBundle {
     movement: PlayerMovement,
     dash: PlayerDash,
     swing: PlayerSwing,
+    score: PlayerScore,
 }
 
 impl PlayerBundle {
     fn new(id: usize, initial_dir: Vec2) -> Self {
         Self {
-            player: Player { id: id },
+            player: Player { 
+                id: id,
+                side: -initial_dir.x.signum(),
+                ..Default::default()
+            },
             movement: PlayerMovement {
                 last_dir: initial_dir,
                 speed: 550.,
@@ -145,8 +156,16 @@ impl PlayerBundle {
                 cooldown_sec: 0.35,
                 ..Default::default()
             },
+            score: PlayerScore {
+                ..Default::default()
+            }
         }
     }
+}
+
+pub struct Players {
+    left: Entity,
+    right: Entity,
 }
 
 pub struct PlayerPlugin;
@@ -156,9 +175,13 @@ impl Plugin for PlayerPlugin {
             .add_startup_system(setup)
             .add_system(movement)
             .add_system(handle_swing_input)
-            // todo: run later?
-            .add_system(handle_action_cooldown::<PlayerDash, Vec2>)
-            .add_system(handle_action_cooldown::<PlayerSwing, f32>);
+            .add_system(on_ball_bounced)
+            .add_system_set_to_stage(
+                CoreStage::PostUpdate, 
+                SystemSet::new()
+                    .with_system(handle_action_cooldown::<PlayerDash, Vec2>)
+                    .with_system(handle_action_cooldown::<PlayerSwing, f32>)
+            );
     }
 }
 
@@ -166,11 +189,15 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
+    let mut left = None;
+    let mut right = None;
+
     for i in 1..=2 {
         let x = WIN_WIDTH / 2.- 100.;
         let x = if i == 1 { -x } else { x }; 
         let size = Vec2::splat(50.);
-        commands.spawn_bundle(SpriteBundle {
+        let is_left = x < 0.;
+        let entity = commands.spawn_bundle(SpriteBundle {
             // texture: asset_server.load("icon.png"),
             transform: Transform::from_xyz(x, 0., 0.),
             sprite: Sprite {
@@ -179,14 +206,27 @@ fn setup(
                 ..Default::default()
             },
             ..Default::default()
-        }).insert_bundle(PlayerBundle::new(i, if x < 0. { Vec2::X } else { -Vec2::X }))
+        }).insert_bundle(PlayerBundle::new(i, if is_left { Vec2::X } else { -Vec2::X }))
         .insert(RigidBody::KinematicPositionBased)
         .insert(CollisionShape::Sphere {
             radius: 100.,
         })
         .insert(CollisionLayers::none())
-        .insert(Name::new("Player"));
+        .insert(Name::new("Player"))
+        .id();
+
+        if is_left {
+            left = Some(entity);
+        }
+        else {
+            right = Some(entity);
+        }
     }
+
+    commands.insert_resource(Players {
+        left: left.unwrap(),
+        right: right.unwrap(),
+    });
 }
 
 // todo: movement easing
@@ -233,7 +273,7 @@ fn handle_swing_input(
     for (player, mut player_swing, mut coll_layers) in query.iter_mut() {
         if let Some(ActionState::Released(key_data)) = input.get_button_action_state(player.id, &InputAction::Swing) {
             if let ActionStatus::Ready = player_swing.status {
-                player_swing.status = ActionStatus::Active((key_data.duration * 3.0).clamp(0.5, 1.));
+                player_swing.status = ActionStatus::Active((key_data.duration * 3.0).clamp(0.4, 1.));
                 player_swing.timer = Timer::from_seconds(player_swing.duration_sec, false);
                 *coll_layers = CollisionLayers::all::<PhysLayer>();
             }
@@ -255,5 +295,34 @@ fn handle_action_cooldown<T: ActionTimer<TActiveData> + Component, TActiveData: 
 ) {
     for mut activity in query.iter_mut() {
         activity.handle_action_timer(time.scaled_delta());
+    }
+}
+
+fn on_ball_bounced(
+    mut commands: Commands,
+    mut ev_r_ball_bounced: EventReader<BallBouncedEvt>,
+    mut player_q: Query<(&Player, &mut PlayerScore)>,
+    ball_score_q: Query<Entity, With<BallScorable>>,
+    asset_server: Res<AssetServer>,
+    // players: Res<Players>,
+) {
+    for ev in ev_r_ball_bounced.iter() {
+        if ev.bouce_count > 1 {
+            let (scoring_player, mut score) = player_q
+                .iter_mut()
+                .filter(|p| p.0.side == -ev.side)
+                .nth(0)
+                .unwrap();
+
+            if let Ok(_) = ball_score_q.get(ev.ball_e.clone()) {
+                spawn_ball(&mut commands, &asset_server);
+
+                score.score += 1;
+                commands.entity(ev.ball_e).remove::<BallScorable>();
+                commands.entity(ev.ball_e).remove::<CollisionShape>();
+                // todo: tween out and destroy the ball
+                debug!("Player {} has lost a point to too many bounces!", scoring_player.id);
+            }
+        }
     }
 }

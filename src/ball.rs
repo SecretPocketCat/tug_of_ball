@@ -15,6 +15,8 @@ pub struct Ball {
     dir: Vec2,
     size: f32,
     speed: f32,
+    prev_pos: Vec3,
+    bounce_e: Option<Entity>,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -22,6 +24,16 @@ pub struct BallBounce {
     gravity: f32,
     velocity: f32,
     max_velocity: f32,
+    count: usize,
+}
+
+#[derive(Default, Component, Inspectable)]
+pub struct BallScorable;
+
+pub struct BallBouncedEvt {
+    pub(crate) ball_e: Entity,
+    pub(crate) bouce_count: usize,
+    pub(crate) side: f32,
 }
 
 pub struct BallPlugin;
@@ -31,7 +43,8 @@ impl Plugin for BallPlugin {
             .add_startup_system(setup)
             .add_system(movement)
             .add_system(bounce)
-            .add_system_to_stage(CoreStage::PostUpdate, handle_collisions);
+            .add_system_to_stage(CoreStage::PostUpdate, handle_collisions)
+            .add_event::<BallBouncedEvt>();
     }
 }
 
@@ -39,55 +52,16 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    let bounce = commands.spawn_bundle(SpriteBundle {
-        texture: asset_server.load("icon.png"),
-        sprite: Sprite {
-            color: Color::YELLOW,
-            custom_size: Some(Vec2::splat(BALL_SIZE)),
-            ..Default::default()
-        },
-        transform: Transform::from_xyz(0., 0., 2.),
-        ..Default::default()
-        }).insert(BallBounce {
-            gravity: -380.,
-            max_velocity: 150.,
-            ..Default::default()
-        })
-        .id();
-
-    let shadow = commands.spawn_bundle(SpriteBundle {
-        texture: asset_server.load("icon.png"),
-        sprite: Sprite {
-            color: Color::BLACK,
-            custom_size: Some(Vec2::splat(BALL_SIZE * 0.7)),
-            ..Default::default()
-        },
-        ..Default::default()
-        }).id();
-
-    commands.spawn()
-        .insert(Transform::from_xyz( -WIN_WIDTH / 2. + 250., 0., 0.))
-        .insert(GlobalTransform::default())
-        .insert(Ball {
-            size: BALL_SIZE,
-            speed: 1100.,
-            ..Default::default()
-        })
-        .insert(RigidBody::KinematicPositionBased)
-        .insert(CollisionShape::Sphere {
-            radius: 15.,
-        })
-        .insert(Name::new("Ball"))
-        .add_child(bounce)
-        .add_child(shadow);
+    spawn_ball(&mut commands, &asset_server);
 }
 
 // todo: try - slowly speedup during rally?
 fn movement(
-    mut query: Query<(&mut Ball, &mut Transform)>,
+    mut ball_q: Query<(&mut Ball, &mut Transform)>,
+    mut bounce_q: Query<&mut BallBounce>,
     time: ScaledTime,
 ) {
-    for (mut ball, mut t) in query.iter_mut() {
+    for (mut ball, mut t) in ball_q.iter_mut() {
         if ball.dir == Vec2::ZERO {
             continue;
         }
@@ -105,6 +79,14 @@ fn movement(
 
         // move
         t.translation += ball.dir.to_vec3() * ball.speed * time.scaled_delta_seconds();
+
+        if t.translation.x.signum() != ball.prev_pos.x.signum() {
+            let mut bounce = bounce_q.get_mut(ball.bounce_e.unwrap()).unwrap();
+            bounce.count = 0;
+            debug!("crossed net");
+        }
+
+        ball.prev_pos = t.translation;
     }
 }
 
@@ -113,12 +95,13 @@ fn get_bounce_velocity(dir_len: f32, max_velocity: f32) -> f32 {
 }
 
 fn bounce(
-    mut bounce_query: Query<(&mut BallBounce, &mut Transform, &Parent)>,
-    mut ball_q: Query<&mut Ball>,
+    mut bounce_query: Query<(&mut BallBounce, &mut Transform, &Parent), Without<Ball>>,
+    mut ball_q: Query<(Entity, &mut Ball, &Transform)>,
+    mut ev_w_bounce: EventWriter<BallBouncedEvt>,
     time: ScaledTime,
 ) {
     for (mut ball_bounce, mut t, p) in bounce_query.iter_mut() {
-        let mut ball = ball_q.get_mut(p.0).unwrap();
+        let (ball_e, mut ball, ball_t) = ball_q.get_mut(p.0).unwrap();
 
         if ball.dir == Vec2::ZERO {
             continue;
@@ -129,11 +112,18 @@ fn bounce(
 
         if t.translation.y <= 0. {
             ball_bounce.velocity = get_bounce_velocity(ball.dir.length(), ball_bounce.max_velocity);
+            ball_bounce.count += 1;
+            ev_w_bounce.send(BallBouncedEvt {
+                ball_e,
+                bouce_count: ball_bounce.count,
+                side: ball_t.translation.x.signum(),
+            });
+            debug!("Bounced {} times", ball_bounce.count);
         }
     }
 }
 
-// todo: 'dashing swing'?
+// todo: 'auto dash swing'?
 fn handle_collisions(
     mut coll_events: EventReader<CollisionEvent>,
     input: Res<PlayerInput>,
@@ -202,4 +192,53 @@ fn handle_collisions(
             }
         }
     }
+}
+
+pub fn spawn_ball(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+) {
+    let bounce = commands.spawn_bundle(SpriteBundle {
+        texture: asset_server.load("icon.png"),
+        sprite: Sprite {
+            color: Color::YELLOW,
+            custom_size: Some(Vec2::splat(BALL_SIZE)),
+            ..Default::default()
+        },
+        transform: Transform::from_xyz(0., 0., 2.),
+        ..Default::default()
+        }).insert(BallBounce {
+            gravity: -420.,
+            max_velocity: 200.,
+            ..Default::default()
+        })
+        .id();
+
+    let shadow = commands.spawn_bundle(SpriteBundle {
+        texture: asset_server.load("icon.png"),
+        sprite: Sprite {
+            color: Color::BLACK,
+            custom_size: Some(Vec2::splat(BALL_SIZE * 0.7)),
+            ..Default::default()
+        },
+        ..Default::default()
+        }).id();
+
+    commands.spawn()
+        .insert(Transform::from_xyz( -WIN_WIDTH / 2. + 250., 0., 0.))
+        .insert(GlobalTransform::default())
+        .insert(Ball {
+            size: BALL_SIZE,
+            speed: 1100.,
+            bounce_e: Some(bounce.clone()),
+            ..Default::default()
+        })
+        .insert(BallScorable)
+        .insert(RigidBody::KinematicPositionBased)
+        .insert(CollisionShape::Sphere {
+            radius: 15.,
+        })
+        .insert(Name::new("Ball"))
+        .add_child(bounce)
+        .add_child(shadow);
 }
