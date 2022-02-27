@@ -321,7 +321,7 @@ fn on_ball_bounced(
                 commands.entity(ev.ball_e).remove::<BallScorable>();
                 commands.entity(ev.ball_e).remove::<CollisionShape>();
                 // todo: tween out and destroy the ball
-                debug!("Player {} has lost a point to too many bounces!", scoring_player.id);
+                debug!("Player {} has lost a point to too many bounces {}!", scoring_player.id, ev.bouce_count);
             }
         }
     }

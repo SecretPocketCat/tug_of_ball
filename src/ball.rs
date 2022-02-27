@@ -56,6 +56,8 @@ fn setup(
 }
 
 // todo: try - slowly speedup during rally?
+// todo: out of bounds detection/scoring
+// todo: bad serve scoring 
 fn movement(
     mut ball_q: Query<(&mut Ball, &mut Transform)>,
     mut bounce_q: Query<&mut BallBounce>,
@@ -80,6 +82,7 @@ fn movement(
         // move
         t.translation += ball.dir.to_vec3() * ball.speed * time.scaled_delta_seconds();
 
+        // todo: switch to sensors for area/net detection?
         if t.translation.x.signum() != ball.prev_pos.x.signum() {
             let mut bounce = bounce_q.get_mut(ball.bounce_e.unwrap()).unwrap();
             bounce.count = 0;
@@ -225,7 +228,7 @@ pub fn spawn_ball(
         }).id();
 
     commands.spawn()
-        .insert(Transform::from_xyz( -WIN_WIDTH / 2. + 250., 0., 0.))
+        .insert(Transform::from_xyz( -WIN_WIDTH / 2. + 250., 200., 0.))
         .insert(GlobalTransform::default())
         .insert(Ball {
             size: BALL_SIZE,

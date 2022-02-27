@@ -8,6 +8,8 @@ use heron::*;
 use bevy_extensions::panic_on_error;
 use bevy_input::{ActionMap, GamepadMap, BindingError, AxisBinding, ActionInputPlugin, ActionInput};
 use bevy_time::TimePlugin;
+use level::LevelPlugin;
+use score::ScorePlugin;
 use serde::{Serialize, Deserialize};
 use player::{PlayerPlugin, Player, PlayerMovement, PlayerDash, PlayerSwing};
 use ball::{BallPlugin, Ball, BallBounce};
@@ -17,6 +19,8 @@ mod player;
 mod ball;
 mod wall;
 mod debug;
+mod score;
+mod level;
 
 const NAME: &str = "Tennis Rounds";
 const WIN_WIDTH: f32 = 1400.;
@@ -54,13 +58,16 @@ fn main() {
             height: WIN_HEIGHT,
             ..Default::default()
         })
+        .insert_resource(ClearColor(Color::rgb_u8(137, 170, 100)))
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
         .add_plugin(TimePlugin)
         .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::default())
         .add_plugin(PlayerPlugin)
         .add_plugin(BallPlugin)
-        .add_plugin(WallPlugin)
+        .add_plugin(ScorePlugin)
+        // .add_plugin(WallPlugin)
+        .add_plugin(LevelPlugin)
         .add_plugin(DebugPlugin)
         .add_startup_system(setup)
         .add_startup_system(setup_bindings.chain(panic_on_error))
