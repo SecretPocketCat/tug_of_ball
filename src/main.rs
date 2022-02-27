@@ -64,7 +64,7 @@ fn main() {
         .add_plugin(PlayerPlugin)
         .add_plugin(BallPlugin)
         .add_plugin(WallPlugin)
-        // .add_plugin(DebugPlugin)
+        .add_plugin(DebugPlugin)
         .add_startup_system(setup)
         .add_startup_system(setup_bindings.chain(panic_on_error))
         .run();
@@ -79,7 +79,7 @@ fn setup_bindings(
     mut map: ResMut<ActionMap<InputAction, InputAxis>>,
     mut gamepad_map: ResMut<GamepadMap>,
 ) -> Result<(), BindingError> {
-    for id in 1..=2 {
+    for id in 2..=2 {
         // todo: fix axis deadzone
         map
             .bind_button_action(id, InputAction::Dash, GamepadButtonType::South)?
@@ -88,28 +88,29 @@ fn setup_bindings(
                 id,
                 InputAxis::X,
                 AxisBinding::GamepadAxis(GamepadAxisType::LeftStickX),
-                0.1
+                0.2
             )
             .bind_axis_with_deadzone(
                 id,
                 InputAxis::X,
                 AxisBinding::GamepadAxis(GamepadAxisType::DPadX),
-                0.1
+                0.2
             )
             .bind_axis_with_deadzone(
                 id,
                 InputAxis::Y,
                 AxisBinding::GamepadAxis(GamepadAxisType::LeftStickY),
-                0.1
+                0.2
             )
             .bind_axis_with_deadzone(
                 id,
                 InputAxis::Y,
                 AxisBinding::GamepadAxis(GamepadAxisType::DPadY),
-                0.1
+                0.2
             );
 
-        gamepad_map.map_gamepad(id - 1, id);
+        gamepad_map.map_gamepad(0, id);
+        // gamepad_map.map_gamepad(id - 1, id);
     }
 
     map
@@ -126,18 +127,19 @@ fn setup_bindings(
             AxisBinding::Buttons(KeyCode::S.into(), KeyCode::W.into()),
         );
 
-    map
-        .bind_button_action(2, InputAction::Dash, KeyCode::Numpad0)?
-        .bind_button_action(2, InputAction::Swing, KeyCode::NumpadAdd)?
-        .bind_axis(
-            2,
-            InputAxis::X,
-            AxisBinding::Buttons(KeyCode::Left.into(), KeyCode::Right.into()),
-        )
-        .bind_axis(
-            2,
-            InputAxis::Y,
-            AxisBinding::Buttons(KeyCode::Down.into(), KeyCode::Up.into()),
-        );
+    // map
+    //     .bind_button_action(2, InputAction::Dash, KeyCode::Numpad0)?
+    //     .bind_button_action(2, InputAction::Swing, KeyCode::NumpadAdd)?
+    //     .bind_axis(
+    //         2,
+    //         InputAxis::X,
+    //         AxisBinding::Buttons(KeyCode::Left.into(), KeyCode::Right.into()),
+    //     )
+    //     .bind_axis(
+    //         2,
+    //         InputAxis::Y,
+    //         AxisBinding::Buttons(KeyCode::Down.into(), KeyCode::Up.into()),
+    //     );
+    
     Ok(())
 }

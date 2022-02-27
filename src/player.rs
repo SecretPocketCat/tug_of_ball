@@ -141,7 +141,8 @@ impl PlayerBundle {
                 ..Default::default()
             },
             swing: PlayerSwing {
-                duration_sec: 0.35,
+                duration_sec: 1.35,
+                // duration_sec: 0.35,
                 cooldown_sec: 0.35,
                 ..Default::default()
             },
@@ -180,7 +181,7 @@ fn setup(
             },
             ..Default::default()
         }).insert_bundle(PlayerBundle::new(i, if x < 0. { Vec2::X } else { -Vec2::X }))
-        .insert(RigidBody::Sensor)
+        .insert(RigidBody::KinematicPositionBased)
         .insert(CollisionShape::Sphere {
             radius: 100.,
         })
@@ -199,7 +200,7 @@ fn movement(
     for (player, mut player_movement, mut player_dash, mut t, player_swing) in query.iter_mut() {
         let dir = input.get_xy_axes(player.id, &InputAxis::X, &InputAxis::Y);
         let swing_ready = if let ActionStatus::Ready = player_swing.status { true } else { false };
-        let speed = if /*swing_ready &&*/ input.held(player.id, InputAction::Swing) { player_movement.charging_speed } else { player_movement.speed };
+        let speed = if swing_ready && input.held(player.id, InputAction::Swing) { player_movement.charging_speed } else { player_movement.speed };
         let mut move_by = (dir * speed * time.scaled_delta_seconds()).to_vec3();
 
         if input.just_pressed(player.id, InputAction::Dash) {
@@ -232,6 +233,7 @@ fn handle_swing_input(
                 player_swing.status = ActionStatus::Active((key_data.duration * 3.0).clamp(0.35, 1.));
                 player_swing.timer = Timer::from_seconds(player_swing.duration_sec, false);
                 *coll_layers = CollisionLayers::all::<PhysLayer>();
+                info!("Activating swing coll {}", player.id);
             }
         }
         else {

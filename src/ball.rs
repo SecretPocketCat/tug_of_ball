@@ -162,10 +162,12 @@ fn handle_collisions(
             let mut ball_bounce = ball_bounce_q.get_mut(bounce_e.clone()).unwrap();
 
             if let Ok((player, movement, mut swing)) = player_q.get_mut(other_e) {
-                info!("Swing {}", player.id);
+                info!("PlayerSwing coll {}", player.id);
 
                 if let ActionStatus::Active(ball_speed_multiplier) = swing.status {
+                    info!("PlayerSwing active {}", player.id);
                     if !swing.timer.finished() {
+                        info!("PlayerSwing {}", player.id);
                         swing.start_cooldown();
                         // todo: limit angle to roughly 45deg?
                         let mut dir = input.get_xy_axes(player.id, &InputAxis::X, &InputAxis::Y);
