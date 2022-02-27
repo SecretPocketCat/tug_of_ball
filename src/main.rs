@@ -19,13 +19,10 @@ mod wall;
 mod debug;
 
 const NAME: &str = "Tennis Rounds";
-const WIN_WIDTH: f32 = 1000.;
-const WIN_HEIGHT: f32 = 600.;
+const WIN_WIDTH: f32 = 1400.;
+const WIN_HEIGHT: f32 = 800.;
 
-// todo: ball plugin
 // todo: lvl plugin
-// todo: basic window settings
-// todo: input map
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 enum InputAction {
@@ -64,7 +61,7 @@ fn main() {
         .add_plugin(PlayerPlugin)
         .add_plugin(BallPlugin)
         .add_plugin(WallPlugin)
-        .add_plugin(DebugPlugin)
+        // .add_plugin(DebugPlugin)
         .add_startup_system(setup)
         .add_startup_system(setup_bindings.chain(panic_on_error))
         .run();
@@ -79,11 +76,16 @@ fn setup_bindings(
     mut map: ResMut<ActionMap<InputAction, InputAxis>>,
     mut gamepad_map: ResMut<GamepadMap>,
 ) -> Result<(), BindingError> {
-    for id in 2..=2 {
-        // todo: fix axis deadzone
+    for id in 1..=2 {
         map
             .bind_button_action(id, InputAction::Dash, GamepadButtonType::South)?
+            .bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger)?
+            .bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger2)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::West)?
+            .bind_button_action(id, InputAction::Swing, GamepadButtonType::East)?
+            .bind_button_action(id, InputAction::Swing, GamepadButtonType::North)?
+            .bind_button_action(id, InputAction::Swing, GamepadButtonType::LeftTrigger)?
+            .bind_button_action(id, InputAction::Swing, GamepadButtonType::LeftTrigger2)?
             .bind_axis_with_deadzone(
                 id,
                 InputAxis::X,
@@ -109,8 +111,7 @@ fn setup_bindings(
                 0.2
             );
 
-        gamepad_map.map_gamepad(0, id);
-        // gamepad_map.map_gamepad(id - 1, id);
+        gamepad_map.map_gamepad(id - 1, id);
     }
 
     map

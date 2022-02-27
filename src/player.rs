@@ -131,18 +131,17 @@ impl PlayerBundle {
             movement: PlayerMovement {
                 last_dir: initial_dir,
                 speed: 550.,
-                charging_speed: 200.,
+                charging_speed: 125.,
                 ..Default::default()
             },
             dash: PlayerDash {
-                speed: 2600.,
-                duration_sec: 0.135,
-                cooldown_sec: 0.25,
+                speed: 2200.,
+                duration_sec: 0.085,
+                cooldown_sec: 0.4,
                 ..Default::default()
             },
             swing: PlayerSwing {
-                duration_sec: 1.35,
-                // duration_sec: 0.35,
+                duration_sec: 0.35,
                 cooldown_sec: 0.35,
                 ..Default::default()
             },
@@ -216,13 +215,17 @@ fn movement(
             }
         }
 
-        if move_by.truncate() != Vec2::ZERO {
-            t.translation += move_by;
-            player_movement.last_dir = move_by.truncate().normalize_or_zero();
+        let res_pos = t.translation + move_by;
+        if res_pos.x.signum() == t.translation.x.signum() {
+            if move_by.truncate() != Vec2::ZERO {
+                t.translation += move_by;
+                player_movement.last_dir = move_by.truncate().normalize_or_zero();
+            }
         }
     }
 }
 
+// todo: on swing down cancel prev swing
 fn handle_swing_input(
     input: Res<ActionInput<InputAction, InputAxis>>,
     mut query: Query<(&Player, &mut PlayerSwing, &mut CollisionLayers)>,
@@ -230,10 +233,9 @@ fn handle_swing_input(
     for (player, mut player_swing, mut coll_layers) in query.iter_mut() {
         if let Some(ActionState::Released(key_data)) = input.get_button_action_state(player.id, &InputAction::Swing) {
             if let ActionStatus::Ready = player_swing.status {
-                player_swing.status = ActionStatus::Active((key_data.duration * 3.0).clamp(0.35, 1.));
+                player_swing.status = ActionStatus::Active((key_data.duration * 3.0).clamp(0.5, 1.));
                 player_swing.timer = Timer::from_seconds(player_swing.duration_sec, false);
                 *coll_layers = CollisionLayers::all::<PhysLayer>();
-                info!("Activating swing coll {}", player.id);
             }
         }
         else {

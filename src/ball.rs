@@ -82,6 +82,7 @@ fn setup(
         .add_child(shadow);
 }
 
+// todo: try - slowly speedup during rally?
 fn movement(
     mut query: Query<(&mut Ball, &mut Transform)>,
     time: ScaledTime,
@@ -138,7 +139,7 @@ fn handle_collisions(
     input: Res<PlayerInput>,
     mut ball_q: Query<(&mut Ball, &Children)>,
     mut ball_bounce_q: Query<&mut BallBounce>,
-    mut player_q: Query<(&Player, &PlayerMovement, &mut PlayerSwing)>,
+    mut player_q: Query<(&Player, &PlayerMovement, &mut PlayerSwing, &GlobalTransform)>,
     wall_q: Query<&Sprite, With<Wall>>,
 ) {
     for ev in coll_events.iter() {
@@ -161,19 +162,31 @@ fn handle_collisions(
 
             let mut ball_bounce = ball_bounce_q.get_mut(bounce_e.clone()).unwrap();
 
-            if let Ok((player, movement, mut swing)) = player_q.get_mut(other_e) {
-                info!("PlayerSwing coll {}", player.id);
-
+            if let Ok((player, movement, mut swing, player_t)) = player_q.get_mut(other_e) {
                 if let ActionStatus::Active(ball_speed_multiplier) = swing.status {
-                    info!("PlayerSwing active {}", player.id);
                     if !swing.timer.finished() {
-                        info!("PlayerSwing {}", player.id);
                         swing.start_cooldown();
                         // todo: limit angle to roughly 45deg?
                         let mut dir = input.get_xy_axes(player.id, &InputAxis::X, &InputAxis::Y);
 
                         if dir == Vec2::ZERO {
                             dir = movement.last_dir;
+                        }
+
+                        let clamp_x = 1.;
+                        let clamp_y = 0.8;
+                        let player_x = player_t.translation.x;
+                        let player_x_sign = player_x.signum();
+
+                        if dir == Vec2::new(player_x_sign, 0.) {
+                            // player aiming into their court/backwards - just aim straight
+                            dir = Vec2::new(-player_x_sign, 0.);
+                        }
+                        else if player_x < 0. {
+                            dir = dir.clamp(Vec2::new(clamp_x, -clamp_y), Vec2::new(clamp_x, clamp_y));
+                        }
+                        else {
+                            dir = dir.clamp(Vec2::new(-clamp_x, -clamp_y), Vec2::new(-clamp_x, clamp_y));
                         }
 
                         ball.dir = dir * ball_speed_multiplier;

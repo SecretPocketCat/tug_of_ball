@@ -47,4 +47,19 @@ fn setup(
         })
         .insert(Name::new("Wall"));
     }
+
+    commands.spawn_bundle(SpriteBundle {
+        sprite: Sprite {
+            color: Color::WHITE,
+            custom_size: Some(Vec2::new(10., WIN_HEIGHT)),
+            ..Default::default()
+        },
+        ..Default::default()
+    })//.insert(Wall)
+    // .insert(RigidBody::Static)
+    // .insert(CollisionShape::Cuboid {
+    //     half_extends: (*size).to_vec3() / 2.,
+    //     border_radius: None,
+    // })
+    .insert(Name::new("Net"));
 }
