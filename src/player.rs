@@ -2,13 +2,13 @@ use std::{default, time::Duration};
 
 use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2};
 use bevy_extensions::Vec2Conversion;
-use bevy_input::ActionInput;
+use bevy_input::{ActionInput, ActionState};
 use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-use heron::rapier_plugin::{PhysicsWorld, rapier2d::prelude::RigidBodyActivation};
+use heron::rapier_plugin::{PhysicsWorld, rapier2d::prelude::{RigidBodyActivation, ColliderSet}};
 use heron::*;
 
-use crate::{InputAction, InputAxis, PlayerInput};
+use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer};
 
 #[derive(Inspectable, Clone, Copy)]
 pub enum ActionStatus<TActiveData: Default> {
@@ -87,7 +87,7 @@ impl ActionTimer<Vec2> for PlayerDash {
 
 #[derive(Default, Component, Inspectable)]
 pub struct PlayerSwing {
-    pub(crate) status: ActionStatus<()>,
+    pub(crate) status: ActionStatus<f32>,
     duration_sec: f32,
     cooldown_sec: f32,
     #[inspectable(ignore)]
@@ -102,7 +102,7 @@ impl PlayerSwing {
 }
 
 // todo: macro?
-impl ActionTimer<()> for PlayerSwing {
+impl ActionTimer<f32> for PlayerSwing {
     fn get_cooldown_sec(&self) -> f32 {
         self.cooldown_sec
     }
@@ -111,7 +111,7 @@ impl ActionTimer<()> for PlayerSwing {
         &mut self.timer
     }
 
-    fn get_action_status_mut(&mut self) -> &mut ActionStatus<()> {
+    fn get_action_status_mut(&mut self) -> &mut ActionStatus<f32> {
         &mut self.status
     }
 }
@@ -130,13 +130,13 @@ impl PlayerBundle {
             player: Player { id: id },
             movement: PlayerMovement {
                 last_dir: initial_dir,
-                speed: 800.,
-                charging_speed: 300.,
+                speed: 550.,
+                charging_speed: 200.,
                 ..Default::default()
             },
             dash: PlayerDash {
                 speed: 2600.,
-                duration_sec: 0.2,
+                duration_sec: 0.135,
                 cooldown_sec: 0.25,
                 ..Default::default()
             },
@@ -158,7 +158,7 @@ impl Plugin for PlayerPlugin {
             .add_system(handle_swing_input)
             // todo: run later?
             .add_system(handle_action_cooldown::<PlayerDash, Vec2>)
-            .add_system(handle_action_cooldown::<PlayerSwing, ()>);
+            .add_system(handle_action_cooldown::<PlayerSwing, f32>);
     }
 }
 
@@ -167,8 +167,9 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     for i in 1..=2 {
-        let x = if i == 1 { -200. } else { 200. }; 
-        let size = Vec2::splat(80.);
+        let x = WIN_WIDTH / 2.- 100.;
+        let x = if i == 1 { -x } else { x }; 
+        let size = Vec2::splat(50.);
         commands.spawn_bundle(SpriteBundle {
             texture: asset_server.load("icon.png"),
             transform: Transform::from_xyz(x, 0., 0.),
@@ -180,10 +181,10 @@ fn setup(
             ..Default::default()
         }).insert_bundle(PlayerBundle::new(i, if x < 0. { Vec2::X } else { -Vec2::X }))
         .insert(RigidBody::Sensor)
-        .insert(CollisionShape::Cuboid {
-            half_extends: (size / 2.).to_vec3(),
-            border_radius: None
+        .insert(CollisionShape::Sphere {
+            radius: 100.,
         })
+        .insert(CollisionLayers::none())
         .insert(Name::new("Player"));
     }
 }
@@ -198,7 +199,7 @@ fn movement(
     for (player, mut player_movement, mut player_dash, mut t, player_swing) in query.iter_mut() {
         let dir = input.get_xy_axes(player.id, &InputAxis::X, &InputAxis::Y);
         let swing_ready = if let ActionStatus::Ready = player_swing.status { true } else { false };
-        let speed = if swing_ready && input.held(player.id, InputAction::Swing) { player_movement.charging_speed } else { player_movement.speed };
+        let speed = if /*swing_ready &&*/ input.held(player.id, InputAction::Swing) { player_movement.charging_speed } else { player_movement.speed };
         let mut move_by = (dir * speed * time.scaled_delta_seconds()).to_vec3();
 
         if input.just_pressed(player.id, InputAction::Dash) {
@@ -223,13 +224,23 @@ fn movement(
 
 fn handle_swing_input(
     input: Res<ActionInput<InputAction, InputAxis>>,
-    mut query: Query<(&Player, &mut PlayerSwing)>,
+    mut query: Query<(&Player, &mut PlayerSwing, &mut CollisionLayers)>,
 ) {
-    for (player, mut player_swing) in query.iter_mut() {
-        if input.just_released(player.id, InputAction::Swing) {
+    for (player, mut player_swing, mut coll_layers) in query.iter_mut() {
+        if let Some(ActionState::Released(key_data)) = input.get_button_action_state(player.id, &InputAction::Swing) {
             if let ActionStatus::Ready = player_swing.status {
-                player_swing.status = ActionStatus::Active(());
+                // todo: mult based on duration
+                player_swing.status = ActionStatus::Active(key_data.duration);
                 player_swing.timer = Timer::from_seconds(player_swing.duration_sec, false);
+                *coll_layers = CollisionLayers::all::<PhysLayer>();
+            }
+        }
+        else {
+            match player_swing.status {
+                ActionStatus::Ready | ActionStatus::Cooldown => {
+                    *coll_layers = CollisionLayers::none();
+                }
+                _ => {}
             }
         }
     }

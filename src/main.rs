@@ -40,6 +40,14 @@ enum InputAxis {
 
 type PlayerInput = ActionInput<InputAction, InputAxis>;
 
+#[derive(PhysicsLayer)]
+enum PhysLayer {
+    All
+    // World,
+    // Player,
+    // Ball,
+}
+
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
