@@ -16,7 +16,7 @@ pub struct Ball {
     size: f32,
     speed: f32,
     prev_pos: Vec3,
-    region: CourtRegion,
+    pub(crate) region: CourtRegion,
     bounce_e: Option<Entity>,
 }
 
@@ -65,9 +65,8 @@ fn setup(
     spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft, 0);
 }
 
-// todo: try - slowly speedup during rally?
 // todo: out of bounds detection/scoring
-// todo: bad serve scoring 
+// todo: try - slowly speedup during rally?
 fn movement(
     mut ball_q: Query<(&mut Ball, &mut Transform)>,
     time: ScaledTime,
@@ -222,12 +221,13 @@ fn handle_regions(
     region_q: Query<&CourtRegion>,
     court_set: Res<CourtSettings>,
 ) {
+    let all_events: Vec<CollisionEvent> = coll_events.iter().cloned().collect();
     for (ball_e, ball_t) in ball_q.iter() {
         let mut region = None;
 
         let mut i = -1;
-        // todo: actually can i iterate thru events multiple times (once per ball?)
-        for ev in coll_events.iter() {
+        // todo: rewrite - can't iterate thru events multiple times
+        for ev in all_events.iter() {
             i += 1;
             let other_e;
             let (entity_1, entity_2) = ev.rigid_body_entities();

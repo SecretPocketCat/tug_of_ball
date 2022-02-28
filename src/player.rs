@@ -8,7 +8,7 @@ use bevy_time::{ScaledTime, ScaledTimeDelta};
 use heron::rapier_plugin::{PhysicsWorld, rapier2d::prelude::{RigidBodyActivation, ColliderSet}};
 use heron::*;
 
-use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus}, level::CourtRegion};
+use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion};
 
 #[derive(Inspectable, Clone, Copy)]
 pub enum ActionStatus<TActiveData: Default> {
@@ -302,15 +302,13 @@ fn on_ball_bounced(
     mut commands: Commands,
     mut ev_r_ball_bounced: EventReader<BallBouncedEvt>,
     mut player_q: Query<(&Player, &mut PlayerScore)>,
-    mut ball_status_q: Query<&mut BallStatus>,
+    mut ball_q: Query<(&Ball, &mut BallStatus)>,
     asset_server: Res<AssetServer>,
     // players: Res<Players>,
 ) {
     for ev in ev_r_ball_bounced.iter() {
         if ev.bouce_count > 1 {
- 
-
-            if let Ok(mut status) = ball_status_q.get_mut(ev.ball_e.clone()){
+            if let Ok((ball, mut status)) = ball_q.get_mut(ev.ball_e.clone()){
                 let ball_res = match *status {
                     BallStatus::Fault(count) => {
                         // todo: limit might come from an upgrade
@@ -320,7 +318,8 @@ fn on_ball_bounced(
                         Some((scoring_side, fault_count))
                     },
                     BallStatus::Rally => {
-                        Some((Some(-ev.side), 0))
+                        let scoring_side = if ball.region.is_out_of_bounds() { ev.side } else { -ev.side };
+                        Some((Some(scoring_side), 0))
                     },
                     BallStatus::Serve(..) | BallStatus::Used => None,
                 };
