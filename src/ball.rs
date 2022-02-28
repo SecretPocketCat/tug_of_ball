@@ -65,7 +65,6 @@ fn setup(
     spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft, 0);
 }
 
-// todo: out of bounds detection/scoring
 // todo: try - slowly speedup during rally?
 fn movement(
     mut ball_q: Query<(&mut Ball, &mut Transform)>,
@@ -175,7 +174,6 @@ fn handle_collisions(
                 if let ActionStatus::Active(ball_speed_multiplier) = swing.status {
                     if !swing.timer.finished() {
                         swing.start_cooldown();
-                        // todo: limit angle to roughly 45deg?
                         let mut dir = input.get_xy_axes(player.id, &InputAxis::X, &InputAxis::Y);
 
                         if dir == Vec2::ZERO {
@@ -226,7 +224,6 @@ fn handle_regions(
         let mut region = None;
 
         let mut i = -1;
-        // todo: rewrite - can't iterate thru events multiple times
         for ev in all_events.iter() {
             i += 1;
             let other_e;
