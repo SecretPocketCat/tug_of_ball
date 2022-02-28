@@ -308,22 +308,40 @@ fn on_ball_bounced(
 ) {
     for ev in ev_r_ball_bounced.iter() {
         if ev.bouce_count > 1 {
-            let (scoring_player, mut score) = player_q
-                .iter_mut()
-                .filter(|p| p.0.side == -ev.side)
-                .nth(0)
-                .unwrap();
+ 
 
             if let Ok(mut status) = ball_status_q.get_mut(ev.ball_e.clone()){
-                if let BallStatus::Serve(_) | BallStatus::Rally = *status {
-                    // todo: region
-                    spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft);
+                let ball_res = match *status {
+                    BallStatus::Fault(count) => {
+                        // todo: limit might come from an upgrade
+                        let limit = 1;
+                        let scoring_side = if count > limit { Some(ev.side) } else { None };
+                        let fault_count = if count > limit { 0 } else { count };
+                        Some((scoring_side, fault_count))
+                    },
+                    BallStatus::Rally => {
+                        Some((Some(-ev.side), 0))
+                    },
+                    BallStatus::Serve(..) | BallStatus::Used => None,
+                };
 
-                    score.score += 1;
+                if let Some((scoring_side, fault_count)) = ball_res {
+                    if let Some(scoring_side) = scoring_side {
+                        let (scoring_player, mut score) = player_q
+                            .iter_mut()
+                            .filter(|p| p.0.side == scoring_side)
+                            .nth(0)
+                            .unwrap();
+                        score.score += 1;
+                        debug!("Player {} has lost a point to too many bounces {}!", scoring_player.id, ev.bouce_count);
+                    }
+
                     *status = BallStatus::Used;
                     commands.entity(ev.ball_e).remove::<CollisionShape>();
                     // todo: tween out and destroy the ball
-                    debug!("Player {} has lost a point to too many bounces {}!", scoring_player.id, ev.bouce_count);
+
+                    // todo: region
+                    spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft, fault_count);
                 }
             }
         }

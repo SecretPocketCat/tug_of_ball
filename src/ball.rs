@@ -30,7 +30,8 @@ pub struct BallBounce {
 
 #[derive(Default, Component, Inspectable)]
 pub enum BallStatus {
-    Serve(CourtRegion),
+    Serve(CourtRegion, u8),
+    Fault(u8),
     Rally,
     #[default]
     Used,
@@ -61,7 +62,7 @@ fn setup(
 ) {
     // todo: random region?
 
-    spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft);
+    spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft, 0);
 }
 
 // todo: try - slowly speedup during rally?
@@ -118,11 +119,16 @@ fn bounce(
             ball_bounce.count += 1;
 
             // eval serve on bounce
-            if let BallStatus::Serve(region) = *ball_status {
+            if let BallStatus::Serve(region, fault_count) = *ball_status {
+
                 if ball.region != region.get_inverse().unwrap() {
+                    // fault
+                    *ball_status = BallStatus::Fault(fault_count + 1);
                     debug!("Bad serve {:?} => {:?}", region, ball.region);
                 }
                 else {
+                    // good serve
+                    *ball_status = BallStatus::Rally;
                     debug!("Good serve {:?} => {:?}", region, ball.region);
                 }
             }
@@ -277,6 +283,7 @@ pub fn spawn_ball(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     serve_region: CourtRegion,
+    fault_count: u8
 ) {
     let bounce = commands.spawn_bundle(SpriteBundle {
         texture: asset_server.load("icon.png"),
@@ -315,7 +322,7 @@ pub fn spawn_ball(
             bounce_e: Some(bounce.clone()),
             ..Default::default()
         })
-        .insert(BallStatus::Serve(serve_region))
+        .insert(BallStatus::Serve(serve_region, fault_count))
         .insert(RigidBody::KinematicPositionBased)
         .insert(CollisionShape::Sphere {
             radius: 15.,
