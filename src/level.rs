@@ -1,6 +1,5 @@
 use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2};
 use bevy_extensions::Vec2Conversion;
-use bevy_inspector_egui::Inspectable;
 use heron::*;
 
 use crate::{WIN_WIDTH, WIN_HEIGHT};
@@ -57,6 +56,39 @@ fn setup(
         })
         .insert(Name::new("LevelLine"));
     }
+
+    let region_x = x / 2. + thickness / 4.;
+    let region_y = y / 2. + thickness / 4.;
+    let region_size = Vec3::new(width / 4. + thickness / 4., settings.height / 4. + thickness / 4., 0.);
+    let sensors = [
+        ("Top Left Region", -region_x, region_y),
+        ("Bottom Left Region", -region_x, -region_y),
+        ("Top Right Region", region_x, region_y),
+        ("Bottom Right Region", region_x, -region_y),
+    ];
+
+    for (name, x, y) in sensors.iter() {
+        commands.spawn()
+            .insert(Transform::from_xyz(*x, *y, 0.))
+            .insert(GlobalTransform::default())
+            .insert(RigidBody::Sensor)
+            .insert(CollisionShape::Cuboid {
+                half_extends: region_size,
+                border_radius: None,
+            })
+            .insert(Name::new(*name));
+    }
+
+    // bounds region
+    commands.spawn()
+        .insert(Transform::default())
+        .insert(GlobalTransform::default())
+        .insert(RigidBody::Sensor)
+        .insert(CollisionShape::Cuboid {
+            half_extends: Vec3::new(x + thickness / 2., y + thickness / 2., 0.),
+            border_radius: None,
+        })
+        .insert(Name::new("Bounds region"));
 
     commands.insert_resource(settings);
 }
