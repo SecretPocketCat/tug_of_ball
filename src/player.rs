@@ -73,7 +73,9 @@ pub struct PlayerDash {
 
 #[derive(Default, Component, Inspectable)]
 pub struct PlayerScore {
-    pub(crate) score: usize,
+    pub(crate) points: u8,
+    pub(crate) games: u8,
+    // pub(crate) sets: u8,
 }
 
 // nice2have: macro?
@@ -265,7 +267,7 @@ fn movement(
     }
 }
 
-// todo: on swing down cancel prev swing
+// todo: on swing down cancel prev swing?
 fn handle_swing_input(
     input: Res<ActionInput<InputAction, InputAxis>>,
     mut query: Query<(&Player, &mut PlayerSwing, &mut CollisionLayers)>,
@@ -310,8 +312,7 @@ fn on_ball_bounced(
         if let Ok((ball, mut status)) = ball_q.get_mut(ev.ball_e.clone()){
             let ball_res = match *status {
                 BallStatus::Fault(count, player_id) => {
-                    // todo: rarely a double fault is a false positive
-                    
+                    // tofix: rarely a double fault is a false positive
                     // nice2have: limit might come from an upgrade
                     let limit = 1;
                     let losing_player = if count > limit { Some(player_id) } else { None };
@@ -347,12 +348,19 @@ fn on_ball_bounced(
 
             if let Some((losing_player, fault_count, reason)) = ball_res {
                 if let Some(losing_player) = losing_player {
-                    let (_, mut score) = player_q
-                        .iter_mut()
-                        .filter(|(p, _)| p.id != losing_player)
-                        .nth(0)
-                        .unwrap();
-                    score.score += 1;
+                    let mut score = None;
+                    let mut other_score = None;
+
+                    for (p, s) in player_q.iter_mut() {
+                        if p.id == losing_player {
+                            other_score = Some(s);
+                        }
+                        else {
+                            score = Some(s);
+                        }
+                    }
+
+                    add_point(&mut score.unwrap(), &mut other_score.unwrap());
                     info!("Player {} has lost a point to {}! (bounce_count: {})", losing_player, reason, ev.bounce_count);
                 }
 
@@ -364,5 +372,27 @@ fn on_ball_bounced(
                 spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft, fault_count, 1);
             }
         }
+    }
+}
+
+fn add_point(score: &mut PlayerScore, other_player_score: &mut PlayerScore) {
+    score.points += 1;
+
+    let required_points = (other_player_score.points + 2).max(4);
+
+    if score.points >= required_points {
+        score.games += 1;
+        score.points = 0;
+        other_player_score.points = 0;
+    }
+    else if score.points == other_player_score.points && score.points > 3 {
+        // hacky way to get ADV in the UI
+        // todo: fix
+        score.points = 3;
+        other_player_score.points = 3;
+    }
+
+    if score.games >= 6 {
+        // todo: game done event?
     }
 }

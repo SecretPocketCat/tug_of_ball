@@ -211,9 +211,17 @@ fn handle_collisions(
                         ball.dir = dir * ball_speed_multiplier;
                         ball_bounce.velocity = get_bounce_velocity(dir.length(), ball_bounce.max_velocity);
 
-                        // set rally player on hit, also applies to vollied serves
-                        if let BallStatus::Serve(..) | BallStatus::Rally(..) = *status {
-                            *status = BallStatus::Rally(player.id);
+                        match *status {
+                            BallStatus::Serve(_, _, player_id) if player_id != player.id => {
+                                // vollied serve
+                                *status = BallStatus::Rally(player.id);
+                                info!("Vollied serve");
+                            },
+                            BallStatus::Rally(..) => {
+                                // set rally player on hit, also applies to 
+                                *status = BallStatus::Rally(player.id);
+                            },
+                            _ => {}
                         }
                     }
                 }
