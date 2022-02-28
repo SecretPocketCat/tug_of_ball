@@ -6,7 +6,7 @@ use heron::*;
 use crate::{WIN_WIDTH, WIN_HEIGHT, PhysLayer};
 
 pub struct CourtSettings {
-    // todo: replace by bounds
+    // nice2have: replace by proper bounds
     pub(crate) left: f32,
     pub(crate) right: f32,
     pub(crate) top: f32,

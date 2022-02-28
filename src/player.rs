@@ -76,7 +76,7 @@ pub struct PlayerScore {
     pub(crate) score: usize,
 }
 
-// todo: macro?
+// nice2have: macro?
 impl ActionTimer<Vec2> for PlayerDash {
     fn get_cooldown_sec(&self) -> f32 {
         self.cooldown_sec
@@ -107,7 +107,7 @@ impl PlayerSwing {
     }
 }
 
-// todo: macro?
+// nice2have: macro?
 impl ActionTimer<f32> for PlayerSwing {
     fn get_cooldown_sec(&self) -> f32 {
         self.cooldown_sec
@@ -307,41 +307,61 @@ fn on_ball_bounced(
     // players: Res<Players>,
 ) {
     for ev in ev_r_ball_bounced.iter() {
-        if ev.bouce_count > 1 {
-            if let Ok((ball, mut status)) = ball_q.get_mut(ev.ball_e.clone()){
-                let ball_res = match *status {
-                    BallStatus::Fault(count) => {
-                        // todo: limit might come from an upgrade
-                        let limit = 1;
-                        let scoring_side = if count > limit { Some(ev.side) } else { None };
-                        let fault_count = if count > limit { 0 } else { count };
-                        Some((scoring_side, fault_count))
-                    },
-                    BallStatus::Rally => {
-                        let scoring_side = if ball.region.is_out_of_bounds() { ev.side } else { -ev.side };
-                        Some((Some(scoring_side), 0))
-                    },
-                    BallStatus::Serve(..) | BallStatus::Used => None,
-                };
+        if let Ok((ball, mut status)) = ball_q.get_mut(ev.ball_e.clone()){
+            let ball_res = match *status {
+                BallStatus::Fault(count, player_id) => {
+                    // todo: rarely a double fault is a false positive
+                    
+                    // nice2have: limit might come from an upgrade
+                    let limit = 1;
+                    let losing_player = if count > limit { Some(player_id) } else { None };
+                    let fault_count = if count > limit { 0 } else { count };
+                    Some((losing_player, fault_count, "double fault"))
+                },
+                BallStatus::Rally(player_id) => {
+                    // nice2have: limit might come from an upgrade
+                    let bounce_limit = 1;
 
-                if let Some((scoring_side, fault_count)) = ball_res {
-                    if let Some(scoring_side) = scoring_side {
-                        let (scoring_player, mut score) = player_q
-                            .iter_mut()
-                            .filter(|p| p.0.side == scoring_side)
+                    // out of bounds
+                    if ball.region.is_out_of_bounds() && ev.bounce_count == 1 {
+                        Some((Some(player_id), 0, "shooting out of bounds"))
+                    }
+                    else if ev.bounce_count > bounce_limit {
+                        let (player, _) = player_q
+                            .iter()
+                            .filter(|p| p.0.side == ev.side)
                             .nth(0)
                             .unwrap();
-                        score.score += 1;
-                        debug!("Player {} has lost a point to too many bounces {}!", scoring_player.id, ev.bouce_count);
+
+                        Some((Some(player.id), 0, "too many bounces"))
                     }
+                    else {
+                        None
+                    }
+                    // let scoring_side = if out_of_bounds_shot { ev.side } else { -ev.side };
+                    // let reason = if out_of_bounds_shot {  } else { "too many bounces" };
+                    
+                },
+                BallStatus::Serve(..) | BallStatus::Used => None,
+            };
 
-                    *status = BallStatus::Used;
-                    commands.entity(ev.ball_e).remove::<CollisionShape>();
-                    // todo: tween out and destroy the ball
-
-                    // todo: region
-                    spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft, fault_count);
+            if let Some((losing_player, fault_count, reason)) = ball_res {
+                if let Some(losing_player) = losing_player {
+                    let (_, mut score) = player_q
+                        .iter_mut()
+                        .filter(|(p, _)| p.id != losing_player)
+                        .nth(0)
+                        .unwrap();
+                    score.score += 1;
+                    info!("Player {} has lost a point to {}! (bounce_count: {})", losing_player, reason, ev.bounce_count);
                 }
+
+                *status = BallStatus::Used;
+                commands.entity(ev.ball_e).despawn_recursive();
+                // todo: tween out and destroy the ball
+
+                // todo: region & player_id
+                spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft, fault_count, 1);
             }
         }
     }

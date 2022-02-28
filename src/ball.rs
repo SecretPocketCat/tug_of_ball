@@ -30,16 +30,16 @@ pub struct BallBounce {
 
 #[derive(Default, Component, Inspectable)]
 pub enum BallStatus {
-    Serve(CourtRegion, u8),
-    Fault(u8),
-    Rally,
+    Serve(CourtRegion, u8, usize),
+    Fault(u8, usize),
+    Rally(usize),
     #[default]
     Used,
 }
 
 pub struct BallBouncedEvt {
     pub(crate) ball_e: Entity,
-    pub(crate) bouce_count: usize,
+    pub(crate) bounce_count: usize,
     pub(crate) side: f32,
 }
 
@@ -60,14 +60,15 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    // todo: random region?
+    // todo: random player & region?
 
-    spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft, 0);
+    spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft, 0, 1);
 }
 
-// todo: try - slowly speedup during rally?
+// nice2have: try - slowly speedup during rally?
 fn movement(
     mut ball_q: Query<(&mut Ball, &mut Transform)>,
+    mut bounce_q: Query<&mut BallBounce>,
     time: ScaledTime,
 ) {
     for (mut ball, mut t) in ball_q.iter_mut() {
@@ -88,6 +89,13 @@ fn movement(
 
         // move
         t.translation += ball.dir.to_vec3() * ball.speed * time.scaled_delta_seconds();
+
+        if t.translation.x.signum() != ball.prev_pos.x.signum() {
+            let mut bounce = bounce_q.get_mut(ball.bounce_e.unwrap()).unwrap();
+            bounce.count = 0;
+            debug!("crossed net");
+        }
+
         ball.prev_pos = t.translation;
     }
 }
@@ -103,41 +111,42 @@ fn bounce(
     time: ScaledTime,
 ) {
     for (mut ball_bounce, mut t, p) in bounce_query.iter_mut() {
-        let (ball_e, mut ball, mut ball_status, ball_t) = ball_q.get_mut(p.0).unwrap();
-
-        if ball.dir == Vec2::ZERO {
-            continue;
-        }
-
-        ball_bounce.velocity += ball_bounce.gravity * time.scaled_delta_seconds();
-        t.translation.y += ball_bounce.velocity * time.scaled_delta_seconds();
-
-        if t.translation.y <= 0. {
-            ball_bounce.velocity = get_bounce_velocity(ball.dir.length(), ball_bounce.max_velocity);
-            ball_bounce.count += 1;
-
-            // eval serve on bounce
-            if let BallStatus::Serve(region, fault_count) = *ball_status {
-
-                if ball.region != region.get_inverse().unwrap() {
-                    // fault
-                    *ball_status = BallStatus::Fault(fault_count + 1);
-                    debug!("Bad serve {:?} => {:?}", region, ball.region);
-                }
-                else {
-                    // good serve
-                    *ball_status = BallStatus::Rally;
-                    debug!("Good serve {:?} => {:?}", region, ball.region);
-                }
+        if let Ok((ball_e, mut ball, mut ball_status, ball_t)) = ball_q.get_mut(p.0) {
+            if ball.dir == Vec2::ZERO {
+                continue;
             }
-
-            ev_w_bounce.send(BallBouncedEvt {
-                ball_e,
-                bouce_count: ball_bounce.count,
-                side: ball_t.translation.x.signum(),
-            });
-            debug!("Bounced {} times", ball_bounce.count);
-        }
+    
+            ball_bounce.velocity += ball_bounce.gravity * time.scaled_delta_seconds();
+            t.translation.y += ball_bounce.velocity * time.scaled_delta_seconds();
+    
+            if t.translation.y <= 0. {
+                t.translation.y = 0.01;
+                ball_bounce.velocity = get_bounce_velocity(ball.dir.length(), ball_bounce.max_velocity);
+                ball_bounce.count += 1;
+                info!("Bounce {}", ball_bounce.count);
+    
+                // eval serve on bounce
+                if let BallStatus::Serve(region, fault_count, player_id) = *ball_status {
+                    if ball.region != region.get_inverse().unwrap() {
+                        // fault
+                        *ball_status = BallStatus::Fault(fault_count + 1, player_id);
+                        debug!("Bad serve {:?} => {:?}", region, ball.region);
+                    }
+                    else {
+                        // good serve
+                        *ball_status = BallStatus::Rally(player_id);
+                        debug!("Good serve {:?} => {:?}", region, ball.region);
+                    }
+                }
+    
+                ev_w_bounce.send(BallBouncedEvt {
+                    ball_e,
+                    bounce_count: ball_bounce.count,
+                    side: ball_t.translation.x.signum(),
+                });
+                debug!("Bounced {} times", ball_bounce.count);
+            }
+        } 
     }
 }
 
@@ -145,7 +154,7 @@ fn bounce(
 fn handle_collisions(
     mut coll_events: EventReader<CollisionEvent>,
     input: Res<PlayerInput>,
-    mut ball_q: Query<(&mut Ball, &Children)>,
+    mut ball_q: Query<(&mut Ball, &mut BallStatus, &Children)>,
     mut ball_bounce_q: Query<&mut BallBounce>,
     mut player_q: Query<(&Player, &PlayerMovement, &mut PlayerSwing, &GlobalTransform)>,
     wall_q: Query<&Sprite, With<Wall>>,
@@ -153,16 +162,19 @@ fn handle_collisions(
     for ev in coll_events.iter() {
         if ev.is_started() {
             let mut ball;
+            let mut status;
             let other_e;
             let bounce_e;
             let (entity_1, entity_2) = ev.rigid_body_entities();
             if let Ok(b) = ball_q.get_mut(entity_1) {
                 ball = b.0;
-                bounce_e = b.1.iter().nth(0).unwrap();
+                status = b.1;
+                bounce_e = b.2.iter().nth(0).unwrap();
                 other_e = entity_2;
             } else if let Ok(b) = ball_q.get_mut(entity_2) {
                 ball = b.0;
-                bounce_e = b.1.iter().nth(0).unwrap();
+                status = b.1;
+                bounce_e = b.2.iter().nth(0).unwrap();
                 other_e = entity_1;
             } else {
                 continue;
@@ -198,9 +210,15 @@ fn handle_collisions(
 
                         ball.dir = dir * ball_speed_multiplier;
                         ball_bounce.velocity = get_bounce_velocity(dir.length(), ball_bounce.max_velocity);
+
+                        // set rally player on hit, also applies to vollied serves
+                        if let BallStatus::Serve(..) | BallStatus::Rally(..) = *status {
+                            *status = BallStatus::Rally(player.id);
+                        }
                     }
                 }
             }
+            // todo: also handle 'net collision here' based on bounce height
             else if let Ok(wall_sprite) = wall_q.get(other_e) {
                 let size = wall_sprite.custom_size.unwrap();
                 let is_hor = size.x > size.y;
@@ -280,7 +298,8 @@ pub fn spawn_ball(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     serve_region: CourtRegion,
-    fault_count: u8
+    fault_count: u8,
+    player_id: usize
 ) {
     let bounce = commands.spawn_bundle(SpriteBundle {
         texture: asset_server.load("icon.png"),
@@ -310,7 +329,7 @@ pub fn spawn_ball(
 
     commands.spawn()
         // todo: based on region
-        .insert(Transform::from_xyz( -WIN_WIDTH / 2. + 330., 200., 0.))
+        .insert(Transform::from_xyz( -WIN_WIDTH / 2. + 330., 280., 0.))
         .insert(GlobalTransform::default())
         .insert(Ball {
             size: BALL_SIZE,
@@ -319,7 +338,7 @@ pub fn spawn_ball(
             bounce_e: Some(bounce.clone()),
             ..Default::default()
         })
-        .insert(BallStatus::Serve(serve_region, fault_count))
+        .insert(BallStatus::Serve(serve_region, fault_count, player_id))
         .insert(RigidBody::KinematicPositionBased)
         .insert(CollisionShape::Sphere {
             radius: 15.,

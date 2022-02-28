@@ -62,12 +62,12 @@ fn update_score_ui(
 
     if any_changes {
         let mut ui_txt = text_q.single_mut();
-        // todo: deuce, advantage, game & all that jazz
+        // nice2have: deuce, advantage, game & all that jazz
         ui_txt.sections[0].value = score_q
             .iter()
             .map(|(s, _)| {
                 match s.score {
-                    // todo: proper love/heart
+                    // nice2have: proper love/heart
                     0 => String::from("<3"),
                     1..=2 => (s.score * 15).to_string(),
                     3 => String::from("40"),

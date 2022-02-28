@@ -1,4 +1,4 @@
-// todo: make this a feature
+// nice2have: make this a feature
 // // disable console opening on windows
 // #![windows_subsystem = "windows"]
 
@@ -119,10 +119,10 @@ fn setup_bindings(
                 0.2
             );
 
-        // gamepad_map.map_gamepad(id - 1, id);
+        gamepad_map.map_gamepad(id - 1, id);
     }
 
-    gamepad_map.map_gamepad(0, 1);
+    // gamepad_map.map_gamepad(0, 1);
 
     map
         .bind_button_action(1, InputAction::Dash, KeyCode::Space)?
