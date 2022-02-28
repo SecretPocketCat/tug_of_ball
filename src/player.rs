@@ -170,6 +170,8 @@ pub struct Players {
     right: Entity,
 }
 
+pub struct ServingRegion(pub CourtRegion);
+
 pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
@@ -306,7 +308,7 @@ fn on_ball_bounced(
     mut player_q: Query<(&Player, &mut PlayerScore)>,
     mut ball_q: Query<(&Ball, &mut BallStatus)>,
     asset_server: Res<AssetServer>,
-    // players: Res<Players>,
+    mut serving_region: ResMut<ServingRegion>,
 ) {
     for ev in ev_r_ball_bounced.iter() {
         if let Ok((ball, mut status)) = ball_q.get_mut(ev.ball_e.clone()){
@@ -339,14 +341,13 @@ fn on_ball_bounced(
                     else {
                         None
                     }
-                    // let scoring_side = if out_of_bounds_shot { ev.side } else { -ev.side };
-                    // let reason = if out_of_bounds_shot {  } else { "too many bounces" };
-                    
                 },
                 BallStatus::Serve(..) | BallStatus::Used => None,
             };
 
             if let Some((losing_player, fault_count, reason)) = ball_res {
+                let mut swap_serve = false;
+
                 if let Some(losing_player) = losing_player {
                     let mut score = None;
                     let mut other_score = None;
@@ -360,22 +361,24 @@ fn on_ball_bounced(
                         }
                     }
 
-                    add_point(&mut score.unwrap(), &mut other_score.unwrap());
-                    info!("Player {} has lost a point to {}! (bounce_count: {})", losing_player, reason, ev.bounce_count);
+                    swap_serve = add_point(&mut score.unwrap(), &mut other_score.unwrap());
+                    debug!("Player {} has lost a point to {}! (bounce_count: {})", losing_player, reason, ev.bounce_count);
                 }
 
                 *status = BallStatus::Used;
                 commands.entity(ev.ball_e).despawn_recursive();
                 // todo: tween out and destroy the ball
 
-                // todo: region & player_id
-                spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft, fault_count, 1);
+                if swap_serve {
+                    serving_region.0 = if serving_region.0.is_left() { CourtRegion::get_random_right() } else { CourtRegion::get_random_left() };
+                }
+                spawn_ball(&mut commands, &asset_server, serving_region.0, fault_count, serving_region.0.get_player_id());
             }
         }
     }
 }
 
-fn add_point(score: &mut PlayerScore, other_player_score: &mut PlayerScore) {
+fn add_point(score: &mut PlayerScore, other_player_score: &mut PlayerScore) -> bool {
     score.points += 1;
 
     let required_points = (other_player_score.points + 2).max(4);
@@ -384,10 +387,11 @@ fn add_point(score: &mut PlayerScore, other_player_score: &mut PlayerScore) {
         score.games += 1;
         score.points = 0;
         other_player_score.points = 0;
+        return true
     }
     else if score.points == other_player_score.points && score.points > 3 {
         // hacky way to get ADV in the UI
-        // todo: fix
+        // todo: redo
         score.points = 3;
         other_player_score.points = 3;
     }
@@ -395,4 +399,6 @@ fn add_point(score: &mut PlayerScore, other_player_score: &mut PlayerScore) {
     if score.games >= 6 {
         // todo: game done event?
     }
+
+    false
 }

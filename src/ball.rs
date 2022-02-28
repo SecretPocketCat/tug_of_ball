@@ -5,8 +5,9 @@ use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 use heron::rapier_plugin::PhysicsWorld;
 use heron::*;
+use rand::*;
 
-use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer};
+use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer};
 
 const BALL_SIZE: f32 = 30.;
 
@@ -60,9 +61,9 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    // todo: random player & region?
-
-    spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft, 0, 1);
+    let region = CourtRegion::get_random();
+    spawn_ball(&mut commands, &asset_server, region, 0, region.get_player_id());
+    commands.insert_resource(ServingRegion(region));
 }
 
 // nice2have: try - slowly speedup during rally?
@@ -123,7 +124,7 @@ fn bounce(
                 t.translation.y = 0.01;
                 ball_bounce.velocity = get_bounce_velocity(ball.dir.length(), ball_bounce.max_velocity);
                 ball_bounce.count += 1;
-                info!("Bounce {}", ball_bounce.count);
+                trace!("Bounce {}", ball_bounce.count);
     
                 // eval serve on bounce
                 if let BallStatus::Serve(region, fault_count, player_id) = *ball_status {
@@ -215,7 +216,7 @@ fn handle_collisions(
                             BallStatus::Serve(_, _, player_id) if player_id != player.id => {
                                 // vollied serve
                                 *status = BallStatus::Rally(player.id);
-                                info!("Vollied serve");
+                                trace!("Vollied serve");
                             },
                             BallStatus::Rally(..) => {
                                 // set rally player on hit, also applies to 
@@ -335,9 +336,13 @@ pub fn spawn_ball(
         ..Default::default()
         }).id();
 
+    let mut rng = rand::thread_rng();
+    let x = WIN_WIDTH / 2. - 330.;
+    let x = if serve_region.is_left() { -x } else { x };
+    let y = rng.gen_range(120..=280) as f32;
+    let y = if serve_region.is_bottom() { -y } else { y };
     commands.spawn()
-        // todo: based on region
-        .insert(Transform::from_xyz( -WIN_WIDTH / 2. + 330., 280., 0.))
+        .insert(Transform::from_xyz(x, y, 0.))
         .insert(GlobalTransform::default())
         .insert(Ball {
             size: BALL_SIZE,

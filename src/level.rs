@@ -1,7 +1,10 @@
+use std::ops::RangeInclusive;
+
 use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2};
 use bevy_extensions::Vec2Conversion;
 use bevy_inspector_egui::Inspectable;
 use heron::*;
+use rand::*;
 
 use crate::{WIN_WIDTH, WIN_HEIGHT, PhysLayer};
 
@@ -32,6 +35,14 @@ impl CourtRegion {
         *self == CourtRegion::BottomRight || *self == CourtRegion::TopRight
     }
 
+    pub fn is_top(&self) -> bool {
+        *self == CourtRegion::TopLeft || *self == CourtRegion::TopRight
+    }
+
+    pub fn is_bottom(&self) -> bool {
+        *self == CourtRegion::BottomRight || *self == CourtRegion::BottomLeft
+    }
+
     pub fn is_out_of_bounds(&self) -> bool {
         *self == CourtRegion::OutOfBounds
     }
@@ -45,6 +56,33 @@ impl CourtRegion {
             CourtRegion::BottomRight => Some(Self::TopLeft),
         }
     }
+
+    pub fn get_player_id(&self) -> usize {
+        if self.is_left() { 1 } else { 2 }
+    }
+
+    pub fn get_random() -> Self {
+        Self::get_random_from_range(0..=3)
+    }
+
+    pub fn get_random_left() -> Self {
+        Self::get_random_from_range(0..=1)
+    }
+    
+    pub fn get_random_right() -> Self {
+        Self::get_random_from_range(2..=3)
+    }
+
+    pub fn get_random_from_range(range: RangeInclusive<usize>) -> Self {
+        let mut rng = rand::thread_rng();
+        [
+            CourtRegion::TopLeft,
+            CourtRegion::BottomLeft,
+            CourtRegion::TopRight,
+            CourtRegion::BottomRight,
+        ][rng.gen_range(range)]
+    }
+
 }
 
 pub struct LevelPlugin;

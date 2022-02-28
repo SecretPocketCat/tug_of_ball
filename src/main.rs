@@ -69,7 +69,7 @@ fn main() {
         .add_plugin(ScorePlugin)
         // .add_plugin(WallPlugin)
         .add_plugin(LevelPlugin)
-        .add_plugin(DebugPlugin)
+        // .add_plugin(DebugPlugin)
         .add_startup_system(setup)
         .add_startup_system(setup_bindings.chain(panic_on_error))
         .run();

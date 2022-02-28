@@ -94,7 +94,6 @@ fn update_score_ui(
         .any(|(_, t)| { t.is_changed() });
 
     if any_changes {
-        // nice2have: deuce, advantage, game & all that jazz
         points_text_q.single_mut().sections[0].value = score_q
             .iter()
             .map(|(s, _)| {
