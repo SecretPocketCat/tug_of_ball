@@ -2,6 +2,9 @@
 // // disable console opening on windows
 // #![windows_subsystem = "windows"]
 
+#![feature(derive_default_enum)]
+#![feature(if_let_guard)]
+
 use bevy::prelude::*;
 use debug::DebugPlugin;
 use heron::*;
@@ -25,8 +28,6 @@ mod level;
 const NAME: &str = "Tennis Rounds";
 const WIN_WIDTH: f32 = 1600.;
 const WIN_HEIGHT: f32 = 900.;
-
-// todo: lvl plugin
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 enum InputAction {
@@ -121,7 +122,7 @@ fn setup_bindings(
         // gamepad_map.map_gamepad(id - 1, id);
     }
 
-    gamepad_map.map_gamepad(0, 2);
+    gamepad_map.map_gamepad(0, 1);
 
     map
         .bind_button_action(1, InputAction::Dash, KeyCode::Space)?
@@ -137,19 +138,19 @@ fn setup_bindings(
             AxisBinding::Buttons(KeyCode::S.into(), KeyCode::W.into()),
         );
 
-    // map
-    //     .bind_button_action(2, InputAction::Dash, KeyCode::Numpad0)?
-    //     .bind_button_action(2, InputAction::Swing, KeyCode::NumpadAdd)?
-    //     .bind_axis(
-    //         2,
-    //         InputAxis::X,
-    //         AxisBinding::Buttons(KeyCode::Left.into(), KeyCode::Right.into()),
-    //     )
-    //     .bind_axis(
-    //         2,
-    //         InputAxis::Y,
-    //         AxisBinding::Buttons(KeyCode::Down.into(), KeyCode::Up.into()),
-    //     );
+    map
+        .bind_button_action(2, InputAction::Dash, KeyCode::Numpad0)?
+        .bind_button_action(2, InputAction::Swing, KeyCode::NumpadAdd)?
+        .bind_axis(
+            2,
+            InputAxis::X,
+            AxisBinding::Buttons(KeyCode::Left.into(), KeyCode::Right.into()),
+        )
+        .bind_axis(
+            2,
+            InputAxis::Y,
+            AxisBinding::Buttons(KeyCode::Down.into(), KeyCode::Up.into()),
+        );
     
     Ok(())
 }

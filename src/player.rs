@@ -8,7 +8,7 @@ use bevy_time::{ScaledTime, ScaledTimeDelta};
 use heron::rapier_plugin::{PhysicsWorld, rapier2d::prelude::{RigidBodyActivation, ColliderSet}};
 use heron::*;
 
-use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, Ball, BallScorable, spawn_ball}};
+use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus}, level::CourtRegion};
 
 #[derive(Inspectable, Clone, Copy)]
 pub enum ActionStatus<TActiveData: Default> {
@@ -302,7 +302,7 @@ fn on_ball_bounced(
     mut commands: Commands,
     mut ev_r_ball_bounced: EventReader<BallBouncedEvt>,
     mut player_q: Query<(&Player, &mut PlayerScore)>,
-    ball_score_q: Query<Entity, With<BallScorable>>,
+    mut ball_status_q: Query<&mut BallStatus>,
     asset_server: Res<AssetServer>,
     // players: Res<Players>,
 ) {
@@ -314,14 +314,17 @@ fn on_ball_bounced(
                 .nth(0)
                 .unwrap();
 
-            if let Ok(_) = ball_score_q.get(ev.ball_e.clone()) {
-                spawn_ball(&mut commands, &asset_server);
+            if let Ok(mut status) = ball_status_q.get_mut(ev.ball_e.clone()){
+                if let BallStatus::Serve(_) | BallStatus::Rally = *status {
+                    // todo: region
+                    spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft);
 
-                score.score += 1;
-                commands.entity(ev.ball_e).remove::<BallScorable>();
-                commands.entity(ev.ball_e).remove::<CollisionShape>();
-                // todo: tween out and destroy the ball
-                debug!("Player {} has lost a point to too many bounces {}!", scoring_player.id, ev.bouce_count);
+                    score.score += 1;
+                    *status = BallStatus::Used;
+                    commands.entity(ev.ball_e).remove::<CollisionShape>();
+                    // todo: tween out and destroy the ball
+                    debug!("Player {} has lost a point to too many bounces {}!", scoring_player.id, ev.bouce_count);
+                }
             }
         }
     }

@@ -6,7 +6,7 @@ use bevy_time::{ScaledTime, ScaledTimeDelta};
 use heron::rapier_plugin::PhysicsWorld;
 use heron::*;
 
-use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH};
+use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer};
 
 const BALL_SIZE: f32 = 30.;
 
@@ -16,6 +16,7 @@ pub struct Ball {
     size: f32,
     speed: f32,
     prev_pos: Vec3,
+    region: CourtRegion,
     bounce_e: Option<Entity>,
 }
 
@@ -28,7 +29,12 @@ pub struct BallBounce {
 }
 
 #[derive(Default, Component, Inspectable)]
-pub struct BallScorable;
+pub enum BallStatus {
+    Serve(CourtRegion),
+    Rally,
+    #[default]
+    Used,
+}
 
 pub struct BallBouncedEvt {
     pub(crate) ball_e: Entity,
@@ -44,6 +50,7 @@ impl Plugin for BallPlugin {
             .add_system(movement)
             .add_system(bounce)
             .add_system_to_stage(CoreStage::PostUpdate, handle_collisions)
+            .add_system_to_stage(CoreStage::PostUpdate, handle_regions)
             .add_event::<BallBouncedEvt>();
     }
 }
@@ -52,7 +59,9 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    spawn_ball(&mut commands, &asset_server);
+    // todo: random region?
+
+    spawn_ball(&mut commands, &asset_server, CourtRegion::TopLeft);
 }
 
 // todo: try - slowly speedup during rally?
@@ -60,7 +69,6 @@ fn setup(
 // todo: bad serve scoring 
 fn movement(
     mut ball_q: Query<(&mut Ball, &mut Transform)>,
-    mut bounce_q: Query<&mut BallBounce>,
     time: ScaledTime,
 ) {
     for (mut ball, mut t) in ball_q.iter_mut() {
@@ -81,14 +89,6 @@ fn movement(
 
         // move
         t.translation += ball.dir.to_vec3() * ball.speed * time.scaled_delta_seconds();
-
-        // todo: switch to sensors for area/net detection?
-        if t.translation.x.signum() != ball.prev_pos.x.signum() {
-            let mut bounce = bounce_q.get_mut(ball.bounce_e.unwrap()).unwrap();
-            bounce.count = 0;
-            debug!("crossed net");
-        }
-
         ball.prev_pos = t.translation;
     }
 }
@@ -99,12 +99,12 @@ fn get_bounce_velocity(dir_len: f32, max_velocity: f32) -> f32 {
 
 fn bounce(
     mut bounce_query: Query<(&mut BallBounce, &mut Transform, &Parent), Without<Ball>>,
-    mut ball_q: Query<(Entity, &mut Ball, &Transform)>,
+    mut ball_q: Query<(Entity, &mut Ball, &mut BallStatus, &Transform)>,
     mut ev_w_bounce: EventWriter<BallBouncedEvt>,
     time: ScaledTime,
 ) {
     for (mut ball_bounce, mut t, p) in bounce_query.iter_mut() {
-        let (ball_e, mut ball, ball_t) = ball_q.get_mut(p.0).unwrap();
+        let (ball_e, mut ball, mut ball_status, ball_t) = ball_q.get_mut(p.0).unwrap();
 
         if ball.dir == Vec2::ZERO {
             continue;
@@ -116,6 +116,17 @@ fn bounce(
         if t.translation.y <= 0. {
             ball_bounce.velocity = get_bounce_velocity(ball.dir.length(), ball_bounce.max_velocity);
             ball_bounce.count += 1;
+
+            // eval serve on bounce
+            if let BallStatus::Serve(region) = *ball_status {
+                if ball.region != region.get_inverse().unwrap() {
+                    debug!("Bad serve {:?} => {:?}", region, ball.region);
+                }
+                else {
+                    debug!("Good serve {:?} => {:?}", region, ball.region);
+                }
+            }
+
             ev_w_bounce.send(BallBouncedEvt {
                 ball_e,
                 bouce_count: ball_bounce.count,
@@ -197,9 +208,75 @@ fn handle_collisions(
     }
 }
 
+fn handle_regions(
+    mut coll_events: EventReader<CollisionEvent>,
+    ball_q: Query<(Entity, &GlobalTransform), With<Ball>>,
+    mut ball_mut_q: Query<&mut Ball>,
+    mut ball_bounce_q: Query<&mut BallBounce>,
+    region_q: Query<&CourtRegion>,
+    court_set: Res<CourtSettings>,
+) {
+    for (ball_e, ball_t) in ball_q.iter() {
+        let mut region = None;
+
+        let mut i = -1;
+        // todo: actually can i iterate thru events multiple times (once per ball?)
+        for ev in coll_events.iter() {
+            i += 1;
+            let other_e;
+            let (entity_1, entity_2) = ev.rigid_body_entities();
+            if ball_e == entity_1 {
+                other_e = entity_2;
+            }
+            else if ball_e == entity_2 {
+                other_e = entity_1;
+            } else {
+                continue;
+            }
+
+            if let Ok(r) = region_q.get(other_e) {
+                if ev.is_started() {
+                    trace!("[{}] Entered {:?}", i, r);
+
+                    // entered region
+                    region = Some(r);
+                }
+                else {
+                    trace!("[{}] Exited {:?}", i, r);
+
+                    // exited region
+                    if region.is_none() && *r != CourtRegion::OutOfBounds &&
+                        (ball_t.translation.x < court_set.left ||
+                        ball_t.translation.x > court_set.right ||
+                        ball_t.translation.y < court_set.bottom ||
+                        ball_t.translation.y > court_set.top) {
+                        region = Some(&CourtRegion::OutOfBounds);
+                    }
+                }
+            }
+        }
+
+        if let Some(r) = region {
+            if let Ok(mut ball) = ball_mut_q.get_mut(ball_e) {
+                trace!("{:?} => {:?}", ball.region, r);
+
+                if (ball.region.is_left() && r.is_right()) ||
+                    (ball.region.is_right() && r.is_left()) {
+                    let mut bounce = ball_bounce_q.get_mut(ball.bounce_e.unwrap()).unwrap();
+                    bounce.count = 0;
+                    trace!("Crossed net");
+                }
+
+                ball.region = *r;
+            }
+        }
+    }
+}
+
 pub fn spawn_ball(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
+    serve_region: CourtRegion,
 ) {
     let bounce = commands.spawn_bundle(SpriteBundle {
         texture: asset_server.load("icon.png"),
@@ -228,20 +305,25 @@ pub fn spawn_ball(
         }).id();
 
     commands.spawn()
-        .insert(Transform::from_xyz( -WIN_WIDTH / 2. + 250., 200., 0.))
+        // todo: based on region
+        .insert(Transform::from_xyz( -WIN_WIDTH / 2. + 330., 200., 0.))
         .insert(GlobalTransform::default())
         .insert(Ball {
             size: BALL_SIZE,
             speed: 1100.,
+            region: serve_region,
             bounce_e: Some(bounce.clone()),
             ..Default::default()
         })
-        .insert(BallScorable)
+        .insert(BallStatus::Serve(serve_region))
         .insert(RigidBody::KinematicPositionBased)
         .insert(CollisionShape::Sphere {
             radius: 15.,
         })
+        .insert(CollisionLayers::all::<PhysLayer>())
         .insert(Name::new("Ball"))
         .add_child(bounce)
         .add_child(shadow);
+
+    // todo: tween
 }

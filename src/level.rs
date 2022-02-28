@@ -1,13 +1,50 @@
 use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2};
 use bevy_extensions::Vec2Conversion;
+use bevy_inspector_egui::Inspectable;
 use heron::*;
 
-use crate::{WIN_WIDTH, WIN_HEIGHT};
+use crate::{WIN_WIDTH, WIN_HEIGHT, PhysLayer};
 
-pub struct LevelSettings {
-    left: f32,
-    right: f32,
-    height: f32,
+pub struct CourtSettings {
+    // todo: replace by bounds
+    pub(crate) left: f32,
+    pub(crate) right: f32,
+    pub(crate) top: f32,
+    pub(crate) bottom: f32,
+}
+
+#[derive(Default, Component, Inspectable, Clone, Copy, Debug, PartialEq)]
+pub enum CourtRegion {
+    #[default]
+    OutOfBounds,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+impl CourtRegion {
+    pub fn is_left(&self) -> bool {
+        *self == CourtRegion::BottomLeft || *self == CourtRegion::TopLeft
+    }
+
+    pub fn is_right(&self) -> bool {
+        *self == CourtRegion::BottomRight || *self == CourtRegion::TopRight
+    }
+
+    pub fn is_out_of_bounds(&self) -> bool {
+        *self == CourtRegion::OutOfBounds
+    }
+
+    pub fn get_inverse(&self) -> Option<Self> {
+        match self {
+            CourtRegion::OutOfBounds => None,
+            CourtRegion::TopLeft => Some(Self::BottomRight),
+            CourtRegion::TopRight => Some(Self::BottomLeft),
+            CourtRegion::BottomLeft => Some(Self::TopRight),
+            CourtRegion::BottomRight => Some(Self::TopLeft),
+        }
+    }
 }
 
 pub struct LevelPlugin;
@@ -22,24 +59,27 @@ fn setup(
     mut commands: Commands,
 ) {
     let x = WIN_WIDTH / 2. - 300.;
-    let settings = LevelSettings {
-        height: WIN_HEIGHT - 250.,
+    let height = WIN_HEIGHT - 250.;
+    let y = height / 2.;
+
+    let settings = CourtSettings {
         left: -x,
-        right: x, 
+        right: x,
+        top: y,
+        bottom: -y,
     };
 
     let thickness = 10.;
     let width = x * 2. + thickness;
-    let y = settings.height / 2.;
 
     let lines = [
         // horizonal split
         (0., 0., Vec2::new(width, thickness), Color::WHITE),
         // net
-        (0., 0., Vec2::new(thickness * 1.5, settings.height), Color::BLACK),
+        (0., 0., Vec2::new(thickness * 1.5, height), Color::BLACK),
         // sidelines
-        (-x, 0., Vec2::new(thickness, settings.height), Color::WHITE),
-        (x, 0., Vec2::new(thickness, settings.height), Color::WHITE),
+        (-x, 0., Vec2::new(thickness, height), Color::WHITE),
+        (x, 0., Vec2::new(thickness, height), Color::WHITE),
         (0., -y, Vec2::new(width, thickness), Color::WHITE),
         (0., y, Vec2::new( width, thickness), Color::WHITE),
     ];
@@ -59,15 +99,15 @@ fn setup(
 
     let region_x = x / 2. + thickness / 4.;
     let region_y = y / 2. + thickness / 4.;
-    let region_size = Vec3::new(width / 4. + thickness / 4., settings.height / 4. + thickness / 4., 0.);
+    let region_size = Vec3::new(width / 4., height / 4. + thickness / 4., 0.);
     let sensors = [
-        ("Top Left Region", -region_x, region_y),
-        ("Bottom Left Region", -region_x, -region_y),
-        ("Top Right Region", region_x, region_y),
-        ("Bottom Right Region", region_x, -region_y),
+        (-region_x, region_y, CourtRegion::TopLeft),
+        (-region_x, -region_y, CourtRegion::BottomLeft),
+        (region_x, region_y, CourtRegion::TopRight),
+        (region_x, -region_y, CourtRegion::BottomRight),
     ];
 
-    for (name, x, y) in sensors.iter() {
+    for (x, y, region) in sensors.iter() {
         commands.spawn()
             .insert(Transform::from_xyz(*x, *y, 0.))
             .insert(GlobalTransform::default())
@@ -76,19 +116,20 @@ fn setup(
                 half_extends: region_size,
                 border_radius: None,
             })
-            .insert(Name::new(*name));
+            .insert(region.clone())
+            .insert(Name::new("Region"));
     }
 
-    // bounds region
-    commands.spawn()
-        .insert(Transform::default())
-        .insert(GlobalTransform::default())
-        .insert(RigidBody::Sensor)
-        .insert(CollisionShape::Cuboid {
-            half_extends: Vec3::new(x + thickness / 2., y + thickness / 2., 0.),
-            border_radius: None,
-        })
-        .insert(Name::new("Bounds region"));
+    // // bounds region
+    // commands.spawn()
+    //     .insert(Transform::default())
+    //     .insert(GlobalTransform::default())
+    //     .insert(RigidBody::Sensor)
+    //     .insert(CollisionShape::Cuboid {
+    //         half_extends: Vec3::new(x + thickness / 2., y + thickness / 2., 0.),
+    //         border_radius: None,
+    //     })
+    //     .insert(Name::new("Bounds region"));
 
     commands.insert_resource(settings);
 }
