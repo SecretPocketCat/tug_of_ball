@@ -23,8 +23,8 @@ mod score;
 mod level;
 
 const NAME: &str = "Tennis Rounds";
-const WIN_WIDTH: f32 = 1400.;
-const WIN_HEIGHT: f32 = 800.;
+const WIN_WIDTH: f32 = 1600.;
+const WIN_HEIGHT: f32 = 900.;
 
 // todo: lvl plugin
 

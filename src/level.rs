@@ -21,9 +21,9 @@ impl Plugin for LevelPlugin {
 fn setup(
     mut commands: Commands,
 ) {
-    let x = WIN_WIDTH / 2. - 200.;
+    let x = WIN_WIDTH / 2. - 300.;
     let settings = LevelSettings {
-        height: WIN_HEIGHT - 150.,
+        height: WIN_HEIGHT - 250.,
         left: -x,
         right: x, 
     };
