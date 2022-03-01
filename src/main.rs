@@ -6,6 +6,7 @@
 #![feature(if_let_guard)]
 
 use bevy::prelude::*;
+use bevy_tweening::TweeningPlugin;
 use debug::DebugPlugin;
 use heron::*;
 use bevy_extensions::panic_on_error;
@@ -51,6 +52,12 @@ enum PhysLayer {
     // Ball,
 }
 
+#[derive(Bundle, Default)]
+pub struct TransformBundle {
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+}
+
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -62,6 +69,7 @@ fn main() {
         .insert_resource(ClearColor(Color::rgb_u8(137, 170, 100)))
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
+        .add_plugin(TweeningPlugin)
         .add_plugin(TimePlugin)
         .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::default())
         .add_plugin(PlayerPlugin)

@@ -8,7 +8,7 @@ use bevy_time::{ScaledTime, ScaledTimeDelta};
 use heron::rapier_plugin::{PhysicsWorld, rapier2d::prelude::{RigidBodyActivation, ColliderSet}};
 use heron::*;
 
-use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion};
+use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion, TransformBundle};
 
 #[derive(Inspectable, Clone, Copy)]
 pub enum ActionStatus<TActiveData: Default> {
@@ -54,11 +54,23 @@ pub struct Player {
     side: f32,
 }
 
+impl Player {
+    pub fn is_left(&self) -> bool {
+        self.id == 1
+    }
+
+    pub fn get_sign(&self) -> f32 {
+        if self.is_left() { -1. } else { 1. }
+    }
+}
+
 #[derive(Default, Component, Inspectable)]
 pub struct PlayerMovement {
     speed: f32,
     charging_speed: f32,
     pub(crate) last_dir: Vec2,
+    movement_ease: f32,
+    rotation_ease: f32,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -76,6 +88,11 @@ pub struct PlayerScore {
     pub(crate) points: u8,
     pub(crate) games: u8,
     // pub(crate) sets: u8,
+}
+
+#[derive(Default, Component, Inspectable)]
+pub struct PlayerAim {
+    direction: Vec2,
 }
 
 // nice2have: macro?
@@ -178,6 +195,7 @@ impl Plugin for PlayerPlugin {
         app
             .add_startup_system(setup)
             .add_system(movement)
+            .add_system(aim)
             .add_system(handle_swing_input)
             .add_system(on_ball_bounced)
             .add_system_set_to_stage(
@@ -201,6 +219,23 @@ fn setup(
         let x = if i == 1 { -x } else { x }; 
         let size = Vec2::splat(50.);
         let is_left = x < 0.;
+
+        let aim_sprite = commands
+        .spawn_bundle(SpriteBundle {
+            texture: asset_server.load("art-ish/aim.png"),
+            transform: Transform::from_xyz(0., 30., 0.),
+            // sprite: Sprite {
+            //     ..Default::default()
+            // },
+            ..Default::default()
+        }).id();
+
+        let aim = commands
+        .spawn_bundle(TransformBundle::default())
+        .insert(PlayerAim::default())
+        .add_child(aim_sprite)
+        .id();
+
         let entity = commands.spawn_bundle(SpriteBundle {
             // texture: asset_server.load("icon.png"),
             transform: Transform::from_xyz(x, 0., 0.),
@@ -217,6 +252,7 @@ fn setup(
         })
         .insert(CollisionLayers::none())
         .insert(Name::new("Player"))
+        .add_child(aim)
         .id();
 
         if is_left {
@@ -233,7 +269,7 @@ fn setup(
     });
 }
 
-// todo: movement easing
+// todo: movement easing + rotation easing
 // possibly during dash as well
 fn movement(
     input: Res<PlayerInput>,
@@ -264,6 +300,46 @@ fn movement(
             if move_by.truncate() != Vec2::ZERO {
                 t.translation += move_by;
                 player_movement.last_dir = move_by.truncate().normalize_or_zero();
+            }
+        }
+    }
+}
+
+fn aim(
+    input: Res<PlayerInput>,
+    player_q: Query<(&Player, &PlayerMovement)>,
+    mut aim_q: Query<(&mut PlayerAim, &mut Transform, &Parent)>,
+    time: ScaledTime,
+) {
+    for (aim, mut aim_t, aim_parent) in aim_q.iter_mut() {
+        if let Ok((p, p_movement)) = player_q.get(aim_parent.0) {
+            let mut input_dir = input.get_xy_axes(p.id, &InputAxis::X, &InputAxis::Y);
+
+            if input_dir == Vec2::ZERO {
+                input_dir = p_movement.last_dir;
+            }
+    
+            let clamp_x = 1.;
+            let clamp_y = 0.8;
+            let player_x_sign = p.get_sign();
+    
+            if input_dir == Vec2::new(player_x_sign, 0.) {
+                // player aiming into their court/backwards - just aim straight
+                input_dir = Vec2::new(-player_x_sign, 0.);
+            }
+            else if player_x_sign < 0. {
+                input_dir = input_dir.clamp(Vec2::new(clamp_x, -clamp_y), Vec2::new(clamp_x, clamp_y));
+            }
+            else {
+                input_dir = input_dir.clamp(Vec2::new(-clamp_x, -clamp_y), Vec2::new(-clamp_x, clamp_y));
+            }
+
+            // todo: the dir should be ok, but the angle is wrong
+            aim_t.rotation = Quat::from_rotation_arc_2d(Vec2::Y, input_dir);
+
+            let z_rot = aim_t.rotation.to_euler(EulerRot::XYZ).2.to_degrees();
+            if input.just_released(p.id, InputAction::Swing) {
+                info!("{:?}", z_rot);
             }
         }
     }
