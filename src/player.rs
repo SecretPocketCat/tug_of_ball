@@ -290,10 +290,10 @@ fn setup(
 
         let aim_charge_e = commands.spawn_bundle(SpriteBundle {
             texture: asset_server.load("art-ish/aim_charge.png"),
-            // sprite: Sprite {
-            //     // color: Color::rgba(1., 1., 1., 0.5),
-            //     ..Default::default()
-            // },
+            sprite: Sprite {
+                color: Color::rgba_u8(255, 125, 40, 255),
+                ..Default::default()
+            },
             transform: Transform {
                 translation: Vec3::new(0., 0., -0.7),
                 scale: Vec3::Z,
