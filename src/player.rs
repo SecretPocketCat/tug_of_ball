@@ -581,7 +581,7 @@ fn get_swing_mutliplier_clamped(duration: f32) -> f32 {
 }
 
 fn get_swing_multiplier(duration: f32) -> f32 {
-    (duration * 1.8).clamp(0.0, 1.).calc(EaseFunction::QuadraticOut)
+    ((duration * 1.8).sin().abs() * 1.15).min(1.)
 }
 
 fn handle_action_cooldown<T: ActionTimer<TActiveData> + Component, TActiveData: Default>(

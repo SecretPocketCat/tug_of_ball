@@ -5,6 +5,14 @@
 #![feature(derive_default_enum)]
 #![feature(if_let_guard)]
 
+// todo list
+// ball trail
+// dash trail
+// faces
+// ball 'steps' after bounce
+// rounded court
+// net 'pickets'
+
 use bevy::{prelude::*, render::render_resource::FilterMode};
 use bevy_tweening::TweeningPlugin;
 use debug::DebugPlugin;
