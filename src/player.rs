@@ -394,6 +394,9 @@ fn move_player(
                 p_anim.animation = PlayerAnimation::Idle;
             }
         }
+        else if input.held(player.id, InputAction::LockPosition) {
+            move_by = Vec3::ZERO;
+        }
 
         let res_pos = t.translation + move_by * time.scaled_delta_seconds();
         if res_pos.x.signum() == t.translation.x.signum() {
@@ -592,6 +595,7 @@ fn add_point(score: &mut PlayerScore, other_player_score: &mut PlayerScore) -> b
     false
 }
 
+// 2fix: sometimes the player shadows flickers over the body
 fn animate(
     player_q: Query<(&PlayerAnimationData, ChangeTrackers<PlayerAnimationData>)>,
     mut animator_q: Query<(&mut Animator<Transform>, &Transform)>,

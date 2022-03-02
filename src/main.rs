@@ -34,6 +34,7 @@ const WIN_HEIGHT: f32 = 900.;
 enum InputAction {
     Swing,
     Dash,
+    LockPosition,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -67,12 +68,9 @@ impl TransformBundle {
     }
 }
 
-// todo: handle sprite Z-fighting
 const COURT_Z: f32 = 1.;
 const COURT_LINES_Z: f32 = COURT_Z + 1.;
-const SHADOW_Z: f32 = COURT_LINES_Z + 1.;
-const AIM_Z: f32 = SHADOW_Z + 1.;
-const PLAYER_Z: f32 = AIM_Z + 1.;
+const PLAYER_Z: f32 = COURT_LINES_Z + 1.;
 const BALL_Z: f32 = PLAYER_Z + 1.;
 
 fn main() {
@@ -114,14 +112,14 @@ fn setup_bindings(
 ) -> Result<(), BindingError> {
     for id in 1..=2 {
         map
-            .bind_button_action(id, InputAction::Dash, GamepadButtonType::South)?
-            .bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger)?
-            .bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger2)?
+        .bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger)?
+        .bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger2)?
+        .bind_button_action(id, InputAction::Swing, GamepadButtonType::South)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::West)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::East)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::North)?
-            .bind_button_action(id, InputAction::Swing, GamepadButtonType::LeftTrigger)?
-            .bind_button_action(id, InputAction::Swing, GamepadButtonType::LeftTrigger2)?
+            .bind_button_action(id, InputAction::LockPosition, GamepadButtonType::LeftTrigger)?
+            .bind_button_action(id, InputAction::LockPosition, GamepadButtonType::LeftTrigger2)?
             .bind_axis_with_deadzone(
                 id,
                 InputAxis::X,
