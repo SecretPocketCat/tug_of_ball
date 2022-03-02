@@ -67,6 +67,14 @@ impl TransformBundle {
     }
 }
 
+// todo: handle sprite Z-fighting
+const COURT_Z: f32 = 1.;
+const COURT_LINES_Z: f32 = COURT_Z + 1.;
+const SHADOW_Z: f32 = COURT_LINES_Z + 1.;
+const AIM_Z: f32 = SHADOW_Z + 1.;
+const PLAYER_Z: f32 = AIM_Z + 1.;
+const BALL_Z: f32 = PLAYER_Z + 1.;
+
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })

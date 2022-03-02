@@ -1,0 +1,476 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20)"
+   sodipodi:docname="tennis.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:pageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:snap-bbox="true"
+     inkscape:zoom="45.254834"
+     inkscape:cx="520.97197"
+     inkscape:cy="728.77297"
+     inkscape:window-width="3440"
+     inkscape:window-height="1351"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g49951"
+     inkscape:bbox-paths="true"
+     inkscape:bbox-nodes="true"
+     inkscape:snap-bbox-midpoints="true" />
+  <defs
+     id="defs2">
+    <inkscape:path-effect
+       effect="bspline"
+       id="path-effect10105"
+       is_visible="true"
+       lpeversion="1"
+       weight="33.333333"
+       steps="2"
+       helper_size="0"
+       apply_no_weight="true"
+       apply_with_weight="true"
+       only_selected="false" />
+    <inkscape:path-effect
+       effect="bspline"
+       id="path-effect9776"
+       is_visible="true"
+       lpeversion="1"
+       weight="33.333333"
+       steps="2"
+       helper_size="0"
+       apply_no_weight="true"
+       apply_with_weight="true"
+       only_selected="false" />
+    <inkscape:path-effect
+       effect="bspline"
+       id="path-effect9772"
+       is_visible="true"
+       lpeversion="1"
+       weight="33.333333"
+       steps="2"
+       helper_size="0"
+       apply_no_weight="true"
+       apply_with_weight="true"
+       only_selected="false" />
+    <inkscape:path-effect
+       effect="bspline"
+       id="path-effect9768"
+       is_visible="true"
+       lpeversion="1"
+       weight="33.333333"
+       steps="2"
+       helper_size="0"
+       apply_no_weight="true"
+       apply_with_weight="true"
+       only_selected="false" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:#8a916f;stroke:#484537;stroke-width:3.26501;stroke-linecap:butt;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0"
+       id="rect6242"
+       width="607.17877"
+       height="321.39096"
+       x="293.48575"
+       y="-50.810032" />
+    <circle
+       style="fill:none;stroke:#ffffff;stroke-width:2.065;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:6.195, 6.195;stroke-dashoffset:0"
+       id="circle44356"
+       cx="144.90671"
+       cy="17.81978"
+       r="23.899483"
+       transform="rotate(25.436462)" />
+    <circle
+       style="fill:none;stroke:#ffffff;stroke-width:2.065;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:6.195, 6.195;stroke-dashoffset:0"
+       id="path49-5"
+       cx="155.62154"
+       cy="187.57632"
+       r="23.899483"
+       transform="rotate(25.436462)"
+       inkscape:export-filename="C:\Projects\GameDev\Jams\tennis_rounds\assets\art-ish\player_circle.png"
+       inkscape:export-xdpi="101.80151"
+       inkscape:export-ydpi="101.80151" />
+    <circle
+       style="fill:#ffffff;stroke:#ffffff;stroke-width:2.065;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0"
+       id="path49-5-7"
+       cx="95.412468"
+       cy="76.845932"
+       r="23.899483"
+       transform="rotate(25.436462)" />
+    <g
+       id="g5132"
+       inkscape:export-filename="C:\Projects\GameDev\Jams\tennis_rounds\assets\art-ish\aim.png"
+       inkscape:export-xdpi="101.80151"
+       inkscape:export-ydpi="101.80151">
+      <g
+         id="g5231">
+        <path
+           id="path49"
+           style="color:#000000;fill:#ffffff;stroke-width:3.77953;stroke-dasharray:23.4142, 23.4142;-inkscape-stroke:none"
+           d="M 197.50586 46.736328 L 181.81055 85.195312 L 162.69531 108.30469 L 161.96484 108.60156 L 161.95508 108.60547 C 154.6738 111.5909 147.76601 115.48722 141.44727 120.1875 L 146.10547 126.44727 C 151.88734 122.14635 158.22147 118.57554 164.89258 115.83789 L 164.91406 115.82422 L 165.61133 115.54297 L 188.60938 89.029297 L 197.66211 62.345703 L 207.24414 88.724609 L 231.12305 116.07227 C 237.43994 118.72089 243.44366 122.1078 248.96094 126.1582 L 249.83203 126.80273 L 250.45898 127.28906 L 255.20117 121.08203 L 254.52734 120.57422 L 253.5918 119.87695 L 253.57812 119.86914 C 247.55852 115.44996 241.02169 111.75236 234.14062 108.86719 L 213.96484 84.753906 L 197.50586 46.736328 z M 123.92969 137.1543 L 123.23047 138.05664 L 122.52148 138.97852 L 122.51758 138.98438 C 118.08499 144.86617 114.35193 151.26519 111.40234 158.00781 L 118.55273 161.13867 C 121.25987 154.95033 124.68959 149.07413 128.75195 143.68359 L 129.40234 142.83203 L 130.07617 141.9668 L 123.92969 137.1543 z M 272.43164 138.32031 L 266.24023 143.07422 C 270.70262 148.88046 274.42497 155.26565 277.28516 162.01172 L 277.44336 162.39648 L 284.65234 159.39258 L 284.47461 158.97266 L 284.47266 158.96289 C 281.35492 151.60903 277.30219 144.65764 272.43164 138.32031 z M 104.58203 181.38867 C 104.40826 182.50306 104.25487 183.6112 104.12305 184.72461 L 104.11914 184.73242 C 103.29527 191.70514 103.26229 198.7655 104.01562 205.74805 L 111.77148 204.9082 C 111.08141 198.51207 111.11992 192.03892 111.875 185.64844 C 111.99634 184.62362 112.13499 183.59903 112.29297 182.58594 L 104.58203 181.38867 z M 291.08203 182.87891 L 283.35352 183.95117 C 284.36686 191.22358 284.44279 198.62914 283.58008 205.91797 L 283.53906 206.28125 L 291.28125 207.24219 L 291.32812 206.84766 L 291.33594 206.83594 C 292.27782 198.87826 292.18744 190.81199 291.08203 182.87891 z M 116.99805 226.64453 L 109.70898 229.42188 C 110.11684 230.49073 110.53897 231.55286 110.98438 232.60352 C 113.71655 239.04506 117.1594 245.18497 121.25195 250.86914 L 127.5918 246.30664 C 123.8434 241.10047 120.67937 235.46844 118.17188 229.55664 C 117.76235 228.59064 117.37109 227.62214 116.99805 226.64453 z M 277.96289 227.92383 C 277.28908 229.60515 276.55198 231.26443 275.77148 232.90625 C 272.64687 239.48032 268.70259 245.66677 264.04102 251.24609 L 263.66992 251.68164 L 269.62695 256.72266 L 270.02148 256.25586 L 270.0332 256.24609 C 275.12375 250.15335 279.42417 243.41571 282.82812 236.25391 C 283.67572 234.47093 284.47014 232.66093 285.20703 230.82227 L 277.96289 227.92383 z M 142.89062 262.60742 L 137.90625 268.61523 C 138.61368 269.20231 139.31153 269.75004 139.98633 270.27539 L 139.99414 270.27734 L 140 270.28125 C 145.74431 274.72458 152.00181 278.49659 158.60352 281.50781 L 161.8418 274.4082 C 155.78267 271.64446 150.0388 268.18072 144.77539 264.10938 C 144.11882 263.59818 143.48239 263.09852 142.89062 262.60742 z M 247.14062 266.70703 C 241.11202 270.90302 234.54034 274.32189 227.64453 276.86523 L 227.31641 276.98828 L 229.97266 284.32422 L 230.33008 284.19336 L 230.3418 284.18945 C 237.85777 281.41738 245.02583 277.69475 251.60547 273.11523 L 247.14062 266.70703 z M 183.20312 281.00391 L 181.85156 288.69141 L 182.07031 288.72852 L 182.08594 288.72852 C 190.04774 290.07371 198.1755 290.3795 206.21484 289.64258 L 205.50391 281.875 C 198.13725 282.55026 190.67762 282.26538 183.38477 281.0332 L 183.20312 281.00391 z "
+           transform="scale(0.26458333)" />
+      </g>
+    </g>
+    <path
+       id="path23363"
+       style="color:#000000;fill:#ffffff;stroke-width:0.264583;stroke-linecap:round;-inkscape-stroke:none"
+       d="m 139.85696,26.211863 -5.74022,10.175607 -4.31602,7.65173 h 2.3704 l 3.74447,-6.637321 3.98271,-7.060034 4.12274,6.979418 3.96875,6.717937 h 2.39882 l -4.58939,-7.768518 z" />
+    <g
+       id="g6636"
+       transform="matrix(1.2950727,0,0,1.2950727,11.741393,-17.383085)"
+       style="stroke-width:1.30880683;stroke-miterlimit:4;stroke-dasharray:none">
+      <rect
+         style="fill:#abc837;stroke:#f9f9f9;stroke-width:1.30880683;stroke-linecap:butt;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0"
+         id="rect5731"
+         width="293.96686"
+         height="160.45491"
+         x="327.40503"
+         y="27.905203"
+         ry="5.0152988" />
+      <rect
+         style="fill:#abc837;stroke:#f9f9f9;stroke-width:1.30880683;stroke-linecap:butt;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0"
+         id="rect6019"
+         width="293.72632"
+         height="0.2405621"
+         x="327.5253"
+         y="108.01238" />
+    </g>
+    <rect
+       style="fill:#b3b3b3;stroke:none;stroke-width:0.780323;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+       id="rect20596"
+       width="10.631423"
+       height="14.755629"
+       x="620.70618"
+       y="7.6674142"
+       ry="4.8599968" />
+    <g
+       id="g5132-2"
+       inkscape:export-filename="C:\Projects\GameDev\Jams\tennis_rounds\assets\art-ish\aim.png"
+       inkscape:export-xdpi="101.80151"
+       inkscape:export-ydpi="101.80151"
+       transform="rotate(60.675701,169.351,474.72621)">
+      <g
+         id="g5231-7" />
+    </g>
+    <g
+       id="g13600"
+       transform="translate(6.9763013,3.6084315)">
+      <g
+         id="g44374"
+         transform="translate(-9.1413598,8.1791114)">
+        <circle
+           style="opacity:1;fill:none;stroke:#ffffff;stroke-width:2.065;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:6.195, 6.195;stroke-dashoffset:0"
+           id="circle44358"
+           cx="510.224"
+           cy="-63.92593"
+           r="23.899483"
+           transform="rotate(25.436462)" />
+        <g
+           id="g44372"
+           transform="translate(0.40147215,19.640374)">
+          <rect
+             style="opacity:0.541205;mix-blend-mode:normal;fill:#333333;stroke:none;stroke-width:0.665001;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+             id="rect44360"
+             width="18.042158"
+             height="18.042158"
+             x="479.00064"
+             y="136.19386"
+             ry="3.5296361" />
+          <rect
+             style="opacity:0.541205;mix-blend-mode:normal;fill:#333333;stroke:none;stroke-width:0.665001;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+             id="rect44362"
+             width="18.042158"
+             height="18.042158"
+             x="479.00064"
+             y="136.19386"
+             ry="3.5296361" />
+          <rect
+             style="fill:#ffffff;stroke:none;stroke-width:0.665001;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+             id="rect44364"
+             width="18.042158"
+             height="18.042158"
+             x="478.79822"
+             y="132.75572"
+             ry="3.5296361" />
+          <path
+             style="fill:none;stroke:#000000;stroke-width:0.613;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+             d="m 493.0814,142.92003 c 0.29768,0.0319 -0.70536,4.27095 -4.22462,4.10011 -3.51927,-0.17084 -4.6502,-5.27077 -4.10012,-5.2003 5.83017,0.74694 7.63928,0.9904 8.32474,1.10019 z"
+             id="path44366"
+             sodipodi:nodetypes="cssc" />
+          <path
+             style="fill:none;stroke:#000000;stroke-width:0.665;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+             d="m 493.1053,141.18112 c 0,0 -1.18777,-1.6238 -2.18009,-0.99232"
+             id="path44368" />
+          <path
+             style="fill:none;stroke:#000000;stroke-width:0.665;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+             d="m 485.83415,140.28814 c 0,0 1.52078,-1.3171 2.34677,-0.47973"
+             id="path44370" />
+        </g>
+      </g>
+      <rect
+         style="opacity:0.541205;mix-blend-mode:normal;fill:#333333;stroke:none;stroke-width:0.665001;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+         id="rect43374"
+         width="18.042158"
+         height="18.042158"
+         x="743.33954"
+         y="41.106037"
+         ry="3.5296361"
+         transform="translate(-8.7398876,27.819486)" />
+    </g>
+    <g
+       id="g13591-8"
+       transform="matrix(-1,0,0,1,1237.0906,-85.399552)">
+      <circle
+         style="fill:none;stroke:#ffffff;stroke-width:2.065;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:6.195, 6.195;stroke-dashoffset:0"
+         id="path49-5-3-3"
+         cx="510.224"
+         cy="-63.92593"
+         r="23.899483"
+         transform="rotate(25.436462)" />
+      <g
+         id="g13243-0"
+         transform="rotate(4.2856298,225.56483,156.96188)">
+        <rect
+           style="fill:#ffffff;stroke:none;stroke-width:0.665001;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+           id="rect13075-2"
+           width="18.042158"
+           height="18.042158"
+           x="478.79822"
+           y="132.75572"
+           ry="3.5296361" />
+      </g>
+      <path
+         style="fill:none;stroke:#000000;stroke-width:0.665;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="m 489.20674,158.66608 c 0,0 0.70351,1.73025 0.68665,2.01631 -0.14559,0.40453 -0.92912,0.7039 -1.63886,1.06094"
+         id="path15886-1"
+         sodipodi:nodetypes="ccc" />
+      <path
+         style="fill:none;stroke:#000000;stroke-width:0.665;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="m 492.90903,159.26446 c 0,0 -1.31629,1.32517 -1.41103,1.59562 -0.0217,0.42938 0.58584,1.00772 1.10302,1.61082"
+         id="path15886"
+         sodipodi:nodetypes="ccc" />
+      <ellipse
+         style="opacity:1;fill:#ffd42a;stroke:none;stroke-width:0.665001;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+         id="path18892"
+         cx="-575.59979"
+         cy="32.186935"
+         transform="matrix(-0.97030888,-0.24186912,-0.24186912,0.97030888,0,0)"
+         rx="8.3350515"
+         ry="4.7628865" />
+      <path
+         style="opacity:0.399754;fill:#ffd42a;stroke:none;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         d="m 551.9096,165.86757 -41.49696,-12.44908 36.38503,20.6282 z"
+         id="path19139" />
+    </g>
+    <g
+       id="g15609"
+       transform="rotate(6.0941519,733.19246,79.127911)">
+      <path
+         style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         d="M 493.78824,144.64851 486.406,143.06982"
+         id="path15444"
+         transform="matrix(-1,0,0,1,1236.6891,-65.759177)" />
+      <path
+         style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         d="m 492.73578,142.85933 -0.60142,3.09724"
+         id="path15446"
+         transform="matrix(-1,0,0,1,1236.6891,-65.759177)" />
+      <path
+         style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         d="m 491.36156,142.56482 -0.60142,3.09724"
+         id="path15446-5"
+         transform="matrix(-1,0,0,1,1236.6891,-65.759177)" />
+      <path
+         style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         d="m 490.09676,142.19466 -0.60142,3.09724"
+         id="path15446-1"
+         transform="matrix(-1,0,0,1,1236.6891,-65.759177)" />
+      <path
+         style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         d="m 488.55058,141.80202 -0.60142,3.09724"
+         id="path15446-6"
+         transform="matrix(-1,0,0,1,1236.6891,-65.759177)" />
+      <rect
+         style="fill:none;stroke:#000000;stroke-width:0.400928;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+         id="rect14623"
+         width="7.5614982"
+         height="3.0826473"
+         x="711.45892"
+         y="226.35953"
+         ry="1.5413237"
+         rx="1.1514972"
+         transform="rotate(-11.699455)" />
+    </g>
+    <path
+       style="opacity:0.51414514;fill:#ffffff;stroke:none;stroke-width:0.665001;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+       id="path17313"
+       d="m 720.47843,64.102552 c -7.00856,12.033565 0.3516,36.472908 10.5441,36.726748 v 0 c -0.23926,-1.220757 -0.50107,-2.437313 -0.71776,-3.662278 -1.27378,-7.199995 -2.08137,-14.513343 -1.35152,-21.825485 0.87948,-4.940874 0.93173,-6.736463 2.8072,-11.397776 1.88416,-4.682926 4.64556,-8.578024 8.52184,-11.805869 1.07037,-0.891323 2.26888,-1.616414 3.40333,-2.424621 1.08755,-0.615278 2.15339,-1.270627 3.26266,-1.845834 3.24866,-1.684575 3.97852,-2.312532 10.33338,-3.707275 -11.76112,-0.71433 -29.79467,7.908825 -36.80323,19.94239 z"
+       sodipodi:nodetypes="zcsscsscscz" />
+    <path
+       id="path25698"
+       style="color:#000000;fill:#ffffff;stroke-width:1;stroke-linecap:round;-inkscape-stroke:none"
+       d="m 153.11527,126.42385 a 1.0325,1.0325 0 0 0 -0.0491,0.007 1.0325,1.0325 0 0 0 -0.0532,0.003 1.0325,1.0325 0 0 0 -0.0496,0.0124 1.0325,1.0325 0 0 0 -0.0961,0.0243 1.0325,1.0325 0 0 0 -0.0961,0.0346 1.0325,1.0325 0 0 0 -0.0909,0.0429 1.0325,1.0325 0 0 0 -0.0863,0.0517 1.0325,1.0325 0 0 0 -0.0806,0.06 1.0325,1.0325 0 0 0 -0.077,0.0692 1.0325,1.0325 0 0 0 -0.0672,0.0749 1.0325,1.0325 0 0 0 -0.0579,0.0775 1.0325,1.0325 0 0 0 -0.0537,0.0894 1.0325,1.0325 0 0 0 -0.0434,0.0925 1.0325,1.0325 0 0 0 -0.0331,0.093 1.0325,1.0325 0 0 0 -0.0248,0.0966 1.0325,1.0325 0 0 0 -0.0124,0.0501 c 0,0 -1.67105,10.61438 -9.93322,14.17226 a 1.0325,1.0325 0 0 0 -0.53951,1.35702 1.0325,1.0325 0 0 0 1.35755,0.53899 c 5.94704,-2.56094 8.81917,-8.08003 10.13684,-11.85819 1.31819,3.77816 4.19127,9.29722 10.13839,11.85819 a 1.0325,1.0325 0 0 0 1.35755,-0.53899 1.0325,1.0325 0 0 0 -0.54105,-1.35702 c -8.26217,-3.55788 -9.93325,-14.17226 -9.93325,-14.17226 a 1.0325,1.0325 0 0 0 -0.002,-0.009 1.0325,1.0325 0 0 0 -0.047,-0.18603 1.0325,1.0325 0 0 0 -5e-4,-0.002 1.0325,1.0325 0 0 0 -0.001,-0.003 1.0325,1.0325 0 0 0 -0.0853,-0.17931 1.0325,1.0325 0 0 0 -5e-4,-10e-4 1.0325,1.0325 0 0 0 -0.001,-0.002 1.0325,1.0325 0 0 0 -0.11732,-0.15813 1.0325,1.0325 0 0 0 -0.002,-0.003 1.0325,1.0325 0 0 0 -0.002,-0.002 1.0325,1.0325 0 0 0 -0.14833,-0.13384 1.0325,1.0325 0 0 0 -0.17105,-0.10232 1.0325,1.0325 0 0 0 -0.003,-0.002 1.0325,1.0325 0 0 0 -0.002,-10e-4 1.0325,1.0325 0 0 0 -0.18243,-0.0651 1.0325,1.0325 0 0 0 -0.0119,-0.003 1.0325,1.0325 0 0 0 -0.092,-0.0186 1.0325,1.0325 0 0 0 -0.0537,-0.003 1.0325,1.0325 0 0 0 -0.0987,-0.005 1.0325,1.0325 0 0 0 -0.0501,-0.003 z" />
+    <path
+       style="color:#000000;fill:#ffffff;stroke-linecap:round;-inkscape-stroke:none;opacity:1"
+       d="m 517.93209,147.75712 c -0.0424,-0.0417 -0.0887,-0.0795 -0.13834,-0.11286 l -0.0106,-0.006 c -0.046,-0.0307 -0.096,-0.0573 -0.14636,-0.0802 l -0.0148,-0.008 -0.015,-0.006 c 0,0 -6.57988,-2.55592 -13.33947,2.52139 -0.44619,0.33495 -0.53917,0.98997 -0.2042,1.43614 0.33495,0.44619 0.98867,0.53768 1.43485,0.20272 5.0008,-3.75623 9.45409,-2.80892 10.8035,-2.40751 0.19652,1.39412 0.47175,5.93872 -3.98562,10.32602 -0.39752,0.39148 -0.40413,1.05152 -0.0127,1.44905 0.39152,0.39724 1.05186,0.40126 1.44926,0.01 6.02509,-5.93037 4.47623,-12.81545 4.47623,-12.81545 l -0.004,-0.0171 -0.004,-0.0171 c -0.0158,-0.0553 -0.0363,-0.1092 -0.0614,-0.16108 l -0.003,-0.003 c -0.0249,-0.0528 -0.0534,-0.10423 -0.087,-0.15191 -0.0404,-0.0576 -0.0873,-0.11067 -0.13761,-0.15982 z"
+       id="path27236"
+       sodipodi:nodetypes="accccccsccccccccccaa" />
+    <path
+       style="color:#000000;fill:#ffffff;stroke-linecap:round;-inkscape-stroke:none"
+       d="m 57.789752,183.43605 c -0.0593,0.005 -0.11805,0.0153 -0.17578,0.0312 l -0.0117,0.004 c -0.0533,0.0148 -0.10605,0.0354 -0.15625,0.0586 l -0.0156,0.006 -0.0137,0.008 c 0,0 -6.23012,3.31861 -6.79297,11.75391 -0.0373,0.55667 0.39841,1.05451 0.95508,1.09179 0.55667,0.0373 1.05255,-0.3984 1.08984,-0.95507 0.41641,-6.2405 4.03995,-8.99715 5.22461,-9.75782 1.18469,0.7607 4.80822,3.51738 5.22461,9.75782 0.0373,0.55668 0.53316,0.99235 1.08984,0.95507 0.55649,-0.0375 0.99039,-0.53529 0.95313,-1.09179 -0.56285,-8.43529 -6.79102,-11.75391 -6.79102,-11.75391 l -0.0156,-0.008 -0.0156,-0.008 c -0.0523,-0.0241 -0.10648,-0.0437 -0.16211,-0.0586 h -0.004 c -0.0563,-0.0156 -0.11379,-0.0276 -0.17188,-0.0332 -0.07,-0.007 -0.14087,-0.006 -0.2109,0 z"
+       id="path26229"
+       sodipodi:nodetypes="accccccsccccccccccaa"
+       inkscape:export-filename="C:\Projects\GameDev\Jams\tennis_rounds\assets\art-ish\aim_arrow.png"
+       inkscape:export-xdpi="101.80151"
+       inkscape:export-ydpi="101.80151" />
+    <g
+       id="g28098"
+       transform="rotate(-37.032221,729.41622,26.070708)"
+       style="opacity:0.71586716">
+      <path
+         style="color:#000000;fill:#ffffff;stroke-linecap:round;-inkscape-stroke:none"
+         d="m 676.24989,65.347107 c -0.0148,0.05761 -0.0242,0.116635 -0.0281,0.176315 l 1.4e-4,0.01218 c -0.003,0.0552 -0.001,0.111793 0.004,0.16684 l 5.2e-4,0.01682 0.002,0.01598 c 0,0 1.09608,6.973246 8.88225,10.26667 0.51379,0.217492 1.12684,-0.03122 1.34431,-0.545013 0.21749,-0.513784 -0.0319,-1.124968 -0.54565,-1.342446 -5.76027,-2.436505 -7.1787,-6.762848 -7.50962,-8.13125 1.10663,-0.870369 4.89768,-3.391703 10.93054,-1.742128 0.53821,0.147008 1.11221,-0.178904 1.25925,-0.717073 0.14675,-0.538102 -0.18155,-1.111061 -0.71951,-1.258076 -8.1547,-2.229757 -13.32944,2.568716 -13.32944,2.568716 l -0.0128,0.01205 -0.0128,0.01205 c -0.0399,0.04145 -0.0762,0.08625 -0.10843,0.13402 l -0.001,0.0041 c -0.0331,0.04806 -0.0633,0.09854 -0.0876,0.151546 -0.0295,0.06387 -0.0518,0.131086 -0.069,0.199279 z"
+         id="path27240"
+         sodipodi:nodetypes="accccccsccccccccccaa" />
+      <path
+         style="fill:#ffffff;stroke:none;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         d="m 676.40654,64.992762 9.59189,-2.551096 0.39687,0.132292 -3.43958,10.78177 -4.69635,-4.564062 z"
+         id="path27948" />
+    </g>
+    <rect
+       style="stroke-width:1.30880683;stroke-miterlimit:4;stroke-dasharray:none;fill:#abc837;stroke:#f9f9f9;stroke-linecap:butt;stroke-dashoffset:0"
+       id="rect6123"
+       width="0.48112419"
+       height="159.97379"
+       x="474.14789"
+       y="28.145765"
+       transform="matrix(1.2950727,0,0,1.2950727,11.741393,-17.383085)" />
+    <rect
+       style="fill:#b3b3b3;stroke:none;stroke-width:0.740776;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+       id="rect20596-4"
+       width="10.631423"
+       height="13.297853"
+       x="620.94147"
+       y="216.32375"
+       ry="4.3798556" />
+    <g
+       id="g13591"
+       transform="translate(-342.29225,48.8311)" />
+    <g
+       id="g43384"
+       transform="translate(-341.89077,68.471473)" />
+    <rect
+       style="fill:#ffffff;stroke:none;stroke-width:0.665001;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+       id="rect47781"
+       width="18.042158"
+       height="18.042158"
+       x="71.654999"
+       y="153.48615"
+       ry="3.5296361"
+       inkscape:export-filename="C:\Projects\GameDev\Jams\tennis_rounds\assets\art-ish\player_body.png"
+       inkscape:export-xdpi="101.80151"
+       inkscape:export-ydpi="101.80151" />
+    <g
+       id="g49753"
+       inkscape:export-filename="C:\Projects\GameDev\Jams\tennis_rounds\assets\art-ish\player_body_shadow.png"
+       inkscape:export-xdpi="101.80151"
+       inkscape:export-ydpi="101.80151">
+      <rect
+         style="fill:none;stroke:none;stroke-width:0.665001;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+         id="rect49731"
+         width="18.042158"
+         height="18.042158"
+         x="73.110207"
+         y="179.15073"
+         ry="3.5296361"
+         inkscape:export-filename="C:\Projects\GameDev\Jams\tennis_rounds\assets\art-ish\player_body.png"
+         inkscape:export-xdpi="101.80151"
+         inkscape:export-ydpi="101.80151" />
+      <path
+         id="rect46864"
+         style="fill:#ffffff;stroke:none;stroke-width:0.665095;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+         d="m 73.169,194.31451 c 0.304285,1.64184 1.736975,2.87837 3.470038,2.87837 h 10.985955 c 1.543924,0 2.849619,-0.98153 3.331507,-2.35644 z" />
+    </g>
+    <g
+       id="g44832"
+       style="fill:none"
+       transform="translate(-380.80521,46.39501)"
+       inkscape:export-filename="C:\Projects\GameDev\Jams\tennis_rounds\assets\art-ish\face_happy.png"
+       inkscape:export-xdpi="101.80151"
+       inkscape:export-ydpi="101.80151">
+      <rect
+         style="fill:none;stroke:none;stroke-width:0.665001;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+         id="rect44718"
+         width="18.042158"
+         height="18.042158"
+         x="478.79822"
+         y="132.75572"
+         ry="3.5296361" />
+      <path
+         style="fill:none;stroke:#000000;stroke-width:0.613;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="m 493.0814,142.92003 c 0.29768,0.0319 -0.70536,4.27095 -4.22462,4.10011 -3.51927,-0.17084 -4.6502,-5.27077 -4.10012,-5.2003 5.83017,0.74694 7.63928,0.9904 8.32474,1.10019 z"
+         id="path43378"
+         sodipodi:nodetypes="cssc" />
+      <path
+         style="fill:none;stroke:#000000;stroke-width:0.665;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="m 493.1053,141.18112 c 0,0 -1.18777,-1.6238 -2.18009,-0.99232"
+         id="path43380" />
+      <path
+         style="fill:none;stroke:#000000;stroke-width:0.665;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="m 485.83415,140.28814 c 0,0 1.52078,-1.3171 2.34677,-0.47973"
+         id="path43382" />
+    </g>
+    <path
+       style="opacity:0.225092;fill:#1a1a1a;stroke:none;stroke-width:0.2043px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 359.28668,152.39755 H 373.128 v 0 l -1.12365,2.60482 c 0,0 -10.8279,0.71505 -11.08327,0.51075 -0.25538,-0.2043 -1.6344,-2.91127 -1.6344,-3.11557 -0.0349,-1.14204 0,0 0,0 z"
+       id="path44971"
+       transform="matrix(1.2950727,0,0,1.2950727,11.741393,-17.383085)"
+       sodipodi:nodetypes="ccccscc" />
+    <circle
+       style="opacity:1;fill:#ffffff;stroke:none;stroke-width:1.695;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+       id="circle48399"
+       cx="138.22499"
+       cy="162.86278"
+       r="6.9222808"
+       inkscape:export-filename="C:\Projects\GameDev\Jams\tennis_rounds\assets\art-ish\ball.png"
+       inkscape:export-xdpi="101.80151"
+       inkscape:export-ydpi="101.80151" />
+    <g
+       id="g49951">
+      <circle
+         style="opacity:1;fill:#ffffff;stroke:none;stroke-width:1.695;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+         id="circle49947"
+         cx="137.56354"
+         cy="187.73361"
+         r="6.9222808"
+         inkscape:export-filename="C:\Projects\GameDev\Jams\tennis_rounds\assets\art-ish\ball.png"
+         inkscape:export-xdpi="101.80151"
+         inkscape:export-ydpi="101.80151" />
+      <path
+         id="path48229"
+         style="opacity:1;fill:#000000;stroke:none;stroke-width:1.6963;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;paint-order:markers fill stroke"
+         d="m 132.23,192.155 a 6.9337355,6.9214245 0 0 0 5.3351,2.506 6.9337355,6.9214245 0 0 0 4.5799,-1.73044 z" />
+    </g>
+  </g>
+</svg>

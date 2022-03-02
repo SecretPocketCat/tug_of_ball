@@ -6,7 +6,7 @@ use bevy_inspector_egui::Inspectable;
 use heron::*;
 use rand::*;
 
-use crate::{WIN_WIDTH, WIN_HEIGHT, PhysLayer};
+use crate::{WIN_WIDTH, WIN_HEIGHT, PhysLayer, COURT_LINES_Z, COURT_Z};
 
 pub struct CourtSettings {
     // nice2have: replace by proper bounds
@@ -122,9 +122,9 @@ fn setup(
         (0., y, Vec2::new( width, thickness), Color::WHITE),
     ];
 
-    for (x, y, size, color) in lines.iter() {
+    for (i, (x, y, size, color)) in lines.iter().enumerate() {
         commands.spawn_bundle(SpriteBundle {
-            transform: Transform::from_xyz(*x, *y, 1.),
+            transform: Transform::from_xyz(*x, *y, COURT_LINES_Z + i as f32 * 0.1),
             sprite: Sprite {
                 color: *color,
                 custom_size: Some(*size),
@@ -147,7 +147,7 @@ fn setup(
 
     for (x, y, region) in sensors.iter() {
         commands.spawn_bundle(SpriteBundle {
-            transform: Transform::from_xyz(*x, *y, 0.),
+            transform: Transform::from_xyz(*x, *y, COURT_Z),
             sprite: Sprite {
                 color: Color::rgb_u8(170, 200, 55),
                 custom_size: Some(region_size.truncate() * 2.),

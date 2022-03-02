@@ -7,9 +7,9 @@ use heron::rapier_plugin::PhysicsWorld;
 use heron::*;
 use rand::*;
 
-use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer};
+use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer, BALL_Z};
 
-const BALL_SIZE: f32 = 30.;
+const BALL_SIZE: f32 = 35.;
 
 #[derive(Default, Component, Inspectable)]
 pub struct Ball {
@@ -61,7 +61,9 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    let region = CourtRegion::get_random();
+    let region = CourtRegion::TopLeft;
+    // let region = CourtRegion::get_random_left();
+    // let region = CourtRegion::get_random();
     spawn_ball(&mut commands, &asset_server, region, 0, region.get_player_id());
     commands.insert_resource(ServingRegion(region));
 }
@@ -212,6 +214,9 @@ fn handle_collisions(
                         ball.dir = dir * ball_speed_multiplier;
                         ball_bounce.velocity = get_bounce_velocity(dir.length(), ball_bounce.max_velocity);
 
+                        let rot = Quat::from_rotation_arc_2d(Vec2::Y, dir).to_euler(EulerRot::XYZ).2.to_degrees();
+                        debug!("Hit rot {:?}", rot);
+
                         match *status {
                             BallStatus::Serve(_, _, player_id) if player_id != player.id => {
                                 // vollied serve
@@ -311,13 +316,13 @@ pub fn spawn_ball(
     player_id: usize
 ) {
     let bounce = commands.spawn_bundle(SpriteBundle {
-        texture: asset_server.load("icon.png"),
+        texture: asset_server.load("art-ish/ball.png"),
         sprite: Sprite {
             color: Color::YELLOW,
-            custom_size: Some(Vec2::splat(BALL_SIZE)),
+            custom_size: Some(Vec2::ONE * BALL_SIZE),
             ..Default::default()
         },
-        transform: Transform::from_xyz(0., 0., 2.),
+        transform: Transform::from_xyz(0., 0., 0.5),
         ..Default::default()
         }).insert(BallBounce {
             gravity: -420.,
@@ -327,10 +332,14 @@ pub fn spawn_ball(
         .id();
 
     let shadow = commands.spawn_bundle(SpriteBundle {
-        texture: asset_server.load("icon.png"),
+        texture: asset_server.load("art-ish/ball.png"),
         sprite: Sprite {
-            color: Color::BLACK,
-            custom_size: Some(Vec2::splat(BALL_SIZE * 0.7)),
+            color: Color::rgba(0., 0., 0., 0.5),
+            custom_size: Some(Vec2::new(1.0, 0.5) * BALL_SIZE),
+            ..Default::default()
+        },
+        transform: Transform {
+            translation: Vec3::new(0., -13., -0.5),
             ..Default::default()
         },
         ..Default::default()
@@ -342,7 +351,7 @@ pub fn spawn_ball(
     let y = rng.gen_range(120..=280) as f32;
     let y = if serve_region.is_bottom() { -y } else { y };
     commands.spawn()
-        .insert(Transform::from_xyz(x, y, 0.))
+        .insert(Transform::from_xyz(x, y, BALL_Z))
         .insert(GlobalTransform::default())
         .insert(Ball {
             size: BALL_SIZE,

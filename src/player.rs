@@ -10,7 +10,7 @@ use bevy_tweening::*;
 use heron::rapier_plugin::{PhysicsWorld, rapier2d::prelude::{RigidBodyActivation, ColliderSet}};
 use heron::*;
 
-use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion, TransformBundle};
+use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion, TransformBundle, PLAYER_Z};
 
 #[derive(Inspectable, Clone, Copy)]
 pub enum ActionStatus<TActiveData: Default> {
@@ -260,7 +260,7 @@ fn setup(
         .id();
 
         let player_e = commands
-        .spawn_bundle(TransformBundle::from_xyz(x, 0., 0.))
+        .spawn_bundle(TransformBundle::from_xyz(x, 0., PLAYER_Z))
         .insert_bundle(PlayerBundle::new(
             i, 
             if is_left { Vec2::X } else { -Vec2::X },
@@ -281,6 +281,7 @@ fn setup(
                     color: Color::rgba(1., 1., 1., 0.5),
                     ..Default::default()
                 },
+                transform: Transform::from_xyz(0., 0., -0.5),
                 ..Default::default()
             }).insert(TransformRotation(rotation_speed.to_radians()));
 
@@ -291,7 +292,7 @@ fn setup(
                 // aim arrow
                 b.spawn_bundle(SpriteBundle {
                     texture: asset_server.load("art-ish/aim_arrow.png"),
-                    transform: Transform::from_xyz(0., 135., 0.),
+                    transform: Transform::from_xyz(0., 135., -0.4),
                     sprite: Sprite {
                         color: Color::rgba(1., 1., 1., 0.5),
                         ..Default::default()
@@ -300,23 +301,8 @@ fn setup(
                 });
             });
 
-            // shadow
-            b.spawn_bundle(SpriteBundle {
-                texture: asset_server.load("art-ish/player_body.png"),
-                sprite: Sprite {
-                    color: Color::rgba(0., 0., 0., 0.5),
-                    ..Default::default()
-                },
-                transform: Transform {
-                    scale: Vec3::new(1.0, 0.5, 2.),
-                    translation: Vec3::Y * -25.,
-                    ..Default::default()
-                },
-                ..Default::default()
-            });
-
             // body root
-            body_root_e = Some(b.spawn_bundle(TransformBundle::from_xyz(0., 0., 3.))
+            body_root_e = Some(b.spawn_bundle(TransformBundle::from_xyz(0., 0., 0.))
             .add_child(face_e)
             .with_children(|b| {
                 // body
@@ -324,6 +310,32 @@ fn setup(
                     texture: asset_server.load("art-ish/player_body.png"),
                     ..Default::default()
                 }).insert(Animator::<Transform>::default())
+                .with_children(|b| {
+                    // shadow
+                    b.spawn_bundle(SpriteBundle {
+                        texture: asset_server.load("art-ish/player_body.png"),
+                        sprite: Sprite {
+                            color: Color::rgba(0., 0., 0., 0.5),
+                            ..Default::default()
+                        },
+                        transform: Transform {
+                            scale: Vec3::new(1.0, 0.5, 1.),
+                            translation: Vec3::new(0., -25., -0.6),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+
+                    // b.spawn_bundle(SpriteBundle {
+                    //     texture: asset_server.load("art-ish/player_body_shadow.png"),
+                    //     sprite: Sprite {
+                    //         color: Color::rgba(0., 0., 0., 0.2),
+                    //         ..Default::default()
+                    //     },
+                    //     transform: Transform::from_xyz(0., 0., 1.),
+                    //     ..Default::default()
+                    //     });
+                })
                 .id());
             }).insert(Animator::<Transform>::default())
             .id());
@@ -589,7 +601,7 @@ fn animate(
             let mut stop_anim_entities: Vec::<Entity> = Vec::new();
             let mut body_root_tween = None;
 
-            info!("anim change to {:?}", anim.animation);
+            debug!("anim change to {:?}", anim.animation);
             match anim.animation {
                 // todo: set the proper face sprite for each anim
 
@@ -598,6 +610,7 @@ fn animate(
                     stop_anim_entities.push(anim.body_e);
                     stop_anim_entities.push(anim.body_root_e);
                     
+                    // todo: dashing tween?
                     // if let Ok((mut animator, t)) = animator_q.get_mut(anim.body_e) {
                     //     animator.set_tweenable(get_dash_tween(t));
                     //     animator.rewind();
@@ -608,13 +621,13 @@ fn animate(
                     stop_anim_entities.push(anim.body_root_e);
 
                     if let Ok((mut animator, t)) = animator_q.get_mut(anim.face_e) {
-                        animator.set_tweenable(get_idle_face_tween());
+                        animator.set_tweenable(get_idle_face_tween(t.translation.z));
                         animator.rewind();
                         animator.state = AnimatorState::Playing;
                     }
                     
                     if let Ok((mut animator, t)) = animator_q.get_mut(anim.body_e) {
-                        animator.set_tweenable(get_idle_body_tween());
+                        animator.set_tweenable(get_idle_body_tween(t.translation.z));
                         animator.rewind();
                         animator.state = AnimatorState::Playing;
                     }
@@ -665,7 +678,7 @@ fn get_move_tween(
         Duration::from_millis(walk_cycle_ms / 2),
         TransformPositionLens {
             start: Vec3::ZERO,
-            end: Vec3::new(0., pos_y, 3.),
+            end: Vec3::new(0., pos_y, 0.),
         },
     );
     let body_walk_rotation_tween = Tween::new(
@@ -689,7 +702,7 @@ fn get_reset_trans_tween(
         duration_ms,
         TransformPositionLens {
         start: transform.translation,
-        end: Vec3::new(1., 1., transform.translation.z),
+        end: Vec3::new(0., 0., transform.translation.z),
     });
 
     let scale_tween = get_reset_tween(
@@ -720,30 +733,25 @@ fn get_reset_tween<T, L: Lens<T> + Send + Sync + 'static>(
     )
 }
 
-fn get_idle_face_tween() -> Tween<Transform> {
-    let pos_lens = TransformPositionLens {
-        start: Vec3::ZERO,
-        end: Vec3::new(0., -4., 0.),
-    };
+fn get_idle_face_tween(z: f32) -> Tween<Transform> {
     Tween::new(
         EaseFunction::QuadraticInOut,
         TweeningType::PingPong,
         Duration::from_millis(400),
-        pos_lens.clone(),
+        TransformPositionLens {
+            start: Vec3::ZERO,
+            end: Vec3::new(0., -4., z),
+        },
     )
 }
 
-fn get_idle_body_tween() -> Tracks<Transform> {
-    let pos_lens = TransformPositionLens {
-        start: Vec3::ZERO,
-        end: Vec3::new(0., -4., 0.),
-    };
+fn get_idle_body_tween(z: f32) -> Tracks<Transform> {
     let body_idle_size_tween = Tween::new(
         EaseFunction::QuadraticInOut,
         TweeningType::PingPong,
         Duration::from_millis(400),
         TransformScaleLens {
-            start: Vec2::ONE.to_vec3(),
+            start: Vec3::ONE,
             end: Vec2::new(1.075, 0.925).to_vec3(),
         }
     );
@@ -751,7 +759,10 @@ fn get_idle_body_tween() -> Tracks<Transform> {
         EaseFunction::QuadraticInOut,
         TweeningType::PingPong,
         Duration::from_millis(400),
-        pos_lens.clone(),
+        TransformPositionLens {
+            start: Vec2::ZERO.extend(z),
+            end: Vec3::new(0., -4., z),
+        },
     );
     
     Tracks::new([body_idle_size_tween, body_idle_pos_tween])
