@@ -115,6 +115,8 @@ fn setup_bindings(
     mut map: ResMut<ActionMap<InputAction, InputAxis>>,
     mut gamepad_map: ResMut<GamepadMap>,
 ) -> Result<(), BindingError> {
+    let deadzone = 0.05;
+
     for id in 1..=2 {
         map
         .bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger)?
@@ -129,35 +131,35 @@ fn setup_bindings(
                 id,
                 InputAxis::MoveX,
                 AxisBinding::GamepadAxis(GamepadAxisType::LeftStickX),
-                0.2
+                deadzone
             )
             .bind_axis_with_deadzone(
                 id,
                 InputAxis::MoveX,
                 AxisBinding::GamepadAxis(GamepadAxisType::DPadX),
-                0.2
+                deadzone
             )
             .bind_axis_with_deadzone(
                 id,
                 InputAxis::MoveY,
                 AxisBinding::GamepadAxis(GamepadAxisType::LeftStickY),
-                0.2
+                deadzone
             )
             .bind_axis_with_deadzone(
                 id,
                 InputAxis::MoveY,
                 AxisBinding::GamepadAxis(GamepadAxisType::DPadY),
-                0.2
+                deadzone
             ).bind_axis_with_deadzone(
                 id,
                 InputAxis::AimX,
                 AxisBinding::GamepadAxis(GamepadAxisType::RightStickX),
-                0.2
+                deadzone
             ).bind_axis_with_deadzone(
                 id,
                 InputAxis::AimY,
                 AxisBinding::GamepadAxis(GamepadAxisType::RightStickY),
-                0.2
+                deadzone
             );
 
         gamepad_map.map_gamepad(id - 1, id);
@@ -212,4 +214,8 @@ fn set_img_sampler_filter(
             _ => { }
         }
     }
+}
+
+fn inverse_lerp(a: f32, b: f32, t: f32) -> f32 {
+    (t - a) / (b - a)
 }

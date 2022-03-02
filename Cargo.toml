@@ -11,7 +11,8 @@ bevy_extensions = { git = "https://github.com/SecretPocketCat/bevy_extensions" }
 bevy_time = { git = "https://github.com/SecretPocketCat/bevy_time" }
 serde = { version = "1.0.130", features = ["derive"] }
 rand = "0.8.5"
-bevy_tweening = "*"
+bevy_tweening = "0.3.2"
+interpolation = "0.2.0"
 bevy-inspector-egui = { version = "0.8.2" }
 heron = { version = "2.0.1", features = ["2d"] }
 # heron = { version = "2.0.1", features = ["2d", "debug-2d"] }

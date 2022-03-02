@@ -7,10 +7,11 @@ use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 use bevy_tweening::lens::{TransformRotationLens, TransformScaleLens, TransformPositionLens};
 use bevy_tweening::*;
-use heron::rapier_plugin::{PhysicsWorld, rapier2d::prelude::{RigidBodyActivation, ColliderSet}};
+use interpolation::{Ease, EaseFunction};
+use heron::rapier_plugin::{PhysicsWorld, rapier2d::prelude::{RigidBodyActivation, ColliderSet}, nalgebra::ComplexField};
 use heron::*;
 
-use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion, TransformBundle, PLAYER_Z, tween::TweenDoneAction};
+use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion, TransformBundle, PLAYER_Z, tween::TweenDoneAction, inverse_lerp};
 
 #[derive(Inspectable, Clone, Copy)]
 pub enum ActionStatus<TActiveData: Default> {
@@ -89,7 +90,9 @@ impl Player {
 pub struct PlayerMovement {
     speed: f32,
     charging_speed: f32,
-    ease: f32,
+    easing_time: f32,
+    time_to_max_speed: f32,
+    last_non_zero_raw_dir: Vec2,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -187,6 +190,7 @@ impl PlayerBundle {
             movement: PlayerMovement {
                 speed: 550.,
                 charging_speed: 125.,
+                time_to_max_speed: 0.11,
                 ..Default::default()
             },
             dash: PlayerDash {
@@ -368,7 +372,6 @@ fn setup(
     });
 }
 
-// todo: movement lerp
 // nice2have: lerp dash
 fn move_player(
     input: Res<PlayerInput>,
@@ -382,8 +385,9 @@ fn move_player(
             let swing_ready = matches!(player_swing.status, ActionStatus::Ready);
             let charging = swing_ready && input.held(player.id, InputAction::Swing);
             let speed = if charging { player_movement.charging_speed } else { player_movement.speed };
-            let mut move_by = (dir_raw * speed).to_vec3();
             let mut dashing = false;
+            let dir = if dir_raw != Vec2::ZERO { dir_raw } else { player_movement.last_non_zero_raw_dir };
+            let mut move_by = (dir * speed).to_vec3();
     
             if input.just_pressed(player.id, InputAction::Dash) {
                 if let ActionStatus::Ready = player_dash.status {
@@ -407,11 +411,24 @@ fn move_player(
             else if input.held(player.id, InputAction::LockPosition) {
                 move_by = Vec3::ZERO;
             }
-    
-            let res_pos = t.translation + move_by * time.scaled_delta_seconds();
-            if res_pos.x.signum() == t.translation.x.signum() {
-                if move_by.truncate() != Vec2::ZERO {
-                    t.translation = res_pos;
+            
+            let mut final_pos = t.translation + move_by * time.scaled_delta_seconds();
+            
+            if !dashing {
+                // easing
+                let ease_time_delta = if dir_raw == Vec2::ZERO { -time.scaled_delta_seconds() } else { time.scaled_delta_seconds() };
+                player_movement.easing_time += ease_time_delta;
+                player_movement.easing_time = player_movement.easing_time.clamp(0., player_movement.time_to_max_speed);
+
+                let ease_t = inverse_lerp(0., player_movement.time_to_max_speed, player_movement.easing_time).calc(EaseFunction::QuadraticOut);
+                final_pos = t.translation.lerp(final_pos, ease_t);
+            }
+            else {
+                player_movement.easing_time = player_movement.time_to_max_speed;
+            }
+
+            if final_pos.x.signum() == t.translation.x.signum() {
+                if (final_pos - t.translation).length().abs() > 0.1 {
                     if !dashing {
                         if charging && p_anim.animation != PlayerAnimation::Walking {
                             p_anim.animation = PlayerAnimation::Walking;
@@ -421,9 +438,21 @@ fn move_player(
                         }
                     }
                 }
-                else if p_anim.animation != PlayerAnimation::Idle {
-                    p_anim.animation = PlayerAnimation::Idle;
+                else {
+                    if p_anim.animation != PlayerAnimation::Idle {
+                        p_anim.animation = PlayerAnimation::Idle;
+                    }
                 }
+
+                t.translation = final_pos;
+            }
+            else {
+                player_movement.easing_time = 0.;
+            }
+
+
+            if dir_raw != Vec2::ZERO {
+                player_movement.last_non_zero_raw_dir = dir_raw;
             }
         }
     }
