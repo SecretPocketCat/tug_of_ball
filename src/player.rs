@@ -71,6 +71,7 @@ struct PlayerAnimationData {
 #[derive(Component, Inspectable)]
 pub struct Player {
     pub(crate) id: usize,
+    pub(crate) aim_e: Entity,
     side: f32,
 }
 
@@ -88,9 +89,7 @@ impl Player {
 pub struct PlayerMovement {
     speed: f32,
     charging_speed: f32,
-    pub(crate) last_dir: Vec2,
-    movement_ease: f32,
-    rotation_ease: f32,
+    ease: f32,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -112,7 +111,7 @@ pub struct PlayerScore {
 
 #[derive(Default, Component, Inspectable)]
 pub struct PlayerAim {
-    direction: Vec2,
+    pub(crate) direction: Vec2,
 }
 
 // nice2have: macro?
@@ -177,14 +176,15 @@ pub struct PlayerBundle {
 impl PlayerBundle {
     fn new(
         id: usize,
-        initial_dir: Vec2) -> Self {
+        initial_dir: Vec2,
+        aim_e: Entity) -> Self {
         Self {
             player: Player { 
                 id: id,
                 side: -initial_dir.x.signum(),
+                aim_e,
             },
             movement: PlayerMovement {
-                last_dir: initial_dir,
                 speed: 550.,
                 charging_speed: 125.,
                 ..Default::default()
@@ -245,6 +245,8 @@ fn setup(
         let x = WIN_WIDTH / 2.- 100.;
         let x = if i == 1 { -x } else { x }; 
         let is_left = x < 0.;
+        let initial_dir = if is_left { Vec2::X } else { -Vec2::X };
+
         let mut body_e = None;
         let mut body_root_e = None;
 
@@ -259,11 +261,31 @@ fn setup(
         }).insert(Animator::<Transform>::default())
         .id();
 
+         // aim
+         let aim_e = commands.spawn_bundle(TransformBundle::default())
+         .insert(PlayerAim {
+             direction: initial_dir,
+             ..Default::default()
+         })
+         .with_children(|b| {
+             // aim arrow
+             b.spawn_bundle(SpriteBundle {
+                 texture: asset_server.load("art-ish/aim_arrow.png"),
+                 transform: Transform::from_xyz(0., 135., -0.4),
+                 sprite: Sprite {
+                     color: Color::rgba(1., 1., 1., 0.5),
+                     ..Default::default()
+                 },
+                 ..Default::default()
+             });
+         }).id();
+
         let player_e = commands
         .spawn_bundle(TransformBundle::from_xyz(x, 0., PLAYER_Z))
         .insert_bundle(PlayerBundle::new(
             i, 
-            if is_left { Vec2::X } else { -Vec2::X },
+            initial_dir,
+            aim_e,
         ))
         .insert(RigidBody::KinematicPositionBased)
         .insert(CollisionShape::Sphere {
@@ -271,6 +293,7 @@ fn setup(
         })
         .insert(CollisionLayers::none())
         .insert(Name::new("Player"))
+        .add_child(aim_e)
         .with_children(|b| {
             // circle
             let rotation_speed: f32 = 15.0;
@@ -284,22 +307,6 @@ fn setup(
                 transform: Transform::from_xyz(0., 0., -0.5),
                 ..Default::default()
             }).insert(TransformRotation(rotation_speed.to_radians()));
-
-            // aim
-            b.spawn_bundle(TransformBundle::default())
-            .insert(PlayerAim::default())
-            .with_children(|b| {
-                // aim arrow
-                b.spawn_bundle(SpriteBundle {
-                    texture: asset_server.load("art-ish/aim_arrow.png"),
-                    transform: Transform::from_xyz(0., 135., -0.4),
-                    sprite: Sprite {
-                        color: Color::rgba(1., 1., 1., 0.5),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                });
-            });
 
             // body root
             body_root_e = Some(b.spawn_bundle(TransformBundle::from_xyz(0., 0., 0.))
@@ -361,60 +368,62 @@ fn setup(
     });
 }
 
-// todo: movement lerp + rotation lerp
-// possibly during dash as well
+// todo: movement lerp
+// nice2have: lerp dash
 fn move_player(
     input: Res<PlayerInput>,
     mut query: Query<(&Player, &mut PlayerMovement, &mut PlayerDash, &mut Transform, &PlayerSwing, &mut PlayerAnimationData)>,
+    aim_q: Query<(&PlayerAim, &Parent)>,
     time: ScaledTime,
 ) {
-    for (player, mut player_movement, mut player_dash, mut t, player_swing, mut p_anim) in query.iter_mut() {
-        let dir = input.get_xy_axes(player.id, &InputAxis::X, &InputAxis::Y);
-        let swing_ready = matches!(player_swing.status, ActionStatus::Ready);
-        let charging = swing_ready && input.held(player.id, InputAction::Swing);
-        let speed = if charging { player_movement.charging_speed } else { player_movement.speed };
-        let mut move_by = (dir * speed).to_vec3();
-        let mut dashing = false;
-
-        if input.just_pressed(player.id, InputAction::Dash) {
-            if let ActionStatus::Ready = player_dash.status {
-                player_dash.status = ActionStatus::Active(if dir != Vec2::ZERO { dir } else { player_movement.last_dir });
-                player_dash.timer = Timer::from_seconds(player_dash.duration_sec, false);
-                p_anim.animation = PlayerAnimation::Dashing;
-                dashing = true;
-            }
-        }
-
-        if let ActionStatus::Active(dir) = player_dash.status {
-            if !player_dash.timer.finished() {
-                move_by = (dir * player_dash.speed).to_vec3();
-                dashing = true;
-            }
-            else {
-                p_anim.animation = PlayerAnimation::Idle;
-            }
-        }
-        else if input.held(player.id, InputAction::LockPosition) {
-            move_by = Vec3::ZERO;
-        }
-
-        let res_pos = t.translation + move_by * time.scaled_delta_seconds();
-        if res_pos.x.signum() == t.translation.x.signum() {
-            if move_by.truncate() != Vec2::ZERO {
-                t.translation = res_pos;
-                player_movement.last_dir = move_by.truncate().normalize_or_zero();
-
-                if !dashing {
-                    if charging && p_anim.animation != PlayerAnimation::Walking {
-                        p_anim.animation = PlayerAnimation::Walking;
-                    }
-                    else if !charging && p_anim.animation != PlayerAnimation::Running {
-                        p_anim.animation = PlayerAnimation::Running;
-                    }
+    for (p_aim, parent) in aim_q.iter() {
+        if let Ok((player, mut player_movement, mut player_dash, mut t, player_swing, mut p_anim)) = query.get_mut(parent.0) {
+            let dir_raw = input.get_xy_axes_raw(player.id, &InputAxis::MoveX, &InputAxis::MoveY);
+            let swing_ready = matches!(player_swing.status, ActionStatus::Ready);
+            let charging = swing_ready && input.held(player.id, InputAction::Swing);
+            let speed = if charging { player_movement.charging_speed } else { player_movement.speed };
+            let mut move_by = (dir_raw * speed).to_vec3();
+            let mut dashing = false;
+    
+            if input.just_pressed(player.id, InputAction::Dash) {
+                if let ActionStatus::Ready = player_dash.status {
+                    let dir = dir_raw.normalize_or_zero();
+                    player_dash.status = ActionStatus::Active(if dir != Vec2::ZERO { dir } else { p_aim.direction });
+                    player_dash.timer = Timer::from_seconds(player_dash.duration_sec, false);
+                    p_anim.animation = PlayerAnimation::Dashing;
+                    dashing = true;
                 }
             }
-            else if p_anim.animation != PlayerAnimation::Idle {
-                p_anim.animation = PlayerAnimation::Idle;
+    
+            if let ActionStatus::Active(dash_dir) = player_dash.status {
+                if !player_dash.timer.finished() {
+                    move_by = (dash_dir * player_dash.speed).to_vec3();
+                    dashing = true;
+                }
+                else {
+                    p_anim.animation = PlayerAnimation::Idle;
+                }
+            }
+            else if input.held(player.id, InputAction::LockPosition) {
+                move_by = Vec3::ZERO;
+            }
+    
+            let res_pos = t.translation + move_by * time.scaled_delta_seconds();
+            if res_pos.x.signum() == t.translation.x.signum() {
+                if move_by.truncate() != Vec2::ZERO {
+                    t.translation = res_pos;
+                    if !dashing {
+                        if charging && p_anim.animation != PlayerAnimation::Walking {
+                            p_anim.animation = PlayerAnimation::Walking;
+                        }
+                        else if !charging && p_anim.animation != PlayerAnimation::Running {
+                            p_anim.animation = PlayerAnimation::Running;
+                        }
+                    }
+                }
+                else if p_anim.animation != PlayerAnimation::Idle {
+                    p_anim.animation = PlayerAnimation::Idle;
+                }
             }
         }
     }
@@ -422,40 +431,58 @@ fn move_player(
 
 fn aim(
     input: Res<PlayerInput>,
-    player_q: Query<(&Player, &PlayerMovement, &PlayerAnimationData)>,
+    player_q: Query<(&Player, &PlayerAnimationData)>,
     mut aim_q: Query<(&mut PlayerAim, &mut Transform, &Parent)>,
     mut face_q: Query<&mut Transform, Without<PlayerAim>>,
     time: ScaledTime,
 ) {
-    for (aim, mut aim_t, aim_parent) in aim_q.iter_mut() {
-        if let Ok((p, p_movement, p_anim)) = player_q.get(aim_parent.0) {
-            let mut input_dir = input.get_xy_axes(p.id, &InputAxis::X, &InputAxis::Y);
-
-            if input_dir == Vec2::ZERO {
-                input_dir = p_movement.last_dir;
+    for (mut aim, mut aim_t, aim_parent) in aim_q.iter_mut() {
+        if let Ok((p, p_anim)) = player_q.get(aim_parent.0) {
+            // start with aim dir
+            let mut dir_raw = input.get_xy_axes_raw(p.id, &InputAxis::AimX, &InputAxis::AimY);
+            if dir_raw == Vec2::ZERO {
+                // fallback to movement dir
+                dir_raw = input.get_xy_axes_raw(p.id, &InputAxis::MoveX, &InputAxis::MoveY);
             }
-    
+            
+            let mut dir = dir_raw.normalize_or_zero();
+
+            if dir == Vec2::ZERO {
+                continue;
+            }
+
             let clamp_x = 1.;
             let clamp_y = 0.8;
             let player_x_sign = p.get_sign();
     
-            if input_dir == Vec2::new(player_x_sign, 0.) {
+            if dir == Vec2::new(player_x_sign, 0.) {
                 // player aiming into their court/backwards - just aim straight
-                input_dir = Vec2::new(-player_x_sign, 0.);
+                dir = Vec2::new(-player_x_sign, 0.);
             }
             else if player_x_sign < 0. {
-                input_dir = input_dir.clamp(Vec2::new(clamp_x, -clamp_y), Vec2::new(clamp_x, clamp_y));
+                dir = dir.clamp(Vec2::new(clamp_x, -clamp_y), Vec2::new(clamp_x, clamp_y));
             }
             else {
-                input_dir = input_dir.clamp(Vec2::new(-clamp_x, -clamp_y), Vec2::new(-clamp_x, clamp_y));
+                dir = dir.clamp(Vec2::new(-clamp_x, -clamp_y), Vec2::new(-clamp_x, clamp_y));
             }
 
             // nice2have: extract this to extensions
-            aim_t.rotation = Quat::from_axis_angle(-Vec3::Z, input_dir.angle_between(Vec2::Y));
+            let target_rotation = Quat::from_axis_angle(-Vec3::Z, dir.angle_between(Vec2::Y));
+            let limit = 260f32.to_radians() * time.scaled_delta_seconds() * dir_raw.length();
+            if target_rotation.angle_between(aim_t.rotation) <= limit {
+                aim_t.rotation = Quat::from_axis_angle(-Vec3::Z, dir.angle_between(Vec2::Y));
+            }
+            else {
+                let rotate_by = if target_rotation.to_euler(EulerRot::XYZ).2 > aim_t.rotation.to_euler(EulerRot::XYZ).2 { limit } else { -limit };
+                aim_t.rotate(Quat::from_rotation_z(rotate_by));
+            }
+
+            let clamped_dir = aim_t.rotation * Vec3::Y;
+            aim.direction = clamped_dir.truncate();
 
             if let Ok(mut face_t) = face_q.get_mut(p_anim.face_e) {
                 let axis = if p.is_left() { Vec2::X } else { -Vec2::X };
-                face_t.rotation = Quat::from_axis_angle(-Vec3::Z, input_dir.angle_between(axis) * 0.25);
+                face_t.rotation = Quat::from_axis_angle(-Vec3::Z, aim.direction.angle_between(axis) * 0.25);
             }
         }
     }

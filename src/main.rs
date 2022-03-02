@@ -41,8 +41,10 @@ enum InputAction {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 enum InputAxis {
-    X,
-    Y,
+    MoveX,
+    MoveY,
+    AimX,
+    AimY,
 }
 
 type PlayerInput = ActionInput<InputAction, InputAxis>;
@@ -121,30 +123,40 @@ fn setup_bindings(
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::West)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::East)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::North)?
+            .bind_button_action(id, InputAction::Swing, GamepadButtonType::LeftTrigger2)?
             .bind_button_action(id, InputAction::LockPosition, GamepadButtonType::LeftTrigger)?
-            .bind_button_action(id, InputAction::LockPosition, GamepadButtonType::LeftTrigger2)?
             .bind_axis_with_deadzone(
                 id,
-                InputAxis::X,
+                InputAxis::MoveX,
                 AxisBinding::GamepadAxis(GamepadAxisType::LeftStickX),
                 0.2
             )
             .bind_axis_with_deadzone(
                 id,
-                InputAxis::X,
+                InputAxis::MoveX,
                 AxisBinding::GamepadAxis(GamepadAxisType::DPadX),
                 0.2
             )
             .bind_axis_with_deadzone(
                 id,
-                InputAxis::Y,
+                InputAxis::MoveY,
                 AxisBinding::GamepadAxis(GamepadAxisType::LeftStickY),
                 0.2
             )
             .bind_axis_with_deadzone(
                 id,
-                InputAxis::Y,
+                InputAxis::MoveY,
                 AxisBinding::GamepadAxis(GamepadAxisType::DPadY),
+                0.2
+            ).bind_axis_with_deadzone(
+                id,
+                InputAxis::AimX,
+                AxisBinding::GamepadAxis(GamepadAxisType::RightStickX),
+                0.2
+            ).bind_axis_with_deadzone(
+                id,
+                InputAxis::AimY,
+                AxisBinding::GamepadAxis(GamepadAxisType::RightStickY),
                 0.2
             );
 
@@ -158,12 +170,12 @@ fn setup_bindings(
         .bind_button_action(1, InputAction::Swing, KeyCode::J)?
         .bind_axis(
             1,
-            InputAxis::X,
+            InputAxis::MoveX,
             AxisBinding::Buttons(KeyCode::A.into(), KeyCode::D.into()),
         )
         .bind_axis(
             1,
-            InputAxis::Y,
+            InputAxis::MoveY,
             AxisBinding::Buttons(KeyCode::S.into(), KeyCode::W.into()),
         );
 
@@ -172,12 +184,12 @@ fn setup_bindings(
         .bind_button_action(2, InputAction::Swing, KeyCode::NumpadAdd)?
         .bind_axis(
             2,
-            InputAxis::X,
+            InputAxis::MoveX,
             AxisBinding::Buttons(KeyCode::Left.into(), KeyCode::Right.into()),
         )
         .bind_axis(
             2,
-            InputAxis::Y,
+            InputAxis::MoveY,
             AxisBinding::Buttons(KeyCode::Down.into(), KeyCode::Up.into()),
         );
     
