@@ -17,6 +17,7 @@ use score::ScorePlugin;
 use serde::{Serialize, Deserialize};
 use player::{PlayerPlugin, Player, PlayerMovement, PlayerDash, PlayerSwing};
 use ball::{BallPlugin, Ball, BallBounce};
+use tween::TweenPlugin;
 use wall::WallPlugin;
 
 mod player;
@@ -25,6 +26,7 @@ mod wall;
 mod debug;
 mod score;
 mod level;
+mod tween;
 
 const NAME: &str = "Tennis Rounds";
 const WIN_WIDTH: f32 = 1600.;
@@ -92,6 +94,7 @@ fn main() {
         .add_plugin(PlayerPlugin)
         .add_plugin(BallPlugin)
         .add_plugin(ScorePlugin)
+        .add_plugin(TweenPlugin)
         // .add_plugin(WallPlugin)
         .add_plugin(LevelPlugin)
         .add_plugin(DebugPlugin)

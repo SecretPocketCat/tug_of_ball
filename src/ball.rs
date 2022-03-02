@@ -1,13 +1,17 @@
+use std::time::Duration;
+
 use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2};
 use bevy_extensions::Vec2Conversion;
 use bevy_input::ActionInput;
 use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
+use bevy_tweening::lens::{TransformPositionLens, TransformScaleLens};
+use bevy_tweening::*;
 use heron::rapier_plugin::PhysicsWorld;
 use heron::*;
 use rand::*;
 
-use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer, BALL_Z};
+use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer, BALL_Z, TransformBundle};
 
 const BALL_SIZE: f32 = 35.;
 
@@ -350,8 +354,14 @@ pub fn spawn_ball(
     let x = if serve_region.is_left() { -x } else { x };
     let y = rng.gen_range(120..=280) as f32;
     let y = if serve_region.is_bottom() { -y } else { y };
-    commands.spawn()
-        .insert(Transform::from_xyz(x, y, BALL_Z))
+    commands.spawn_bundle(TransformBundle {
+        transform: Transform {
+            translation: Vec3::new(x, y, BALL_Z),
+            scale: Vec3::ZERO,
+            ..Default::default()
+        },
+        ..Default::default()
+    })
         .insert(GlobalTransform::default())
         .insert(Ball {
             size: BALL_SIZE,
@@ -368,7 +378,15 @@ pub fn spawn_ball(
         .insert(CollisionLayers::all::<PhysLayer>())
         .insert(Name::new("Ball"))
         .add_child(bounce)
-        .add_child(shadow);
-
-    // todo: tween
+        .add_child(shadow)
+        .insert(Animator::new(
+            Delay::new(Duration::from_millis(500)).then(Tween::new(
+            EaseFunction::BackOut,
+            TweeningType::Once,
+            Duration::from_millis(450),
+            TransformScaleLens {
+                start: Vec2::ZERO.extend(1.),
+                end: Vec3::ONE,
+            }
+        )) ));
 }

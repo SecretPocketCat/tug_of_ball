@@ -10,7 +10,7 @@ use bevy_tweening::*;
 use heron::rapier_plugin::{PhysicsWorld, rapier2d::prelude::{RigidBodyActivation, ColliderSet}};
 use heron::*;
 
-use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion, TransformBundle, PLAYER_Z};
+use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion, TransformBundle, PLAYER_Z, tween::TweenDoneAction};
 
 #[derive(Inspectable, Clone, Copy)]
 pub enum ActionStatus<TActiveData: Default> {
@@ -498,12 +498,12 @@ fn on_ball_bounced(
     mut commands: Commands,
     mut ev_r_ball_bounced: EventReader<BallBouncedEvt>,
     mut player_q: Query<(&Player, &mut PlayerScore)>,
-    mut ball_q: Query<(&Ball, &mut BallStatus)>,
+    mut ball_q: Query<(&Ball, &mut BallStatus, &Transform)>,
     asset_server: Res<AssetServer>,
     mut serving_region: ResMut<ServingRegion>,
 ) {
     for ev in ev_r_ball_bounced.iter() {
-        if let Ok((ball, mut status)) = ball_q.get_mut(ev.ball_e.clone()){
+        if let Ok((ball, mut status, ball_t)) = ball_q.get_mut(ev.ball_e.clone()){
             let ball_res = match *status {
                 BallStatus::Fault(count, player_id) => {
                     // tofix: rarely a double fault is a false positive
@@ -558,8 +558,17 @@ fn on_ball_bounced(
                 }
 
                 *status = BallStatus::Used;
-                commands.entity(ev.ball_e).despawn_recursive();
+                // commands.entity(ev.ball_e).despawn_recursive();
                 // todo: tween out and destroy the ball
+                commands.entity(ev.ball_e).insert(Animator::new(Tween::new(
+                    EaseFunction::QuadraticIn,
+                    TweeningType::Once,
+                    Duration::from_millis(450),
+                    TransformScaleLens {
+                        start: ball_t.scale,
+                        end: Vec3::ZERO,
+                    }
+                ).with_completed_event(true, TweenDoneAction::DespawnRecursive.into())));
 
                 if swap_serve {
                     serving_region.0 = if serving_region.0.is_left() { CourtRegion::get_random_right() } else { CourtRegion::get_random_left() };

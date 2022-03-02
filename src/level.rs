@@ -114,7 +114,7 @@ fn setup(
         // horizonal split
         (0., 0., Vec2::new(width, thickness), Color::WHITE),
         // net
-        (0., 0., Vec2::new(thickness * 1.5, height), Color::BLACK),
+        (0., 0., Vec2::new(thickness * 1.5, height), Color::WHITE),
         // sidelines
         (-x, 0., Vec2::new(thickness, height), Color::WHITE),
         (x, 0., Vec2::new(thickness, height), Color::WHITE),
