@@ -98,9 +98,10 @@ fn movement(
         t.translation += ball.dir.to_vec3() * ball.speed * time.scaled_delta_seconds();
 
         if t.translation.x.signum() != ball.prev_pos.x.signum() {
-            let mut bounce = bounce_q.get_mut(ball.bounce_e.unwrap()).unwrap();
-            bounce.count = 0;
-            debug!("crossed net");
+            if let Ok(mut bounce) = bounce_q.get_mut(ball.bounce_e.unwrap()) {
+                bounce.count = 0;
+                trace!("crossed net");
+            }
         }
 
         ball.prev_pos = t.translation;
@@ -219,7 +220,7 @@ fn handle_collisions(
                         ball_bounce.velocity = get_bounce_velocity(dir.length(), ball_bounce.max_velocity);
 
                         let rot = Quat::from_rotation_arc_2d(Vec2::Y, dir).to_euler(EulerRot::XYZ).2.to_degrees();
-                        debug!("Hit rot {:?}", rot);
+                        trace!("Hit rot {:?}", rot);
 
                         match *status {
                             BallStatus::Serve(_, _, player_id) if player_id != player.id => {
@@ -236,6 +237,7 @@ fn handle_collisions(
                     }
                 }
             }
+
             // todo: also handle 'net collision here' based on bounce height
             else if let Ok(wall_sprite) = wall_q.get(other_e) {
                 let size = wall_sprite.custom_size.unwrap();
@@ -251,7 +253,7 @@ fn handle_regions(
     mut coll_events: EventReader<CollisionEvent>,
     ball_q: Query<(Entity, &GlobalTransform), With<Ball>>,
     mut ball_mut_q: Query<&mut Ball>,
-    mut ball_bounce_q: Query<&mut BallBounce>,
+    mut ball_bounce_q: Query<(&mut BallBounce, &Transform)>,
     region_q: Query<&CourtRegion>,
     court_set: Res<CourtSettings>,
 ) {
@@ -301,9 +303,19 @@ fn handle_regions(
 
                 if (ball.region.is_left() && r.is_right()) ||
                     (ball.region.is_right() && r.is_left()) {
-                    let mut bounce = ball_bounce_q.get_mut(ball.bounce_e.unwrap()).unwrap();
-                    bounce.count = 0;
-                    trace!("Crossed net");
+                    if let Ok((mut bounce, bounce_t)) = ball_bounce_q.get_mut(ball.bounce_e.unwrap()) {
+                        bounce.count = 0;
+                        trace!("Crossed net");
+    
+                        trace!("height over net {}", bounce_t.translation.y);
+    
+                        if bounce_t.translation.y < 20. {
+                            debug!("hit net");
+                            let hit_vel_mult = 0.25;
+                            ball.dir *= Vec2::new(-hit_vel_mult, hit_vel_mult);
+                            bounce.velocity *= 0.5;
+                        }
+                    }
                 }
 
                 ball.region = *r;
@@ -388,5 +400,5 @@ pub fn spawn_ball(
                 start: Vec2::ZERO.extend(1.),
                 end: Vec3::ONE,
             }
-        )) ));
+        ))));
 }

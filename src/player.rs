@@ -450,7 +450,7 @@ fn aim(
                 input_dir = input_dir.clamp(Vec2::new(-clamp_x, -clamp_y), Vec2::new(-clamp_x, clamp_y));
             }
 
-            // todo: extract this to extensions
+            // nice2have: extract this to extensions
             aim_t.rotation = Quat::from_axis_angle(-Vec3::Z, input_dir.angle_between(Vec2::Y));
 
             if let Ok(mut face_t) = face_q.get_mut(p_anim.face_e) {
@@ -558,8 +558,6 @@ fn on_ball_bounced(
                 }
 
                 *status = BallStatus::Used;
-                // commands.entity(ev.ball_e).despawn_recursive();
-                // todo: tween out and destroy the ball
                 commands.entity(ev.ball_e).insert(Animator::new(Tween::new(
                     EaseFunction::QuadraticIn,
                     TweeningType::Once,
@@ -592,7 +590,7 @@ fn add_point(score: &mut PlayerScore, other_player_score: &mut PlayerScore) -> b
     }
     else if score.points == other_player_score.points && score.points > 3 {
         // hacky way to get ADV in the UI
-        // todo: redo
+        // nice2have: redo
         score.points = 3;
         other_player_score.points = 3;
     }
@@ -604,7 +602,7 @@ fn add_point(score: &mut PlayerScore, other_player_score: &mut PlayerScore) -> b
     false
 }
 
-// 2fix: sometimes the player shadows flickers over the body
+// 2fix: sometimes the player shadow flickers over the body
 fn animate(
     player_q: Query<(&PlayerAnimationData, ChangeTrackers<PlayerAnimationData>)>,
     mut animator_q: Query<(&mut Animator<Transform>, &Transform)>,
