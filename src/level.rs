@@ -124,7 +124,7 @@ fn setup(
 
     for (x, y, size, color) in lines.iter() {
         commands.spawn_bundle(SpriteBundle {
-            transform: Transform::from_xyz(*x, *y, 0.),
+            transform: Transform::from_xyz(*x, *y, 1.),
             sprite: Sprite {
                 color: *color,
                 custom_size: Some(*size),
@@ -146,16 +146,23 @@ fn setup(
     ];
 
     for (x, y, region) in sensors.iter() {
-        commands.spawn()
-            .insert(Transform::from_xyz(*x, *y, 0.))
-            .insert(GlobalTransform::default())
-            .insert(RigidBody::Sensor)
-            .insert(CollisionShape::Cuboid {
-                half_extends: region_size,
-                border_radius: None,
-            })
-            .insert(region.clone())
-            .insert(Name::new("Region"));
+        commands.spawn_bundle(SpriteBundle {
+            transform: Transform::from_xyz(*x, *y, 0.),
+            sprite: Sprite {
+                color: Color::rgb_u8(170, 200, 55),
+                custom_size: Some(region_size.truncate() * 2.),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(GlobalTransform::default())
+        .insert(RigidBody::Sensor)
+        .insert(CollisionShape::Cuboid {
+            half_extends: region_size,
+            border_radius: None,
+        })
+        .insert(region.clone())
+        .insert(Name::new("Region"));
     }
 
     // // bounds region

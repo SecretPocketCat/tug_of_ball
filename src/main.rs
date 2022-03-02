@@ -5,7 +5,7 @@
 #![feature(derive_default_enum)]
 #![feature(if_let_guard)]
 
-use bevy::prelude::*;
+use bevy::{prelude::*, render::render_resource::FilterMode};
 use bevy_tweening::TweeningPlugin;
 use debug::DebugPlugin;
 use heron::*;
@@ -58,12 +58,23 @@ pub struct TransformBundle {
     pub global_transform: GlobalTransform,
 }
 
+impl TransformBundle {
+    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+        Self {
+            transform: Transform::from_xyz(x, y, z),
+            ..Default::default()
+        }
+    }
+}
+
 fn main() {
     App::new()
+        .insert_resource(Msaa { samples: 4 })
         .insert_resource(WindowDescriptor {
             title: NAME.to_string(),
             width: WIN_WIDTH,
             height: WIN_HEIGHT,
+            scale_factor_override: Some(1.),
             ..Default::default()
         })
         .insert_resource(ClearColor(Color::rgb_u8(137, 170, 100)))
@@ -77,9 +88,10 @@ fn main() {
         .add_plugin(ScorePlugin)
         // .add_plugin(WallPlugin)
         .add_plugin(LevelPlugin)
-        // .add_plugin(DebugPlugin)
+        .add_plugin(DebugPlugin)
         .add_startup_system(setup)
         .add_startup_system(setup_bindings.chain(panic_on_error))
+        .add_system(set_img_sampler_filter)
         .run();
 }
 
@@ -161,4 +173,22 @@ fn setup_bindings(
         );
     
     Ok(())
+}
+
+fn set_img_sampler_filter(
+    mut ev_asset: EventReader<AssetEvent<Image>>,
+    mut assets: ResMut<Assets<Image>>,
+) {
+    for ev in ev_asset.iter() {
+        match ev {
+            AssetEvent::Created { handle } |
+            AssetEvent::Modified { handle } => {
+                // set sampler filtering to add some AA (quite fuzzy though)
+                let mut texture = assets.get_mut(handle).unwrap();
+                texture.sampler_descriptor.mag_filter = FilterMode::Linear;
+                texture.sampler_descriptor.min_filter = FilterMode::Linear;
+            }
+            _ => { }
+        }
+    }
 }
