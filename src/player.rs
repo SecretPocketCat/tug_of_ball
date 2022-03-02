@@ -73,6 +73,7 @@ struct PlayerAnimationData {
 pub struct Player {
     pub(crate) id: usize,
     pub(crate) aim_e: Entity,
+    aim_charge_e: Entity,
     side: f32,
 }
 
@@ -180,12 +181,15 @@ impl PlayerBundle {
     fn new(
         id: usize,
         initial_dir: Vec2,
-        aim_e: Entity) -> Self {
+        aim_e: Entity,
+        aim_charge_e: Entity,
+    ) -> Self {
         Self {
             player: Player { 
                 id: id,
                 side: -initial_dir.x.signum(),
                 aim_e,
+                aim_charge_e,
             },
             movement: PlayerMovement {
                 speed: 550.,
@@ -276,13 +280,27 @@ fn setup(
              b.spawn_bundle(SpriteBundle {
                  texture: asset_server.load("art-ish/aim_arrow.png"),
                  transform: Transform::from_xyz(0., 135., -0.4),
-                 sprite: Sprite {
-                     color: Color::rgba(1., 1., 1., 0.5),
-                     ..Default::default()
-                 },
+                //  sprite: Sprite {
+                //     //  color: Color::rgba(1., 1., 1., 0.5),
+                //      ..Default::default()
+                //  },
                  ..Default::default()
              });
          }).id();
+
+        let aim_charge_e = commands.spawn_bundle(SpriteBundle {
+            texture: asset_server.load("art-ish/aim_charge.png"),
+            // sprite: Sprite {
+            //     // color: Color::rgba(1., 1., 1., 0.5),
+            //     ..Default::default()
+            // },
+            transform: Transform {
+                translation: Vec3::new(0., 0., -0.7),
+                scale: Vec3::Z,
+                ..Default::default()
+            },
+            ..Default::default()
+        }).id();
 
         let player_e = commands
         .spawn_bundle(TransformBundle::from_xyz(x, 0., PLAYER_Z))
@@ -290,6 +308,7 @@ fn setup(
             i, 
             initial_dir,
             aim_e,
+            aim_charge_e,
         ))
         .insert(RigidBody::KinematicPositionBased)
         .insert(CollisionShape::Sphere {
@@ -298,16 +317,17 @@ fn setup(
         .insert(CollisionLayers::none())
         .insert(Name::new("Player"))
         .add_child(aim_e)
+        .add_child(aim_charge_e)
         .with_children(|b| {
             // circle
             let rotation_speed: f32 = 15.0;
             let rotation_speed = if is_left { -rotation_speed } else { rotation_speed };
             b.spawn_bundle(SpriteBundle {
                 texture: asset_server.load("art-ish/player_circle.png"),
-                sprite: Sprite {
-                    color: Color::rgba(1., 1., 1., 0.5),
-                    ..Default::default()
-                },
+                // sprite: Sprite {
+                //     // color: Color::rgba(1., 1., 1., 0.5),
+                //     ..Default::default()
+                // },
                 transform: Transform::from_xyz(0., 0., -0.5),
                 ..Default::default()
             }).insert(TransformRotation(rotation_speed.to_radians()));
@@ -420,7 +440,7 @@ fn move_player(
                 player_movement.easing_time += ease_time_delta;
                 player_movement.easing_time = player_movement.easing_time.clamp(0., player_movement.time_to_max_speed);
 
-                let ease_t = inverse_lerp(0., player_movement.time_to_max_speed, player_movement.easing_time).calc(EaseFunction::QuadraticOut);
+                let ease_t = inverse_lerp(0., player_movement.time_to_max_speed, player_movement.easing_time);
                 final_pos = t.translation.lerp(final_pos, ease_t);
             }
             else {
@@ -460,13 +480,13 @@ fn move_player(
 
 fn aim(
     input: Res<PlayerInput>,
-    player_q: Query<(&Player, &PlayerAnimationData)>,
+    player_q: Query<(&Player, &PlayerAnimationData, &PlayerSwing)>,
     mut aim_q: Query<(&mut PlayerAim, &mut Transform, &Parent)>,
-    mut face_q: Query<&mut Transform, Without<PlayerAim>>,
+    mut transform_q: Query<&mut Transform, Without<PlayerAim>>,
     time: ScaledTime,
 ) {
     for (mut aim, mut aim_t, aim_parent) in aim_q.iter_mut() {
-        if let Ok((p, p_anim)) = player_q.get(aim_parent.0) {
+        if let Ok((p, p_anim, player_swing)) = player_q.get(aim_parent.0) {
             // start with aim dir
             let mut dir_raw = input.get_xy_axes_raw(p.id, &InputAxis::AimX, &InputAxis::AimY);
             if dir_raw == Vec2::ZERO {
@@ -475,6 +495,21 @@ fn aim(
             }
             
             let mut dir = dir_raw.normalize_or_zero();
+
+            // swing charge UI
+            if let Ok(mut t) = transform_q.get_mut(p.aim_charge_e) {
+                if let ActionStatus::Ready = player_swing.status {
+                    if let Some(ActionState::Held(action_data)) = input.get_button_action_state(p.id, &InputAction::Swing) {
+                        let scale = get_swing_multiplier(action_data.duration);
+                        t.scale = Vec2::splat(scale).extend(1.);
+                    }
+                }
+                else if let ActionStatus::Active(_) = player_swing.status {
+                }
+                else {
+                    t.scale = Vec2::splat((t.scale.x - (time.scaled_delta_seconds() * 3.)).clamp(0., 1.)).extend(1.);
+                }
+            }
 
             if dir == Vec2::ZERO {
                 continue;
@@ -509,7 +544,7 @@ fn aim(
             let clamped_dir = aim_t.rotation * Vec3::Y;
             aim.direction = clamped_dir.truncate();
 
-            if let Ok(mut face_t) = face_q.get_mut(p_anim.face_e) {
+            if let Ok(mut face_t) = transform_q.get_mut(p_anim.face_e) {
                 let axis = if p.is_left() { Vec2::X } else { -Vec2::X };
                 face_t.rotation = Quat::from_axis_angle(-Vec3::Z, aim.direction.angle_between(axis) * 0.25);
             }
@@ -517,7 +552,7 @@ fn aim(
     }
 }
 
-// todo: on swing down cancel prev swing?
+// nice2have: on swing down cancel prev swing?
 fn handle_swing_input(
     input: Res<ActionInput<InputAction, InputAxis>>,
     mut query: Query<(&Player, &mut PlayerSwing, &mut CollisionLayers)>,
@@ -525,7 +560,7 @@ fn handle_swing_input(
     for (player, mut player_swing, mut coll_layers) in query.iter_mut() {
         if let Some(ActionState::Released(key_data)) = input.get_button_action_state(player.id, &InputAction::Swing) {
             if let ActionStatus::Ready = player_swing.status {
-                player_swing.status = ActionStatus::Active((key_data.duration * 3.0).clamp(0.4, 1.));
+                player_swing.status = ActionStatus::Active(get_swing_mutliplier_clamped(key_data.duration));
                 player_swing.timer = Timer::from_seconds(player_swing.duration_sec, false);
                 *coll_layers = CollisionLayers::all::<PhysLayer>();
             }
@@ -539,6 +574,14 @@ fn handle_swing_input(
             }
         }
     }
+}
+
+fn get_swing_mutliplier_clamped(duration: f32) -> f32 {
+    get_swing_multiplier(duration).clamp(0.4, 1.)
+}
+
+fn get_swing_multiplier(duration: f32) -> f32 {
+    (duration * 1.8).clamp(0.0, 1.).calc(EaseFunction::QuadraticOut)
 }
 
 fn handle_action_cooldown<T: ActionTimer<TActiveData> + Component, TActiveData: Default>(

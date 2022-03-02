@@ -115,7 +115,7 @@ fn setup_bindings(
     mut map: ResMut<ActionMap<InputAction, InputAxis>>,
     mut gamepad_map: ResMut<GamepadMap>,
 ) -> Result<(), BindingError> {
-    let deadzone = 0.05;
+    let deadzone = 0.15;
 
     for id in 1..=2 {
         map
