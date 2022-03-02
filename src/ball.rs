@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2};
 use bevy_extensions::Vec2Conversion;
-use bevy_input::ActionInput;
+use bevy_input::{ActionInput, ActionState};
 use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 use bevy_tweening::lens::{TransformPositionLens, TransformScaleLens};
@@ -11,7 +11,7 @@ use heron::rapier_plugin::PhysicsWorld;
 use heron::*;
 use rand::*;
 
-use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer, BALL_Z, TransformBundle};
+use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion, get_swing_multiplier, PlayerDash}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer, BALL_Z, TransformBundle, InputAction};
 
 const BALL_SIZE: f32 = 35.;
 
@@ -164,7 +164,7 @@ fn handle_collisions(
     input: Res<PlayerInput>,
     mut ball_q: Query<(&mut Ball, &mut BallStatus, &Children)>,
     mut ball_bounce_q: Query<&mut BallBounce>,
-    mut player_q: Query<(&Player, &PlayerMovement, &mut PlayerSwing, &GlobalTransform)>,
+    mut player_q: Query<(&Player, &PlayerMovement, &mut PlayerSwing, &PlayerDash, &GlobalTransform)>,
     wall_q: Query<&Sprite, With<Wall>>,
 ) {
     for ev in coll_events.iter() {
@@ -190,55 +190,73 @@ fn handle_collisions(
 
             let mut ball_bounce = ball_bounce_q.get_mut(bounce_e.clone()).unwrap();
 
-            if let Ok((player, movement, mut swing, player_t)) = player_q.get_mut(other_e) {
+            if let Ok((player, movement, mut swing, dash, player_t)) = player_q.get_mut(other_e) {
+                let mut speed_mult = None;
+
                 if let ActionStatus::Active(ball_speed_multiplier) = swing.status {
                     if !swing.timer.finished() {
-                        swing.start_cooldown();
-                        let mut dir = input.get_xy_axes(player.id, &InputAxis::X, &InputAxis::Y);
+                        speed_mult = Some(ball_speed_multiplier);
+                    }
+                }
 
-                        if dir == Vec2::ZERO {
-                            dir = movement.last_dir;
+                if speed_mult.is_none() {
+                    if let ActionStatus::Active(..) = dash.status {
+                        info!("dashing");
+                        if let ActionStatus::Ready = swing.status {
+                            info!("swing ready");
+                            if let Some(ActionState::Held(data) | ActionState::Released(data)) = input.get_button_action_state(player.id, &InputAction::Dash) {
+                                info!("holding for {}", data.duration);
+                                speed_mult = Some(get_swing_multiplier(data.duration));
+                            }
                         }
+                    }
+                }
 
-                        let clamp_x = 1.;
-                        let clamp_y = 0.8;
-                        let player_x = player_t.translation.x;
-                        let player_x_sign = player_x.signum();
+                if let Some(ball_speed_multiplier) = speed_mult {
+                    swing.start_cooldown();
+                    let mut dir = input.get_xy_axes(player.id, &InputAxis::X, &InputAxis::Y);
 
-                        if dir == Vec2::new(player_x_sign, 0.) {
-                            // player aiming into their court/backwards - just aim straight
-                            dir = Vec2::new(-player_x_sign, 0.);
-                        }
-                        else if player_x < 0. {
-                            dir = dir.clamp(Vec2::new(clamp_x, -clamp_y), Vec2::new(clamp_x, clamp_y));
-                        }
-                        else {
-                            dir = dir.clamp(Vec2::new(-clamp_x, -clamp_y), Vec2::new(-clamp_x, clamp_y));
-                        }
+                    if dir == Vec2::ZERO {
+                        dir = movement.last_dir;
+                    }
 
-                        ball.dir = dir * ball_speed_multiplier;
-                        ball_bounce.velocity = get_bounce_velocity(dir.length(), ball_bounce.max_velocity);
+                    let clamp_x = 1.;
+                    let clamp_y = 0.8;
+                    let player_x = player_t.translation.x;
+                    let player_x_sign = player_x.signum();
 
-                        let rot = Quat::from_rotation_arc_2d(Vec2::Y, dir).to_euler(EulerRot::XYZ).2.to_degrees();
-                        trace!("Hit rot {:?}", rot);
+                    if dir == Vec2::new(player_x_sign, 0.) {
+                        // player aiming into their court/backwards - just aim straight
+                        dir = Vec2::new(-player_x_sign, 0.);
+                    }
+                    else if player_x < 0. {
+                        dir = dir.clamp(Vec2::new(clamp_x, -clamp_y), Vec2::new(clamp_x, clamp_y));
+                    }
+                    else {
+                        dir = dir.clamp(Vec2::new(-clamp_x, -clamp_y), Vec2::new(-clamp_x, clamp_y));
+                    }
 
-                        match *status {
-                            BallStatus::Serve(_, _, player_id) if player_id != player.id => {
-                                // vollied serve
-                                *status = BallStatus::Rally(player.id);
-                                trace!("Vollied serve");
-                            },
-                            BallStatus::Rally(..) => {
-                                // set rally player on hit, also applies to 
-                                *status = BallStatus::Rally(player.id);
-                            },
-                            _ => {}
-                        }
+                    ball.dir = dir * ball_speed_multiplier;
+                    ball_bounce.velocity = get_bounce_velocity(dir.length(), ball_bounce.max_velocity);
+
+                    let rot = Quat::from_rotation_arc_2d(Vec2::Y, dir).to_euler(EulerRot::XYZ).2.to_degrees();
+                    trace!("Hit rot {:?}", rot);
+
+                    match *status {
+                        BallStatus::Serve(_, _, player_id) if player_id != player.id => {
+                            // vollied serve
+                            *status = BallStatus::Rally(player.id);
+                            trace!("Vollied serve");
+                        },
+                        BallStatus::Rally(..) => {
+                            // set rally player on hit
+                            *status = BallStatus::Rally(player.id);
+                        },
+                        _ => {}
                     }
                 }
             }
 
-            // todo: also handle 'net collision here' based on bounce height
             else if let Ok(wall_sprite) = wall_q.get(other_e) {
                 let size = wall_sprite.custom_size.unwrap();
                 let is_hor = size.x > size.y;

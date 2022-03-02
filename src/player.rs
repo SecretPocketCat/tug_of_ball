@@ -95,7 +95,7 @@ pub struct PlayerMovement {
 
 #[derive(Default, Component, Inspectable)]
 pub struct PlayerDash {
-    status: ActionStatus<Vec2>,
+    pub(crate) status: ActionStatus<Vec2>,
     duration_sec: f32,
     cooldown_sec: f32,
     speed: f32,
@@ -365,10 +365,10 @@ fn setup(
 // possibly during dash as well
 fn move_player(
     input: Res<PlayerInput>,
-    mut query: Query<(&Player, &mut PlayerMovement, &mut PlayerDash, &mut Transform, &PlayerSwing, &mut PlayerAnimationData)>,
+    mut query: Query<(&Player, &mut PlayerMovement, &mut PlayerDash, &mut Transform, &PlayerSwing, &mut PlayerAnimationData, &mut CollisionLayers)>,
     time: ScaledTime,
 ) {
-    for (player, mut player_movement, mut player_dash, mut t, player_swing, mut p_anim) in query.iter_mut() {
+    for (player, mut player_movement, mut player_dash, mut t, player_swing, mut p_anim, mut coll_layers) in query.iter_mut() {
         let dir = input.get_xy_axes(player.id, &InputAxis::X, &InputAxis::Y);
         let swing_ready = matches!(player_swing.status, ActionStatus::Ready);
         let charging = swing_ready && input.held(player.id, InputAction::Swing);
@@ -382,6 +382,10 @@ fn move_player(
                 player_dash.timer = Timer::from_seconds(player_dash.duration_sec, false);
                 p_anim.animation = PlayerAnimation::Dashing;
                 dashing = true;
+
+                // nice2have: make this an upgrade
+                info!("enabled collision");
+                *coll_layers = CollisionLayers::all::<PhysLayer>();
             }
         }
 
@@ -461,7 +465,7 @@ fn aim(
     }
 }
 
-// todo: on swing down cancel prev swing?
+// nice2have: on swing down cancel prev swing?
 fn handle_swing_input(
     input: Res<ActionInput<InputAction, InputAxis>>,
     mut query: Query<(&Player, &mut PlayerSwing, &mut CollisionLayers)>,
@@ -469,20 +473,27 @@ fn handle_swing_input(
     for (player, mut player_swing, mut coll_layers) in query.iter_mut() {
         if let Some(ActionState::Released(key_data)) = input.get_button_action_state(player.id, &InputAction::Swing) {
             if let ActionStatus::Ready = player_swing.status {
-                player_swing.status = ActionStatus::Active((key_data.duration * 3.0).clamp(0.4, 1.));
+                player_swing.status = ActionStatus::Active(get_swing_multiplier(key_data.duration));
                 player_swing.timer = Timer::from_seconds(player_swing.duration_sec, false);
                 *coll_layers = CollisionLayers::all::<PhysLayer>();
             }
         }
         else {
-            match player_swing.status {
-                ActionStatus::Ready | ActionStatus::Cooldown => {
-                    *coll_layers = CollisionLayers::none();
+            if !input.held(player.id, InputAction::Dash) && !input.just_pressed(player.id, InputAction::Dash) {
+                match player_swing.status {
+                    ActionStatus::Ready | ActionStatus::Cooldown => {
+                        // info!("disabled collision");
+                        *coll_layers = CollisionLayers::none();
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
         }
     }
+}
+
+pub fn get_swing_multiplier(duration_sec: f32) -> f32 {
+    (duration_sec * 3.0).clamp(0.4, 1.)
 }
 
 fn handle_action_cooldown<T: ActionTimer<TActiveData> + Component, TActiveData: Default>(
