@@ -11,7 +11,7 @@ use interpolation::{Ease, EaseFunction};
 use heron::rapier_plugin::{PhysicsWorld, rapier2d::prelude::{RigidBodyActivation, ColliderSet}, nalgebra::ComplexField};
 use heron::*;
 
-use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion, TransformBundle, PLAYER_Z, tween::TweenDoneAction, inverse_lerp};
+use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion, TransformBundle, PLAYER_Z, tween::TweenDoneAction, inverse_lerp, palette::PaletteColor};
 
 #[derive(Inspectable, Clone, Copy)]
 pub enum ActionStatus<TActiveData: Default> {
@@ -267,6 +267,7 @@ fn setup(
             },
             ..Default::default()
         }).insert(Animator::<Transform>::default())
+        .insert(PaletteColor::PlayerFace)
         .id();
 
          // aim
@@ -280,27 +281,21 @@ fn setup(
              b.spawn_bundle(SpriteBundle {
                  texture: asset_server.load("art-ish/aim_arrow.png"),
                  transform: Transform::from_xyz(0., 135., -0.4),
-                //  sprite: Sprite {
-                //     //  color: Color::rgba(1., 1., 1., 0.5),
-                //      ..Default::default()
-                //  },
                  ..Default::default()
-             });
+             }).insert(PaletteColor::PlayerAim);
          }).id();
 
         let aim_charge_e = commands.spawn_bundle(SpriteBundle {
             texture: asset_server.load("art-ish/aim_charge.png"),
-            sprite: Sprite {
-                color: Color::rgba_u8(255, 125, 40, 255),
-                ..Default::default()
-            },
             transform: Transform {
                 translation: Vec3::new(0., 0., -0.7),
                 scale: Vec3::Z,
                 ..Default::default()
             },
             ..Default::default()
-        }).id();
+        })
+        .insert(PaletteColor::PlayerCharge)
+        .id();
 
         let player_e = commands
         .spawn_bundle(TransformBundle::from_xyz(x, 0., PLAYER_Z))
@@ -324,13 +319,10 @@ fn setup(
             let rotation_speed = if is_left { -rotation_speed } else { rotation_speed };
             b.spawn_bundle(SpriteBundle {
                 texture: asset_server.load("art-ish/player_circle.png"),
-                // sprite: Sprite {
-                //     // color: Color::rgba(1., 1., 1., 0.5),
-                //     ..Default::default()
-                // },
                 transform: Transform::from_xyz(0., 0., -0.5),
                 ..Default::default()
-            }).insert(TransformRotation(rotation_speed.to_radians()));
+            }).insert(PaletteColor::PlayerAim)
+            .insert(TransformRotation(rotation_speed.to_radians()));
 
             // body root
             body_root_e = Some(b.spawn_bundle(TransformBundle::from_xyz(0., 0., 0.))
@@ -340,32 +332,19 @@ fn setup(
                 body_e = Some(b.spawn_bundle(SpriteBundle {
                     texture: asset_server.load("art-ish/player_body.png"),
                     ..Default::default()
-                }).insert(Animator::<Transform>::default())
+                }).insert(PaletteColor::Player)
+                .insert(Animator::<Transform>::default())
                 .with_children(|b| {
                     // shadow
                     b.spawn_bundle(SpriteBundle {
                         texture: asset_server.load("art-ish/player_body.png"),
-                        sprite: Sprite {
-                            color: Color::rgba(0., 0., 0., 0.5),
-                            ..Default::default()
-                        },
                         transform: Transform {
                             scale: Vec3::new(1.0, 0.5, 1.),
                             translation: Vec3::new(0., -25., -0.6),
                             ..Default::default()
                         },
                         ..Default::default()
-                    });
-
-                    // b.spawn_bundle(SpriteBundle {
-                    //     texture: asset_server.load("art-ish/player_body_shadow.png"),
-                    //     sprite: Sprite {
-                    //         color: Color::rgba(0., 0., 0., 0.2),
-                    //         ..Default::default()
-                    //     },
-                    //     transform: Transform::from_xyz(0., 0., 1.),
-                    //     ..Default::default()
-                    //     });
+                    }).insert(PaletteColor::Shadow);
                 })
                 .id());
             }).insert(Animator::<Transform>::default())

@@ -3,7 +3,7 @@ use bevy_extensions::Vec2Conversion;
 use bevy_inspector_egui::Inspectable;
 use heron::*;
 
-use crate::{WIN_WIDTH, WIN_HEIGHT, player::PlayerScore};
+use crate::{WIN_WIDTH, WIN_HEIGHT, player::PlayerScore, palette::PaletteColor};
 
 #[derive(Component, Inspectable)]
 struct PointsText;
@@ -52,6 +52,7 @@ fn setup(
             ),
             ..Default::default()
         })
+        .insert(PaletteColor::Text)
         .insert(PointsText);
 
     commands
@@ -81,6 +82,7 @@ fn setup(
             ),
             ..Default::default()
         })
+        .insert(PaletteColor::Text)
         .insert(GamesText);
 }
 

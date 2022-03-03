@@ -12,9 +12,13 @@
 // ball 'steps' after bounce
 // rounded court
 // net 'pickets'
+// net shadow
+// shadow z indexes
+// better font
 
 use bevy::{prelude::*, render::render_resource::FilterMode};
 use bevy_tweening::TweeningPlugin;
+use palette::PalettePlugin;
 use debug::DebugPlugin;
 use heron::*;
 use bevy_extensions::panic_on_error;
@@ -35,6 +39,7 @@ mod debug;
 mod score;
 mod level;
 mod tween;
+mod palette;
 
 const NAME: &str = "Tennis Rounds";
 const WIN_WIDTH: f32 = 1600.;
@@ -95,7 +100,7 @@ fn main() {
             scale_factor_override: Some(1.),
             ..Default::default()
         })
-        .insert_resource(ClearColor(Color::rgb_u8(137, 170, 100)))
+        .insert_resource(ClearColor(Color::WHITE))
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
         .add_plugin(TweeningPlugin)
@@ -107,6 +112,7 @@ fn main() {
         .add_plugin(TweenPlugin)
         // .add_plugin(WallPlugin)
         .add_plugin(LevelPlugin)
+        .add_plugin(PalettePlugin)
         .add_plugin(DebugPlugin)
         .add_startup_system(setup)
         .add_startup_system(setup_bindings.chain(panic_on_error))

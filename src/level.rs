@@ -6,7 +6,7 @@ use bevy_inspector_egui::Inspectable;
 use heron::*;
 use rand::*;
 
-use crate::{WIN_WIDTH, WIN_HEIGHT, PhysLayer, COURT_LINES_Z, COURT_Z};
+use crate::{WIN_WIDTH, WIN_HEIGHT, PhysLayer, COURT_LINES_Z, COURT_Z, palette::PaletteColor};
 
 pub struct CourtSettings {
     // nice2have: replace by proper bounds
@@ -93,6 +93,7 @@ impl Plugin for LevelPlugin {
     }
 }
 
+// todo: add bg as a sprite (palette)
 fn setup(
     mut commands: Commands,
 ) {
@@ -112,26 +113,26 @@ fn setup(
 
     let lines = [
         // horizonal split
-        (0., 0., Vec2::new(width, thickness), Color::WHITE),
+        (0., 0., Vec2::new(width, thickness)),
         // net
-        (0., 0., Vec2::new(thickness * 1.5, height), Color::WHITE),
+        (0., 0., Vec2::new(thickness * 1.5, height)),
         // sidelines
-        (-x, 0., Vec2::new(thickness, height), Color::WHITE),
-        (x, 0., Vec2::new(thickness, height), Color::WHITE),
-        (0., -y, Vec2::new(width, thickness), Color::WHITE),
-        (0., y, Vec2::new( width, thickness), Color::WHITE),
+        (-x, 0., Vec2::new(thickness, height)),
+        (x, 0., Vec2::new(thickness, height)),
+        (0., -y, Vec2::new(width, thickness)),
+        (0., y, Vec2::new( width, thickness)),
     ];
 
-    for (i, (x, y, size, color)) in lines.iter().enumerate() {
+    for (i, (x, y, size)) in lines.iter().enumerate() {
         commands.spawn_bundle(SpriteBundle {
             transform: Transform::from_xyz(*x, *y, COURT_LINES_Z + i as f32 * 0.1),
             sprite: Sprite {
-                color: *color,
                 custom_size: Some(*size),
                 ..Default::default()
             },
             ..Default::default()
         })
+        .insert(PaletteColor::CourtLines)
         .insert(Name::new("LevelLine"));
     }
 
@@ -149,12 +150,12 @@ fn setup(
         commands.spawn_bundle(SpriteBundle {
             transform: Transform::from_xyz(*x, *y, COURT_Z),
             sprite: Sprite {
-                color: Color::rgb_u8(170, 200, 55),
                 custom_size: Some(region_size.truncate() * 2.),
                 ..Default::default()
             },
             ..Default::default()
         })
+        .insert(PaletteColor::Court)
         .insert(GlobalTransform::default())
         .insert(RigidBody::Sensor)
         .insert(CollisionShape::Cuboid {
@@ -165,16 +166,14 @@ fn setup(
         .insert(Name::new("Region"));
     }
 
-    // // bounds region
-    // commands.spawn()
-    //     .insert(Transform::default())
-    //     .insert(GlobalTransform::default())
-    //     .insert(RigidBody::Sensor)
-    //     .insert(CollisionShape::Cuboid {
-    //         half_extends: Vec3::new(x + thickness / 2., y + thickness / 2., 0.),
-    //         border_radius: None,
-    //     })
-    //     .insert(Name::new("Bounds region"));
+    commands.spawn_bundle(SpriteBundle {
+        sprite: Sprite {
+            custom_size: Some(Vec2::splat(5000.)),
+            ..Default::default()
+        },
+        ..Default::default()
+    })
+    .insert(PaletteColor::Background);
 
     commands.insert_resource(settings);
 }

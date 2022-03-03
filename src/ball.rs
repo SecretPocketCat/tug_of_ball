@@ -11,7 +11,7 @@ use heron::rapier_plugin::PhysicsWorld;
 use heron::*;
 use rand::*;
 
-use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion, PlayerAim}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer, BALL_Z, TransformBundle};
+use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion, PlayerAim}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer, BALL_Z, TransformBundle, palette::PaletteColor};
 
 const BALL_SIZE: f32 = 35.;
 
@@ -333,7 +333,6 @@ pub fn spawn_ball(
     let bounce = commands.spawn_bundle(SpriteBundle {
         texture: asset_server.load("art-ish/ball.png"),
         sprite: Sprite {
-            color: Color::YELLOW,
             custom_size: Some(Vec2::ONE * BALL_SIZE),
             ..Default::default()
         },
@@ -344,12 +343,12 @@ pub fn spawn_ball(
             max_velocity: 200.,
             ..Default::default()
         })
+        .insert(PaletteColor::Ball)
         .id();
 
     let shadow = commands.spawn_bundle(SpriteBundle {
         texture: asset_server.load("art-ish/ball.png"),
         sprite: Sprite {
-            color: Color::rgba(0., 0., 0., 0.5),
             custom_size: Some(Vec2::new(1.0, 0.5) * BALL_SIZE),
             ..Default::default()
         },
@@ -358,7 +357,9 @@ pub fn spawn_ball(
             ..Default::default()
         },
         ..Default::default()
-        }).id();
+        })
+        .insert(PaletteColor::Shadow)
+        .id();
 
     let mut rng = rand::thread_rng();
     let x = WIN_WIDTH / 2. - 330.;
