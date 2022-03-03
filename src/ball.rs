@@ -353,7 +353,7 @@ pub fn spawn_ball(
             ..Default::default()
         },
         transform: Transform {
-            translation: Vec3::new(0., -13., -BALL_Z + SHADOW_Z),
+            translation: Vec3::new(-3., -14., -BALL_Z + SHADOW_Z),
             ..Default::default()
         },
         ..Default::default()

@@ -6,8 +6,6 @@
 #![feature(if_let_guard)]
 
 // todo list
-// shadow z indexes
-// shadows for everyting
 // player center offset
 // rounded court
 // ball 'steps' after bounce

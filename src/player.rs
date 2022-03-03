@@ -342,7 +342,7 @@ fn setup(
                         texture: asset_server.load("art-ish/player_body.png"),
                         transform: Transform {
                             scale: Vec3::new(1.0, 0.5, 1.),
-                            translation: Vec3::new(0., -25., -PLAYER_Z + SHADOW_Z),
+                            translation: Vec3::new(-5., -30., -PLAYER_Z + SHADOW_Z),
                             ..Default::default()
                         },
                         ..Default::default()
