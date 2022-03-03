@@ -3,6 +3,7 @@ use std::ops::RangeInclusive;
 use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2};
 use bevy_extensions::Vec2Conversion;
 use bevy_inspector_egui::Inspectable;
+use bevy_ninepatch::{NinePatchBuilder, NinePatchBundle, NinePatchData};
 use heron::*;
 use rand::*;
 
@@ -96,6 +97,7 @@ impl Plugin for LevelPlugin {
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut nine_patches: ResMut<Assets<NinePatchBuilder>>,
 ) {
     let x = WIN_WIDTH / 2. - 300.;
     let height = WIN_HEIGHT - 250.;
@@ -181,6 +183,28 @@ fn setup(
         .insert(region.clone())
         .insert(Name::new("Region"));
     }
+
+    // // court 9-patch
+    // let panel_texture_handle = asset_server.load("art-ish/court_9slice.png");
+    // let court_9slice_margin = 35;
+    // let nine_patch_handle = nine_patches.add(NinePatchBuilder::by_margins(court_9slice_margin, court_9slice_margin, court_9slice_margin, court_9slice_margin));
+
+    // commands.spawn_bundle(
+    //     NinePatchBundle {
+    //         style: Style {
+    //             margin: Rect::all(Val::Auto),
+    //             size: Size::new(Val::Px(x * 2.), Val::Px(y * 2.)),
+    //             ..Default::default()
+    //         },
+    //         nine_patch_data: NinePatchData {
+    //             texture: panel_texture_handle,
+    //             nine_patch: nine_patch_handle,
+    //             ..Default::default()
+    //         },
+    //         transform: Transform::from_xyz(0., 0., -500.),
+    //         ..Default::default()
+    //     },
+    // );
 
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {

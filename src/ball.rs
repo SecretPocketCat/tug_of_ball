@@ -4,6 +4,7 @@ use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2};
 use bevy_extensions::Vec2Conversion;
 use bevy_input::ActionInput;
 use bevy_inspector_egui::Inspectable;
+use bevy_prototype_lyon::prelude::*;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 use bevy_tweening::lens::{TransformPositionLens, TransformScaleLens};
 use bevy_tweening::*;
@@ -42,6 +43,15 @@ pub enum BallStatus {
     Used,
 }
 
+struct TrailPoint(Vec2, f64);
+
+#[derive(Component)]
+struct Trail {
+    points: Vec<TrailPoint>,
+    transform_e: Entity,
+    duration_sec: f32,
+}
+
 pub struct BallBouncedEvt {
     pub(crate) ball_e: Entity,
     pub(crate) bounce_count: usize,
@@ -55,6 +65,8 @@ impl Plugin for BallPlugin {
             .add_startup_system(setup)
             .add_system(movement)
             .add_system(bounce)
+            .add_system(store_path_points)
+            .add_system(draw_trail)
             .add_system_to_stage(CoreStage::PostUpdate, handle_collisions)
             .add_system_to_stage(CoreStage::PostUpdate, handle_regions)
             .add_event::<BallBouncedEvt>();
@@ -323,6 +335,58 @@ fn handle_regions(
     }
 }
 
+fn store_path_points(
+    mut path_q: Query<(Entity, &mut Trail)>,
+    transform_q: Query<&GlobalTransform>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    for (e, mut trail) in path_q.iter_mut() {
+        let curr_time = time.seconds_since_startup();
+
+        if let Ok(t) = transform_q.get(trail.transform_e) {
+            let new_pos = t.translation.truncate();
+            let mut add_point = true;
+
+            if let Some(mut last_point) = trail.points.last_mut() {
+                if last_point.0 == new_pos {
+                    last_point.1 = curr_time;
+                    add_point = false;
+                }
+            }
+            
+            if add_point {
+                trail.points.push(TrailPoint(new_pos, curr_time));
+            }
+        }
+        else if trail.points.len() == 0 {
+            commands.entity(e).despawn_recursive();
+        }
+        else {
+            let duration = trail.duration_sec as f64;
+            trail.points.drain_filter(|p| p.1 + duration < curr_time);
+        }
+    }
+}
+
+fn draw_trail(
+    mut path_q: Query<(&mut Path, &mut Trail)>,
+) {
+    for (mut path, trail) in path_q.iter_mut() {
+        if trail.points.len() > 1 {
+            let mut path_builder = PathBuilder::new();
+            path_builder.move_to(trail.points[0].0);
+
+            for p in trail.points.iter().skip(1) {
+                path_builder.line_to(p.0);
+            }
+
+            let line = path_builder.build();
+            path.0 = line.0;
+        }
+    }
+}
+
 pub fn spawn_ball(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
@@ -330,7 +394,7 @@ pub fn spawn_ball(
     fault_count: u8,
     player_id: usize
 ) {
-    let bounce = commands.spawn_bundle(SpriteBundle {
+    let bounce_e = commands.spawn_bundle(SpriteBundle {
         texture: asset_server.load("art-ish/ball.png"),
         sprite: Sprite {
             custom_size: Some(Vec2::ONE * BALL_SIZE),
@@ -366,7 +430,7 @@ pub fn spawn_ball(
     let x = if serve_region.is_left() { -x } else { x };
     let y = rng.gen_range(120..=280) as f32;
     let y = if serve_region.is_bottom() { -y } else { y };
-    commands.spawn_bundle(TransformBundle {
+    let _ball_e = commands.spawn_bundle(TransformBundle {
         transform: Transform {
             translation: Vec3::new(x, y, BALL_Z),
             scale: Vec3::ZERO,
@@ -379,7 +443,7 @@ pub fn spawn_ball(
             size: BALL_SIZE,
             speed: 1100.,
             region: serve_region,
-            bounce_e: Some(bounce.clone()),
+            bounce_e: Some(bounce_e.clone()),
             ..Default::default()
         })
         .insert(BallStatus::Serve(serve_region, fault_count, player_id))
@@ -389,7 +453,7 @@ pub fn spawn_ball(
         })
         .insert(CollisionLayers::all::<PhysLayer>())
         .insert(Name::new("Ball"))
-        .add_child(bounce)
+        .add_child(bounce_e)
         .add_child(shadow)
         .insert(Animator::new(
             Delay::new(Duration::from_millis(500)).then(Tween::new(
@@ -400,5 +464,23 @@ pub fn spawn_ball(
                 start: Vec2::ZERO.extend(1.),
                 end: Vec3::ONE,
             }
-        ))));
+        )))).id();
+
+    commands.spawn_bundle(GeometryBuilder::build_as(
+        &PathBuilder::new().build().0,
+        DrawMode::Stroke(
+            StrokeMode {
+                options: StrokeOptions::default()
+                    .with_line_width(30.0)
+                    .with_line_cap(LineCap::Round)
+                    .with_line_join(LineJoin::Round),
+                color: Color::rgb_u8(32, 40, 61),
+            }),
+        Transform::from_xyz(0.,0., 3.),
+    )).insert(Trail {
+        points: Vec::new(),
+        transform_e: bounce_e,
+        duration_sec: 1.
+    })
+    .insert(Name::new("BallTrail"));
 }

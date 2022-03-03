@@ -4,6 +4,7 @@
 
 #![feature(derive_default_enum)]
 #![feature(if_let_guard)]
+#![feature(drain_filter)]
 
 // todo list
 // player center offset
@@ -16,6 +17,8 @@
 // dash trail
 
 use bevy::{prelude::*, render::render_resource::FilterMode};
+use bevy_ninepatch::NinePatchPlugin;
+use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_tweening::TweeningPlugin;
 use palette::PalettePlugin;
 use debug::DebugPlugin;
@@ -106,6 +109,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
         .add_plugin(TweeningPlugin)
+        .add_plugin(NinePatchPlugin::<()>::default())
+        .add_plugin(ShapePlugin)
         .add_plugin(TimePlugin)
         .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::default())
         .add_plugin(PlayerPlugin)
