@@ -93,9 +93,9 @@ impl Plugin for LevelPlugin {
     }
 }
 
-// todo: add bg as a sprite (palette)
 fn setup(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) {
     let x = WIN_WIDTH / 2. - 300.;
     let height = WIN_HEIGHT - 250.;
@@ -108,24 +108,24 @@ fn setup(
         bottom: -y,
     };
 
-    let thickness = 10.;
+    let thickness = 12.;
     let width = x * 2. + thickness;
 
     let lines = [
-        // horizonal split
-        (0., 0., Vec2::new(width, thickness)),
         // net
-        (0., 0., Vec2::new(thickness * 1.5, height)),
+        (0., 5., Vec2::new(thickness * 0.8, height), 0.9),
+        // horizonal split
+        (0., 0., Vec2::new(width, thickness), 0.),
         // sidelines
-        (-x, 0., Vec2::new(thickness, height)),
-        (x, 0., Vec2::new(thickness, height)),
-        (0., -y, Vec2::new(width, thickness)),
-        (0., y, Vec2::new( width, thickness)),
+        (-x, 0., Vec2::new(thickness, height), 0.),
+        (x, 0., Vec2::new(thickness, height), 0.),
+        (0., -y, Vec2::new(width, thickness), 0.),
+        (0., y, Vec2::new( width, thickness), 0.),
     ];
 
-    for (i, (x, y, size)) in lines.iter().enumerate() {
+    for (x, y, size, z_offset) in lines.iter() {
         commands.spawn_bundle(SpriteBundle {
-            transform: Transform::from_xyz(*x, *y, COURT_LINES_Z + i as f32 * 0.1),
+            transform: Transform::from_xyz(*x, *y, COURT_LINES_Z + z_offset),
             sprite: Sprite {
                 custom_size: Some(*size),
                 ..Default::default()
@@ -135,6 +135,22 @@ fn setup(
         .insert(PaletteColor::CourtLines)
         .insert(Name::new("LevelLine"));
     }
+
+    // net shadow
+    commands.spawn_bundle(SpriteBundle {
+        texture: asset_server.load("art-ish/net_post.png"),
+        sprite: Sprite {
+            custom_size: Some(lines[0].2),
+            ..Default::default()
+        },
+        transform: Transform {
+            translation: Vec3::new(-7., -3., COURT_LINES_Z + 0.8),
+            scale: Vec3::new(1., 0.97, 1.),
+            ..Default::default()
+        },
+        ..Default::default()
+    })
+    .insert(PaletteColor::Shadow);
 
     let region_x = x / 2. + thickness / 4.;
     let region_y = y / 2. + thickness / 4.;
@@ -174,6 +190,37 @@ fn setup(
         ..Default::default()
     })
     .insert(PaletteColor::Background);
+
+    let post_offset = 11.;
+
+    for (y, z_offset) in
+        [(y + post_offset, 0.5),
+        (-y + post_offset, 0.9)].iter() {
+            commands.spawn_bundle(SpriteBundle {
+                texture: asset_server.load("art-ish/net_post.png"),
+                transform: Transform::from_xyz(0., *y, COURT_LINES_Z + z_offset),
+                sprite: Sprite {
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .insert(PaletteColor::CourtPost)
+            .with_children(|b| {
+                b.spawn_bundle(SpriteBundle {
+                    texture: asset_server.load("art-ish/net_post.png"),
+                    transform: Transform {
+                        scale: Vec3::new(1.0, 0.5, 1.),
+                        translation: Vec3::new(-3., -17., -0.1),
+                        ..Default::default()
+                    },
+                    sprite: Sprite {
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .insert(PaletteColor::Shadow);
+            });
+    }
 
     commands.insert_resource(settings);
 }

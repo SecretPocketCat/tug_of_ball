@@ -6,15 +6,15 @@
 #![feature(if_let_guard)]
 
 // todo list
+// rounded court
+// shadows for everyting
+// ball 'steps' after bounce
+// initial aim dir
+// faces
+// better font
 // ball trail
 // dash trail
-// faces
-// ball 'steps' after bounce
-// rounded court
-// net 'pickets'
-// net shadow
 // shadow z indexes
-// better font
 
 use bevy::{prelude::*, render::render_resource::FilterMode};
 use bevy_tweening::TweeningPlugin;

@@ -61,7 +61,7 @@ impl Palette {
             PaletteColor::Background => self.background.into(),
             PaletteColor::Court => self.court.into(),
             PaletteColor::CourtLines => self.court_lines.into(),
-            PaletteColor::CourtPickets => self.court_pickets.into(),
+            PaletteColor::CourtPost => self.court_pickets.into(),
             PaletteColor::Ball => self.ball.into(),
             PaletteColor::Player => self.player.into(),
             PaletteColor::PlayerAim => self.player_aim.into(),
@@ -86,7 +86,7 @@ pub const GRASS_PALETTE: Palette = Palette {
     player_face: RgbColor::new(32, 40, 61),
     player_charge: RgbColor::new(109, 141, 138),
     score_text: RgbColor::new(251, 247, 243),
-    shadow: RgbColor::new_with_alpha(32, 40, 61, 100),
+    shadow: RgbColor::new_with_alpha(0, 8, 24, 80),
 };
 
 // based on
@@ -102,7 +102,7 @@ pub const CLAY_PALETTE: Palette = Palette {
     player_face: RgbColor::new(101, 80, 87),
     player_charge: RgbColor::new(203, 129, 117),
     score_text: RgbColor::new(246, 237, 205),
-    shadow: RgbColor::new_with_alpha(100, 80, 70, 70),
+    shadow: RgbColor::new_with_alpha(22, 12, 0, 80),
 };
 
 #[derive(Component, Clone, Copy)]
@@ -110,7 +110,7 @@ pub enum PaletteColor {
     Background,
     Court,
     CourtLines,
-    CourtPickets,
+    CourtPost,
     Ball,
     Player,
     PlayerAim,
