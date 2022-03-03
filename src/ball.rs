@@ -11,7 +11,7 @@ use heron::rapier_plugin::PhysicsWorld;
 use heron::*;
 use rand::*;
 
-use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion, PlayerAim}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer, BALL_Z, TransformBundle, palette::PaletteColor};
+use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion, PlayerAim}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer, BALL_Z, TransformBundle, palette::PaletteColor, SHADOW_Z};
 
 const BALL_SIZE: f32 = 35.;
 
@@ -353,7 +353,7 @@ pub fn spawn_ball(
             ..Default::default()
         },
         transform: Transform {
-            translation: Vec3::new(0., -13., -0.5),
+            translation: Vec3::new(0., -13., -BALL_Z + SHADOW_Z),
             ..Default::default()
         },
         ..Default::default()

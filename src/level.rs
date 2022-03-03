@@ -6,7 +6,7 @@ use bevy_inspector_egui::Inspectable;
 use heron::*;
 use rand::*;
 
-use crate::{WIN_WIDTH, WIN_HEIGHT, PhysLayer, COURT_LINES_Z, COURT_Z, palette::PaletteColor};
+use crate::{WIN_WIDTH, WIN_HEIGHT, PhysLayer, COURT_LINE_Z, COURT_Z, palette::PaletteColor, NET_Z, SHADOW_Z};
 
 pub struct CourtSettings {
     // nice2have: replace by proper bounds
@@ -113,19 +113,19 @@ fn setup(
 
     let lines = [
         // net
-        (0., 5., Vec2::new(thickness * 0.8, height), 0.9),
+        (0., 5., Vec2::new(thickness * 0.8, height), NET_Z),
         // horizonal split
-        (0., 0., Vec2::new(width, thickness), 0.),
+        (0., 0., Vec2::new(width, thickness), COURT_LINE_Z),
         // sidelines
-        (-x, 0., Vec2::new(thickness, height), 0.),
-        (x, 0., Vec2::new(thickness, height), 0.),
-        (0., -y, Vec2::new(width, thickness), 0.),
-        (0., y, Vec2::new( width, thickness), 0.),
+        (-x, 0., Vec2::new(thickness, height), COURT_LINE_Z),
+        (x, 0., Vec2::new(thickness, height), COURT_LINE_Z),
+        (0., -y, Vec2::new(width, thickness), COURT_LINE_Z),
+        (0., y, Vec2::new( width, thickness), COURT_LINE_Z),
     ];
 
-    for (x, y, size, z_offset) in lines.iter() {
+    for (x, y, size, z) in lines.iter() {
         commands.spawn_bundle(SpriteBundle {
-            transform: Transform::from_xyz(*x, *y, COURT_LINES_Z + z_offset),
+            transform: Transform::from_xyz(*x, *y, *z),
             sprite: Sprite {
                 custom_size: Some(*size),
                 ..Default::default()
@@ -144,7 +144,7 @@ fn setup(
             ..Default::default()
         },
         transform: Transform {
-            translation: Vec3::new(-7., -3., COURT_LINES_Z + 0.8),
+            translation: Vec3::new(-7., -3., SHADOW_Z),
             scale: Vec3::new(1., 0.97, 1.),
             ..Default::default()
         },
@@ -194,11 +194,12 @@ fn setup(
     let post_offset = 11.;
 
     for (y, z_offset) in
-        [(y + post_offset, 0.5),
-        (-y + post_offset, 0.9)].iter() {
+        [(y + post_offset, -0.1),
+        (-y + post_offset, 0.1)].iter() {
+            let z = NET_Z + z_offset;
             commands.spawn_bundle(SpriteBundle {
                 texture: asset_server.load("art-ish/net_post.png"),
-                transform: Transform::from_xyz(0., *y, COURT_LINES_Z + z_offset),
+                transform: Transform::from_xyz(0., *y, z),
                 sprite: Sprite {
                     ..Default::default()
                 },
@@ -210,7 +211,7 @@ fn setup(
                     texture: asset_server.load("art-ish/net_post.png"),
                     transform: Transform {
                         scale: Vec3::new(1.0, 0.5, 1.),
-                        translation: Vec3::new(-3., -17., -0.1),
+                        translation: Vec3::new(-3., -17., -z + SHADOW_Z),
                         ..Default::default()
                     },
                     sprite: Sprite {

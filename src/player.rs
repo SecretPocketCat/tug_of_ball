@@ -11,7 +11,7 @@ use interpolation::{Ease, EaseFunction};
 use heron::rapier_plugin::{PhysicsWorld, rapier2d::prelude::{RigidBodyActivation, ColliderSet}, nalgebra::ComplexField};
 use heron::*;
 
-use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion, TransformBundle, PLAYER_Z, tween::TweenDoneAction, inverse_lerp, palette::PaletteColor};
+use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion, TransformBundle, PLAYER_Z, tween::TweenDoneAction, inverse_lerp, palette::PaletteColor, SHADOW_Z};
 
 #[derive(Inspectable, Clone, Copy)]
 pub enum ActionStatus<TActiveData: Default> {
@@ -319,13 +319,14 @@ fn setup(
             let rotation_speed = if is_left { -rotation_speed } else { rotation_speed };
             b.spawn_bundle(SpriteBundle {
                 texture: asset_server.load("art-ish/player_circle.png"),
-                transform: Transform::from_xyz(0., 0., -0.5),
+                transform: Transform::from_xyz(0., 0., -0.1),
                 ..Default::default()
             }).insert(PaletteColor::PlayerAim)
             .insert(TransformRotation(rotation_speed.to_radians()));
 
             // body root
             body_root_e = Some(b.spawn_bundle(TransformBundle::from_xyz(0., 0., 0.))
+            .insert(Name::new("player_body_root"))
             .add_child(face_e)
             .with_children(|b| {
                 // body
@@ -334,17 +335,19 @@ fn setup(
                     ..Default::default()
                 }).insert(PaletteColor::Player)
                 .insert(Animator::<Transform>::default())
+                .insert(Name::new("player_body"))
                 .with_children(|b| {
                     // shadow
                     b.spawn_bundle(SpriteBundle {
                         texture: asset_server.load("art-ish/player_body.png"),
                         transform: Transform {
                             scale: Vec3::new(1.0, 0.5, 1.),
-                            translation: Vec3::new(0., -25., -0.6),
+                            translation: Vec3::new(0., -25., -PLAYER_Z + SHADOW_Z),
                             ..Default::default()
                         },
                         ..Default::default()
-                    }).insert(PaletteColor::Shadow);
+                    }).insert(PaletteColor::Shadow)
+                    .insert(Name::new("player_shadow"));
                 })
                 .id());
             }).insert(Animator::<Transform>::default())
@@ -841,7 +844,7 @@ fn get_idle_body_tween(z: f32) -> Tracks<Transform> {
         Duration::from_millis(400),
         TransformScaleLens {
             start: Vec3::ONE,
-            end: Vec2::new(1.075, 0.925).to_vec3(),
+            end: Vec3::new(1.075, 0.925, 1.),
         }
     );
     let body_idle_pos_tween = Tween::new(

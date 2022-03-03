@@ -6,15 +6,16 @@
 #![feature(if_let_guard)]
 
 // todo list
-// rounded court
+// shadow z indexes
 // shadows for everyting
+// player center offset
+// rounded court
 // ball 'steps' after bounce
 // initial aim dir
 // faces
 // better font
 // ball trail
 // dash trail
-// shadow z indexes
 
 use bevy::{prelude::*, render::render_resource::FilterMode};
 use bevy_tweening::TweeningPlugin;
@@ -85,9 +86,12 @@ impl TransformBundle {
     }
 }
 
-const COURT_Z: f32 = 1.;
-const COURT_LINES_Z: f32 = COURT_Z + 1.;
-const PLAYER_Z: f32 = COURT_LINES_Z + 1.;
+const BG_Z: f32 = 0.;
+const COURT_Z: f32 = BG_Z + 1.;
+const COURT_LINE_Z: f32 = COURT_Z + 1.;
+const SHADOW_Z: f32 = COURT_LINE_Z + 1.;
+const NET_Z: f32 = SHADOW_Z + 1.;
+const PLAYER_Z: f32 = NET_Z + 1.;
 const BALL_Z: f32 = PLAYER_Z + 1.;
 
 fn main() {
