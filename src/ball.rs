@@ -12,7 +12,7 @@ use heron::rapier_plugin::PhysicsWorld;
 use heron::*;
 use rand::*;
 
-use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion, PlayerAim}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer, BALL_Z, TransformBundle, palette::PaletteColor, SHADOW_Z};
+use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion, PlayerAim}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer, BALL_Z, TransformBundle, palette::PaletteColor, SHADOW_Z, PLAYER_Z};
 
 const BALL_SIZE: f32 = 35.;
 
@@ -24,6 +24,7 @@ pub struct Ball {
     prev_pos: Vec3,
     pub(crate) region: CourtRegion,
     bounce_e: Option<Entity>,
+    pub(crate) trail_e: Option<Entity>,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -50,6 +51,13 @@ struct Trail {
     points: Vec<TrailPoint>,
     transform_e: Entity,
     duration_sec: f32,
+    max_width: f32,
+}
+
+#[derive(Component, Default)]
+pub struct FadeOutTrail {
+    pub(crate) decrease_duration_by: f32,
+    pub(crate) stop_trail: bool,
 }
 
 pub struct BallBouncedEvt {
@@ -67,6 +75,7 @@ impl Plugin for BallPlugin {
             .add_system(bounce)
             .add_system(store_path_points)
             .add_system(draw_trail)
+            .add_system(fadeout_trail)
             .add_system_to_stage(CoreStage::PostUpdate, handle_collisions)
             .add_system_to_stage(CoreStage::PostUpdate, handle_regions)
             .add_event::<BallBouncedEvt>();
@@ -261,6 +270,7 @@ fn handle_collisions(
 }
 
 fn handle_regions(
+    mut commands: Commands,
     mut coll_events: EventReader<CollisionEvent>,
     ball_q: Query<(Entity, &GlobalTransform), With<Ball>>,
     mut ball_mut_q: Query<&mut Ball>,
@@ -317,7 +327,6 @@ fn handle_regions(
                     if let Ok((mut bounce, bounce_t)) = ball_bounce_q.get_mut(ball.bounce_e.unwrap()) {
                         bounce.count = 0;
                         trace!("Crossed net");
-    
                         trace!("height over net {}", bounce_t.translation.y);
     
                         if bounce_t.translation.y < 20. {
@@ -325,6 +334,12 @@ fn handle_regions(
                             let hit_vel_mult = 0.25;
                             ball.dir *= Vec2::new(-hit_vel_mult, hit_vel_mult);
                             bounce.velocity *= 0.5;
+                            commands
+                                .entity(ball.trail_e.unwrap())
+                                .insert(FadeOutTrail{
+                                    stop_trail: true,
+                                    ..Default::default()
+                                });
                         }
                     }
                 }
@@ -336,54 +351,94 @@ fn handle_regions(
 }
 
 fn store_path_points(
-    mut path_q: Query<(Entity, &mut Trail)>,
+    mut path_q: Query<(Entity, &mut Trail, Option<&FadeOutTrail>)>,
     transform_q: Query<&GlobalTransform>,
     time: Res<Time>,
     mut commands: Commands,
 ) {
-    for (e, mut trail) in path_q.iter_mut() {
+    for (e, mut trail, fadeout) in path_q.iter_mut() {
         let curr_time = time.seconds_since_startup();
+        let mut stop = false;
 
-        if let Ok(t) = transform_q.get(trail.transform_e) {
-            let new_pos = t.translation.truncate();
-            let mut add_point = true;
+        if let Some(fadeout) = fadeout {
+            stop = fadeout.stop_trail;
+        }
 
-            if let Some(mut last_point) = trail.points.last_mut() {
-                if last_point.0 == new_pos {
-                    last_point.1 = curr_time;
-                    add_point = false;
+        if trail.duration_sec > 0. && !stop {
+            if let Ok(t) = transform_q.get(trail.transform_e) {
+                let new_pos = t.translation.truncate();
+                let mut add_point = true;
+    
+                if let Some(mut last_point) = trail.points.last_mut() {
+                    if last_point.0 == new_pos {
+                        last_point.1 = curr_time;
+                        add_point = false;
+                    }
+                }
+                
+                if add_point {
+                    trail.points.push(TrailPoint(new_pos, curr_time));
                 }
             }
-            
-            if add_point {
-                trail.points.push(TrailPoint(new_pos, curr_time));
-            }
         }
-        else if trail.points.len() == 0 {
-            commands.entity(e).despawn_recursive();
-        }
-        else {
-            let duration = trail.duration_sec as f64;
+      
+
+        let duration = trail.duration_sec as f64;
             trail.points.drain_filter(|p| p.1 + duration < curr_time);
+        
+        if trail.points.len() == 0 {
+            commands.entity(e).despawn_recursive();
         }
     }
 }
 
 fn draw_trail(
     mut path_q: Query<(&mut Path, &mut Trail)>,
+    time: Res<Time>,
 ) {
     for (mut path, trail) in path_q.iter_mut() {
         if trail.points.len() > 1 {
             let mut path_builder = PathBuilder::new();
-            path_builder.move_to(trail.points[0].0);
+            let last = trail.points.last().unwrap();
+            let trail_dur = last.1 - trail.points[0].1;
+            let mut points_back = Vec::with_capacity(trail.points.len());
 
-            for p in trail.points.iter().skip(1) {
-                path_builder.line_to(p.0);
+            for (i, p) in trail.points.iter().rev().enumerate() {
+                let time_delta = time.seconds_since_startup() - p.1;
+                let w = (1. - (time_delta / trail_dur as f64)).clamp(0., 1.) * (trail.max_width as f64 / 2.);
+                let pos = p.0 + Vec2::Y * w as f32;
+
+                if i == 0 {
+                    path_builder.move_to(pos);
+                }
+                else {
+                    path_builder.line_to(pos);
+                }
+
+                if w == 0. {
+                    break;
+                }
+
+                points_back.push(p.0 - Vec2::Y * w as f32);
             }
 
+            for p in points_back.iter().rev() {
+                path_builder.line_to(*p);
+            }
+
+            path_builder.close();
             let line = path_builder.build();
             path.0 = line.0;
         }
+    }
+}
+
+fn fadeout_trail(
+    mut path_q: Query<(&FadeOutTrail, &mut Trail)>,
+    time: ScaledTime,
+) {
+    for (fade, mut trail) in path_q.iter_mut() {
+        trail.duration_sec = (trail.duration_sec - fade.decrease_duration_by * time.scaled_delta_seconds()).max(0.);
     }
 }
 
@@ -425,6 +480,19 @@ pub fn spawn_ball(
         .insert(PaletteColor::Shadow)
         .id();
 
+    let trail_e = commands.spawn_bundle(GeometryBuilder::build_as(
+            &PathBuilder::new().build().0,
+            DrawMode::Fill(FillMode::color(Color::rgb_u8(32, 40, 61))),
+            Transform::from_xyz(0.,0., PLAYER_Z + 0.5),
+        )).insert(Trail {
+            points: Vec::new(),
+            transform_e: bounce_e,
+            duration_sec: 0.3,
+            max_width: 30.,
+        })
+        .insert(Name::new("BallTrail"))
+        .id();
+
     let mut rng = rand::thread_rng();
     let x = WIN_WIDTH / 2. - 330.;
     let x = if serve_region.is_left() { -x } else { x };
@@ -444,6 +512,7 @@ pub fn spawn_ball(
             speed: 1100.,
             region: serve_region,
             bounce_e: Some(bounce_e.clone()),
+            trail_e: Some(trail_e.clone()),
             ..Default::default()
         })
         .insert(BallStatus::Serve(serve_region, fault_count, player_id))
@@ -465,22 +534,4 @@ pub fn spawn_ball(
                 end: Vec3::ONE,
             }
         )))).id();
-
-    commands.spawn_bundle(GeometryBuilder::build_as(
-        &PathBuilder::new().build().0,
-        DrawMode::Stroke(
-            StrokeMode {
-                options: StrokeOptions::default()
-                    .with_line_width(30.0)
-                    .with_line_cap(LineCap::Round)
-                    .with_line_join(LineJoin::Round),
-                color: Color::rgb_u8(32, 40, 61),
-            }),
-        Transform::from_xyz(0.,0., 3.),
-    )).insert(Trail {
-        points: Vec::new(),
-        transform_e: bounce_e,
-        duration_sec: 1.
-    })
-    .insert(Name::new("BallTrail"));
 }
