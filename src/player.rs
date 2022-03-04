@@ -3,7 +3,10 @@ use std::time::Duration;
 use bevy::{
     math::Vec2,
     prelude::*,
-    sprite::{collide_aabb::collide, Sprite, SpriteBundle},
+    sprite::{
+        collide_aabb::{collide, Collision},
+        Sprite, SpriteBundle,
+    },
 };
 use bevy_extensions::Vec2Conversion;
 use bevy_input::{ActionInput, ActionState};
@@ -18,7 +21,7 @@ use interpolation::EaseFunction;
 use crate::{
     ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
     inverse_lerp,
-    level::{CourtRegion, NetOffset},
+    level::{CourtRegion, Net, NetOffset},
     palette::PaletteColor,
     score::{add_point_to_score, Score},
     trail::FadeOutTrail,
@@ -409,12 +412,19 @@ fn move_player(
         &mut PlayerAnimationData,
     )>,
     aim_q: Query<(&PlayerAim, &Parent)>,
+    net_q: Query<&GlobalTransform, With<Net>>,
     time: ScaledTime,
     net_offset: Res<NetOffset>,
 ) {
     for (p_aim, parent) in aim_q.iter() {
-        if let Ok((player, mut player_movement, mut player_dash, mut t, player_swing, mut p_anim)) =
-            query.get_mut(parent.0)
+        if let Ok((
+            player,
+            mut player_movement,
+            mut player_dash,
+            mut player_t,
+            player_swing,
+            mut p_anim,
+        )) = query.get_mut(parent.0)
         {
             let dir_raw = input.get_xy_axes_raw(player.id, &InputAxis::MoveX, &InputAxis::MoveY);
             let swing_ready = matches!(player_swing.status, ActionStatus::Ready);
@@ -457,7 +467,7 @@ fn move_player(
                 move_by = Vec3::ZERO;
             }
 
-            let mut final_pos = t.translation + move_by * time.scaled_delta_seconds();
+            let mut final_pos = player_t.translation + move_by * time.scaled_delta_seconds();
 
             if !dashing {
                 // easing
@@ -476,15 +486,15 @@ fn move_player(
                     player_movement.time_to_max_speed,
                     player_movement.easing_time,
                 );
-                final_pos = t.translation.lerp(final_pos, ease_t);
+                final_pos = player_t.translation.lerp(final_pos, ease_t);
             } else {
                 player_movement.easing_time = player_movement.time_to_max_speed;
             }
 
-            // todo: get/store properly
+            // nice2have: get/store properly
             let player_size = Vec2::splat(80.);
             let is_left = player.is_left();
-            // todo: get (from resource or component)
+            // nice2have: get (from resource or component)
             let player_area_size = if is_left {
                 Vec2::new(WIN_WIDTH / 2. + net_offset.0, WIN_HEIGHT)
             } else {
@@ -502,13 +512,29 @@ fn move_player(
             if coll.is_some() {
                 player_movement.easing_time = 0.;
                 player_movement.last_non_zero_raw_dir = Vec2::ZERO;
+
+                // nice2have: using colliders would probably make more sense
+                // need to handle side coll in case the player gets pushed by a moving net
+
+                if let Ok(net_t) = net_q.get_single() {
+                    let player_x = player_t.translation.x;
+                    let player_half_w = player_size.x / 2.;
+                    let net_x = net_t.translation.x;
+
+                    if is_left && (player_x + player_half_w) > net_x {
+                        player_t.translation.x = net_x - player_half_w;
+                    } else if !is_left && (player_x - player_half_w) < net_x {
+                        player_t.translation.x = net_x + player_half_w;
+                    }
+                }
+
                 if p_anim.animation != PlayerAnimation::Idle {
                     p_anim.animation = PlayerAnimation::Idle;
                 }
 
                 trace!("{}: {:?}", if is_left { "LeftP" } else { "RightP" }, coll);
             } else {
-                if (final_pos - t.translation).length().abs() > 0.1 {
+                if (final_pos - player_t.translation).length().abs() > 0.1 {
                     if !dashing {
                         if charging && p_anim.animation != PlayerAnimation::Walking {
                             p_anim.animation = PlayerAnimation::Walking;
@@ -522,7 +548,7 @@ fn move_player(
                     }
                 }
 
-                t.translation = final_pos;
+                player_t.translation = final_pos;
 
                 if dir_raw != Vec2::ZERO {
                     player_movement.last_non_zero_raw_dir = dir_raw;
@@ -749,7 +775,6 @@ fn on_ball_bounced(
     }
 }
 
-// 2fix: sometimes the player shadow flickers over the body
 fn animate(
     player_q: Query<(&PlayerAnimationData, ChangeTrackers<PlayerAnimationData>)>,
     mut animator_q: Query<(&mut Animator<Transform>, &Transform)>,
@@ -761,13 +786,13 @@ fn animate(
 
             debug!("anim change to {:?}", anim.animation);
             match anim.animation {
-                // todo: set the proper face sprite for each anim
+                // todo: facial expressions
                 PlayerAnimation::Dashing => {
                     stop_anim_entities.push(anim.face_e);
                     stop_anim_entities.push(anim.body_e);
                     stop_anim_entities.push(anim.body_root_e);
 
-                    // todo: dashing tween?
+                    // nice2have: dashing tween?
                     // if let Ok((mut animator, t)) = animator_q.get_mut(anim.body_e) {
                     //     animator.set_tweenable(get_dash_tween(t));
                     //     animator.rewind();
