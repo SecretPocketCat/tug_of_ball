@@ -10,14 +10,14 @@ use bevy_extensions::Vec2Conversion;
 use bevy_inspector_egui::Inspectable;
 use bevy_prototype_lyon::prelude::*;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-use bevy_tweening::lens::TransformScaleLens;
+use bevy_tweening::lens::{SpriteColorLens, TransformScaleLens};
 use bevy_tweening::*;
 use heron::*;
 use rand::*;
 
 use crate::{
     level::{CourtRegion, CourtSettings, InitialRegion, NetOffset},
-    palette::PaletteColor,
+    palette::{Palette, PaletteColor},
     player::{ActionStatus, Player, PlayerAim, PlayerSwing, ServingRegion},
     trail::{FadeOutTrail, Trail},
     PhysLayer, PlayerInput, TransformBundle, BALL_Z, PLAYER_Z, SHADOW_Z, WIN_WIDTH,
@@ -133,13 +133,19 @@ fn get_bounce_velocity(dir_len: f32, max_velocity: f32) -> f32 {
 }
 
 fn bounce(
-    mut bounce_query: Query<(&mut BallBounce, &mut Transform, &Parent), Without<Ball>>,
+    mut bounce_query: Query<
+        (&mut BallBounce, &mut Transform, &GlobalTransform, &Parent),
+        Without<Ball>,
+    >,
     mut ball_q: Query<(Entity, &mut Ball, &mut BallStatus, &Transform)>,
     mut ev_w_bounce: EventWriter<BallBouncedEvt>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    palette: Res<Palette>,
     time: ScaledTime,
     net: Res<NetOffset>,
 ) {
-    for (mut ball_bounce, mut t, p) in bounce_query.iter_mut() {
+    for (mut ball_bounce, mut t, bounce_global_t, p) in bounce_query.iter_mut() {
         if let Ok((ball_e, ball, mut ball_status, ball_t)) = ball_q.get_mut(p.0) {
             if ball.dir == Vec2::ZERO {
                 continue;
@@ -177,10 +183,51 @@ fn bounce(
                         1.
                     },
                 });
+
+                spawn_bounce_track(
+                    &mut commands,
+                    &asset_server,
+                    &palette,
+                    ball_t.translation.truncate().extend(SHADOW_Z),
+                );
                 debug!("Bounced {} times", ball_bounce.count);
             }
         }
     }
+}
+
+fn spawn_bounce_track(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    palette: &Res<Palette>,
+    pos: Vec3,
+) {
+    let end_col = palette.get_color(&PaletteColor::Shadow);
+    let tween = Tween::new(
+        EaseFunction::QuadraticOut,
+        TweeningType::Once,
+        Duration::from_millis(1500),
+        SpriteColorLens {
+            start: end_col,
+            end: Color::NONE,
+        },
+    );
+
+    commands
+        .spawn_bundle(SpriteBundle {
+            texture: asset_server.load("art-ish/ball.png"),
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(1.0, 0.5) * BALL_SIZE),
+                color: Color::NONE,
+                ..Default::default()
+            },
+            transform: Transform {
+                translation: pos + Vec3::new(-3., -14., 0.),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(Animator::new(tween));
 }
 
 // nice2have: 'auto dash swing'?
