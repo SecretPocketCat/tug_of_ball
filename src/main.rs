@@ -50,7 +50,6 @@ mod player;
 mod score;
 mod trail;
 mod tween;
-mod wall;
 
 const NAME: &str = "Tennis Rounds";
 const WIN_WIDTH: f32 = 1600.;
@@ -125,7 +124,6 @@ fn main() {
         .add_plugin(ScorePlugin)
         .add_plugin(TweenPlugin)
         .add_plugin(TrailPlugin)
-        // .add_plugin(WallPlugin)
         .add_plugin(LevelPlugin)
         .add_plugin(PalettePlugin)
         .add_startup_system(setup)

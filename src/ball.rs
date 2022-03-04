@@ -10,17 +10,17 @@ use bevy_extensions::Vec2Conversion;
 use bevy_inspector_egui::Inspectable;
 use bevy_prototype_lyon::prelude::*;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-use bevy_tweening::lens::{TransformScaleLens};
+use bevy_tweening::lens::TransformScaleLens;
 use bevy_tweening::*;
 use heron::*;
 use rand::*;
 
 use crate::{
-    level::{CourtRegion, CourtSettings},
+    level::{CourtRegion, CourtSettings, NetOffset},
     palette::PaletteColor,
     player::{ActionStatus, Player, PlayerAim, PlayerSwing, ServingRegion},
     trail::{FadeOutTrail, Trail},
-    wall::Wall, PhysLayer, PlayerInput, TransformBundle, BALL_Z, PLAYER_Z, SHADOW_Z, WIN_WIDTH,
+    PhysLayer, PlayerInput, TransformBundle, BALL_Z, PLAYER_Z, SHADOW_Z, WIN_WIDTH,
 };
 
 const BALL_SIZE: f32 = 35.;
@@ -72,9 +72,11 @@ impl Plugin for BallPlugin {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let region = CourtRegion::TopLeft;
-    // let region = CourtRegion::get_random_left();
-    // let region = CourtRegion::get_random();
+    let mut region = CourtRegion::get_random();
+    #[cfg(feature = "debug")]
+    {
+        region = CourtRegion::TopLeft;
+    }
     spawn_ball(
         &mut commands,
         &asset_server,
@@ -90,8 +92,9 @@ fn movement(
     mut ball_q: Query<(&mut Ball, &mut Transform)>,
     mut bounce_q: Query<&mut BallBounce>,
     time: ScaledTime,
+    net: Res<NetOffset>,
 ) {
-    for (mut ball, mut t) in ball_q.iter_mut() {
+    for (mut ball, mut ball_t) in ball_q.iter_mut() {
         if ball.dir == Vec2::ZERO {
             continue;
         }
@@ -108,16 +111,19 @@ fn movement(
         ball.dir *= 1. - drag_mult * time.scaled_delta_seconds();
 
         // move
-        t.translation += ball.dir.to_vec3() * ball.speed * time.scaled_delta_seconds();
+        ball_t.translation += ball.dir.to_vec3() * ball.speed * time.scaled_delta_seconds();
 
-        if t.translation.x.signum() != ball.prev_pos.x.signum() {
+        let net_x = net.0;
+        let ball_x = ball_t.translation.x;
+        let ball_prev_x = ball.prev_pos.x;
+        if (ball_prev_x < net_x && ball_x > net_x) || (ball_prev_x > net_x && ball_x < net_x) {
             if let Ok(mut bounce) = bounce_q.get_mut(ball.bounce_e.unwrap()) {
                 bounce.count = 0;
-                trace!("crossed net");
+                info!("crossed net extra check");
             }
         }
 
-        ball.prev_pos = t.translation;
+        ball.prev_pos = ball_t.translation;
     }
 }
 
@@ -130,6 +136,7 @@ fn bounce(
     mut ball_q: Query<(Entity, &mut Ball, &mut BallStatus, &Transform)>,
     mut ev_w_bounce: EventWriter<BallBouncedEvt>,
     time: ScaledTime,
+    net: Res<NetOffset>,
 ) {
     for (mut ball_bounce, mut t, p) in bounce_query.iter_mut() {
         if let Ok((ball_e, ball, mut ball_status, ball_t)) = ball_q.get_mut(p.0) {
@@ -163,7 +170,11 @@ fn bounce(
                 ev_w_bounce.send(BallBouncedEvt {
                     ball_e,
                     bounce_count: ball_bounce.count,
-                    side: ball_t.translation.x.signum(),
+                    side: if ball_t.translation.x < net.0 {
+                        -1.
+                    } else {
+                        1.
+                    },
                 });
                 debug!("Bounced {} times", ball_bounce.count);
             }
@@ -179,7 +190,6 @@ fn handle_collisions(
     mut ball_bounce_q: Query<&mut BallBounce>,
     player_aim_q: Query<&PlayerAim>,
     mut player_q: Query<(&Player, &mut PlayerSwing, &GlobalTransform)>,
-    wall_q: Query<&Sprite, With<Wall>>,
 ) {
     for ev in coll_events.iter() {
         if ev.is_started() {
@@ -214,13 +224,12 @@ fn handle_collisions(
 
                             let clamp_x = 1.;
                             let clamp_y = 0.8;
-                            let player_x = player_t.translation.x;
-                            let player_x_sign = player_x.signum();
 
-                            if dir == Vec2::new(player_x_sign, 0.) {
+                            let player_sign = player.get_sign();
+                            if dir == Vec2::new(player_sign, 0.) {
                                 // player aiming into their court/backwards - just aim straight
-                                dir = Vec2::new(-player_x_sign, 0.);
-                            } else if player_x < 0. {
+                                dir = Vec2::new(-player_sign, 0.);
+                            } else if player.is_left() {
                                 dir = dir.clamp(
                                     Vec2::new(clamp_x, -clamp_y),
                                     Vec2::new(clamp_x, clamp_y),
@@ -257,11 +266,6 @@ fn handle_collisions(
                         }
                     }
                 }
-            } else if let Ok(wall_sprite) = wall_q.get(other_e) {
-                let size = wall_sprite.custom_size.unwrap();
-                let is_hor = size.x > size.y;
-                let x = if is_hor { 1. } else { -1. };
-                ball.dir *= Vec2::new(x, -x);
             }
         }
     }
@@ -281,9 +285,7 @@ fn handle_regions(
     for (ball_e, ball_t) in ball_q.iter() {
         let mut region = None;
 
-        let mut i = -1;
-        for ev in all_events.iter() {
-            i += 1;
+        for (i, ev) in all_events.iter().enumerate() {
             let other_e;
             let (entity_1, entity_2) = ev.rigid_body_entities();
             if ball_e == entity_1 {

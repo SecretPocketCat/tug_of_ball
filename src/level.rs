@@ -6,18 +6,19 @@ use bevy::{
     sprite::{Sprite, SpriteBundle},
 };
 
+use bevy_extensions::Vec2Conversion;
 use bevy_inspector_egui::Inspectable;
 use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningType};
 use heron::*;
 use rand::*;
 
 use crate::{
-    palette::PaletteColor, score::Score, COURT_LINE_Z, COURT_Z, NET_Z, SHADOW_Z, WIN_HEIGHT,
-    WIN_WIDTH,
+    palette::PaletteColor, score::Score, PhysLayer, TransformBundle, COURT_LINE_Z, COURT_Z, NET_Z,
+    SHADOW_Z, WIN_HEIGHT, WIN_WIDTH,
 };
 
 #[derive(Component)]
-struct Net;
+pub struct Net;
 
 pub struct NetOffset(pub f32);
 
@@ -27,6 +28,8 @@ pub struct CourtSettings {
     pub(crate) right: f32,
     pub(crate) top: f32,
     pub(crate) bottom: f32,
+    pub(crate) base_region_size: Vec3,
+    pub(crate) region_x: f32,
 }
 
 #[derive(Default, Component, Inspectable, Clone, Copy, Debug, PartialEq)]
@@ -115,16 +118,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let x = WIN_WIDTH / 2. - 300.;
     let height = WIN_HEIGHT - 250.;
     let y = height / 2.;
+    let thickness = 12.;
+    let width = x * 2. + thickness;
+    let region_x = x / 2. + thickness / 4.;
+    let region_y = y / 2. + thickness / 4.;
+    let region_size = Vec3::new(width / 4., height / 4. + thickness / 4., 0.);
 
     let settings = CourtSettings {
         left: -x,
         right: x,
         top: y,
         bottom: -y,
+        base_region_size: region_size,
+        region_x,
     };
-
-    let thickness = 12.;
-    let width = x * 2. + thickness;
 
     let lines = [
         // horizonal split
@@ -150,35 +157,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .insert(Name::new("LevelLine"));
     }
 
-    let region_x = x / 2. + thickness / 4.;
-    let region_y = y / 2. + thickness / 4.;
-    let region_size = Vec3::new(width / 4., height / 4. + thickness / 4., 0.);
-    let sensors = [
-        (-region_x, region_y, CourtRegion::TopLeft),
-        (-region_x, -region_y, CourtRegion::BottomLeft),
-        (region_x, region_y, CourtRegion::TopRight),
-        (region_x, -region_y, CourtRegion::BottomRight),
+    let colliders = [
+        (-region_x, region_y, CourtRegion::TopLeft, Color::ORANGE),
+        (
+            -region_x,
+            -region_y,
+            CourtRegion::BottomLeft,
+            Color::ALICE_BLUE,
+        ),
+        (region_x, region_y, CourtRegion::TopRight, Color::GREEN),
+        (
+            region_x,
+            -region_y,
+            CourtRegion::BottomRight,
+            Color::FUCHSIA,
+        ),
     ];
 
-    for (x, y, region) in sensors.iter() {
-        commands
-            .spawn_bundle(SpriteBundle {
-                transform: Transform::from_xyz(*x, *y, COURT_Z),
-                sprite: Sprite {
-                    custom_size: Some(region_size.truncate() * 2.),
-                    ..Default::default()
-                },
-                ..Default::default()
-            })
-            .insert(PaletteColor::Court)
-            .insert(GlobalTransform::default())
-            .insert(RigidBody::Sensor)
-            .insert(CollisionShape::Cuboid {
-                half_extends: region_size,
-                border_radius: None,
-            })
-            .insert(region.clone())
-            .insert(Name::new("Region"));
+    for (x, y, region, debug_col) in colliders.iter() {
+        spawn_region(&mut commands, *region, *x, *y, region_size, *debug_col);
     }
 
     // net
@@ -257,16 +254,62 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(settings);
 }
 
+fn spawn_region(
+    commands: &mut Commands,
+    region: CourtRegion,
+    x: f32,
+    y: f32,
+    region_size: Vec3,
+    debug_color: Color,
+) {
+    commands
+        .spawn_bundle(TransformBundle::from_xyz(x, y, COURT_Z))
+        .insert(RigidBody::KinematicPositionBased)
+        .insert(CollisionShape::Cuboid {
+            half_extends: region_size,
+            border_radius: None,
+        })
+        .insert(CollisionLayers::all::<PhysLayer>())
+        .insert(region.clone())
+        .insert(Name::new("Region"))
+        .with_children(|b| {
+            #[cfg(feature = "debug")]
+            {
+                let mut col = debug_color;
+                col.set_a(0.3);
+                b.spawn_bundle(SpriteBundle {
+                    // transform: Transform::from_xyz(*x, *y, COURT_Z + 0.5),
+                    sprite: Sprite {
+                        custom_size: Some(region_size.truncate() * 2.),
+                        color: col,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .insert(Name::new("RegionDebug"));
+            }
+        });
+}
+
 fn handle_net_offset(
     mut commands: Commands,
     score: Res<Score>,
     mut offset: ResMut<NetOffset>,
     net_q: Query<(Entity, &Transform), With<Net>>,
+    mut region_q: Query<(Entity, &CourtRegion, &mut Transform, &mut CollisionShape), Without<Net>>,
+    settings: Res<CourtSettings>,
 ) {
     if score.is_changed() {
-        // todo: redo to games
-        offset.0 = (score.right_player.games as f32 - score.left_player.games as f32) * 50.;
+        let offset_mult = -50.;
+        offset.0 = (score.right_player.games as f32 - score.left_player.games as f32) * offset_mult;
 
+        #[cfg(feature = "debug")]
+        {
+            offset.0 =
+                (score.right_player.points as f32 - score.left_player.points as f32) * offset_mult;
+        }
+
+        // tween net
         if let Ok((net_e, net_t)) = net_q.get_single() {
             commands.entity(net_e).insert(Animator::new(Tween::new(
                 EaseFunction::QuadraticInOut,
@@ -277,6 +320,28 @@ fn handle_net_offset(
                     end: Vec3::new(offset.0, net_t.translation.y, net_t.translation.z),
                 },
             )));
+        }
+
+        // resize regions
+        for (region_e, region, mut region_t, mut region_coll_shape) in region_q.iter_mut() {
+            let x = if region.is_left() {
+                -settings.region_x + offset.0 / 2.
+            } else {
+                settings.region_x + offset.0 / 2.
+            };
+            let side_mult = if region.is_left() { 1. } else { -1. };
+            let mut extends = settings.base_region_size;
+            extends.x += (offset.0 / 2.) * side_mult;
+            spawn_region(
+                &mut commands,
+                *region,
+                x,
+                region_t.translation.y,
+                extends,
+                Color::NONE,
+            );
+
+            commands.entity(region_e).despawn_recursive();
         }
     }
 }
