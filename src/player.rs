@@ -492,7 +492,15 @@ fn move_player(
                 player_movement.easing_time = player_movement.time_to_max_speed;
             }
 
-            if final_pos.x.signum() == t.translation.x.signum() {
+            // todo: get/store properly
+            let player_w = 40.;
+            let is_left = player.is_left();
+            let edge = if is_left
+                { -player_w } else
+                { player_w };
+            
+            // todo: bounding box check?
+            if (is_left && final_pos.x < edge) || (!is_left && final_pos.x > edge) {
                 if (final_pos - t.translation).length().abs() > 0.1 {
                     if !dashing {
                         if charging && p_anim.animation != PlayerAnimation::Walking {
