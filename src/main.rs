@@ -7,7 +7,8 @@
 #![feature(drain_filter)]
 
 // todo list
-// tug of ball + player - check screen bounding box
+// tug of ball
+// resize the aim area for the losing player
 // rounded court
 // court size
 // initial player position
@@ -31,6 +32,7 @@ use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_time::TimePlugin;
 use bevy_tweening::TweeningPlugin;
 
+use debug::DebugPlugin;
 use heron::*;
 use level::LevelPlugin;
 use palette::PalettePlugin;
@@ -103,8 +105,8 @@ const PLAYER_Z: f32 = NET_Z + 1.;
 const BALL_Z: f32 = PLAYER_Z + 1.;
 
 fn main() {
-    App::new()
-        .insert_resource(Msaa { samples: 4 })
+    let mut app = App::new();
+    app.insert_resource(Msaa { samples: 4 })
         .insert_resource(WindowDescriptor {
             title: NAME.to_string(),
             width: WIN_WIDTH,
@@ -116,7 +118,6 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
         .add_plugin(TweeningPlugin)
-        .add_plugin(ShapePlugin)
         .add_plugin(TimePlugin)
         .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::default())
         .add_plugin(PlayerPlugin)
@@ -127,11 +128,21 @@ fn main() {
         // .add_plugin(WallPlugin)
         .add_plugin(LevelPlugin)
         .add_plugin(PalettePlugin)
-        // .add_plugin(DebugPlugin)
         .add_startup_system(setup)
         .add_startup_system(setup_bindings.chain(panic_on_error))
-        .add_system(set_img_sampler_filter)
-        .run();
+        .add_system(set_img_sampler_filter);
+
+    #[cfg(not(feature = "debug"))]
+    {
+        app.add_plugin(ShapePlugin);
+    }
+
+    #[cfg(feature = "debug")]
+    {
+        app.add_plugin(DebugPlugin);
+    }
+
+    app.run();
 }
 
 fn setup(mut commands: Commands) {
