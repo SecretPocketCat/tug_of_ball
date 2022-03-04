@@ -93,12 +93,15 @@ pub enum PlayerAnimation {
 }
 
 #[derive(Component, Inspectable)]
-struct PlayerAnimationData {
-    animation: PlayerAnimation,
+pub struct PlayerAnimationData {
+    pub animation: PlayerAnimation,
     face_e: Entity,
     body_e: Entity,
     body_root_e: Entity,
 }
+
+#[derive(Component, Inspectable)]
+pub struct PlayerAnimationBlock(pub f32);
 
 #[derive(Component, Inspectable)]
 pub struct Player {
@@ -264,6 +267,7 @@ impl Plugin for PlayerPlugin {
             .add_system(rotate)
             .add_system(update_aim_rotation)
             .add_system(animate)
+            .add_system(unblock_animation)
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::new()
@@ -793,11 +797,21 @@ fn on_ball_bounced(
 }
 
 fn animate(
-    player_q: Query<(&PlayerAnimationData, ChangeTrackers<PlayerAnimationData>)>,
+    mut commands: Commands,
+    player_anim_q: Query<(
+        Entity,
+        &PlayerAnimationData,
+        Option<&PlayerAnimationBlock>,
+        ChangeTrackers<PlayerAnimationData>,
+    )>,
     mut animator_q: Query<(&mut Animator<Transform>, &Transform)>,
 ) {
-    for (anim, anim_tracker) in player_q.iter() {
+    for (anim_e, anim, block, anim_tracker) in player_anim_q.iter() {
         if anim_tracker.is_changed() || anim_tracker.is_added() {
+            if block.is_some() {
+                continue;
+            }
+
             let mut stop_anim_entities: Vec<Entity> = Vec::new();
             let mut body_root_tween = None;
 
@@ -805,15 +819,18 @@ fn animate(
             match anim.animation {
                 PlayerAnimation::Dashing => {
                     stop_anim_entities.push(anim.face_e);
-                    stop_anim_entities.push(anim.body_e);
+                    // stop_anim_entities.push(anim.body_e);
                     stop_anim_entities.push(anim.body_root_e);
 
                     // nice2have: dashing tween?
-                    // if let Ok((mut animator, t)) = animator_q.get_mut(anim.body_e) {
-                    //     animator.set_tweenable(get_dash_tween(t));
-                    //     animator.rewind();
-                    //     animator.state = AnimatorState::Playing;
-                    // }
+                    if let Ok((mut animator, t)) = animator_q.get_mut(anim.body_e) {
+                        let (tween, dur) = get_dash_tween(t);
+                        animator.set_tweenable(tween);
+                        animator.rewind();
+                        animator.state = AnimatorState::Playing;
+
+                        commands.entity(anim_e).insert(PlayerAnimationBlock(dur));
+                    }
                 }
                 PlayerAnimation::Idle => {
                     stop_anim_entities.push(anim.body_root_e);
@@ -861,6 +878,20 @@ fn animate(
                     animator.state = AnimatorState::Playing;
                 }
             }
+        }
+    }
+}
+
+fn unblock_animation(
+    mut commands: Commands,
+    mut block_q: Query<(Entity, &mut PlayerAnimationBlock)>,
+    time: ScaledTime,
+) {
+    for (e, mut block) in block_q.iter_mut() {
+        block.0 -= time.scaled_delta_seconds();
+
+        if block.0 < 0. {
+            commands.entity(e).remove::<PlayerAnimationBlock>();
         }
     }
 }
@@ -960,21 +991,28 @@ fn get_idle_body_tween(z: f32) -> Tracks<Transform> {
     Tracks::new([body_idle_size_tween, body_idle_pos_tween])
 }
 
-// fn get_dash_tween(
-//     transform: &Transform
-// ) -> Sequence<Transform> {
-//     let dash_tween = Tween::new(
-//         EaseFunction::QuadraticOut,
-//         TweeningType::Once,
-//         Duration::from_millis(150),
-//         TransformRotationLens {
-//             start: transform.rotation,
-//             end: Quat::from_rotation_y(360f32.to_radians()),
-//         }
-//     );
-
-//     dash_tween.then(get_reset_trans_tween(transform, 150))
-// }
+fn get_dash_tween(transform: &Transform) -> (Sequence<Transform>, f32) {
+    let end = (Vec2::ONE * 1.3).extend(1.);
+    let t = Tween::new(
+        EaseFunction::BounceOut,
+        TweeningType::Once,
+        Duration::from_millis(120),
+        TransformScaleLens {
+            start: transform.scale,
+            end: end,
+        },
+    )
+    .then(Tween::new(
+        EaseFunction::QuadraticIn,
+        TweeningType::Once,
+        Duration::from_millis(80),
+        TransformScaleLens {
+            start: end,
+            end: Vec3::ONE,
+        },
+    ));
+    (t, 0.5)
+}
 
 fn rotate(mut q: Query<(&TransformRotation, &mut Transform)>, time: ScaledTime) {
     for (r, mut t) in q.iter_mut() {

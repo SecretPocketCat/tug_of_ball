@@ -2,6 +2,8 @@ use bevy::prelude::*;
 
 use bevy_tweening::TweenCompleted;
 
+use crate::player::{PlayerAnimation, PlayerAnimationBlock, PlayerAnimationData};
+
 #[repr(u64)]
 pub enum TweenDoneAction {
     None = 0,

@@ -7,15 +7,16 @@
 #![feature(drain_filter)]
 
 // todo list:
-// circle rotates only when dash is charged
+// shoot tween
 // faces
 // better font
-// dash 'body' trail?
 // sfx
 // music
 // AI
 // fix WASM release (get rid of the serialiation/async load of binding)
 // resizable window
+
+// nice2have dash 'body' trail?
 
 use ball::BallPlugin;
 use bevy::{prelude::*, render::render_resource::FilterMode};
