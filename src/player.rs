@@ -21,7 +21,7 @@ use interpolation::EaseFunction;
 use crate::{
     ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
     inverse_lerp,
-    level::{CourtRegion, Net, NetOffset},
+    level::{CourtRegion, CourtSettings, InitialRegion, Net, NetOffset},
     palette::PaletteColor,
     score::{add_point_to_score, Score},
     trail::FadeOutTrail,
@@ -251,7 +251,7 @@ pub struct ServingRegion(pub CourtRegion);
 pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_startup_system(setup)
+        app.add_startup_system_to_stage(StartupStage::PostStartup, setup)
             .add_system(move_player)
             .add_system(aim)
             .add_system(handle_swing_input)
@@ -267,11 +267,17 @@ impl Plugin for PlayerPlugin {
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<InitialRegion>) {
     for i in 1..=2 {
-        let x = WIN_WIDTH / 2. - 100.;
+        let x = WIN_WIDTH / 4.;
         let x = if i == 1 { -x } else { x };
         let is_left = x < 0.;
+        let mut player_y = 150.;
+        let is_serving = region.0.is_left() == is_left;
+        if (is_serving && region.0.is_bottom()) || (!is_serving && region.0.is_top()) {
+            player_y *= -1.;
+        }
+
         let initial_dir = if is_left { Vec2::X } else { -Vec2::X };
 
         let mut body_e = None;
@@ -330,7 +336,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .id();
 
         let _player_e = commands
-            .spawn_bundle(TransformBundle::from_xyz(x, 0., PLAYER_Z))
+            .spawn_bundle(TransformBundle::from_xyz(x, player_y, PLAYER_Z))
             .insert_bundle(PlayerBundle::new(i, initial_dir, aim_e, aim_charge_e))
             .insert(RigidBody::KinematicPositionBased)
             .insert(CollisionShape::Sphere { radius: 100. })
@@ -690,6 +696,7 @@ fn on_ball_bounced(
     mut serving_region: ResMut<ServingRegion>,
     entity_q: Query<Entity>,
     mut score: ResMut<Score>,
+    court_set: Res<CourtSettings>,
 ) {
     for ev in ev_r_ball_bounced.iter() {
         if let Ok((ball, mut status, ball_t)) = ball_q.get_mut(ev.ball_e.clone()) {
@@ -769,6 +776,7 @@ fn on_ball_bounced(
                     serving_region.0,
                     fault_count,
                     serving_region.0.get_player_id(),
+                    &court_set,
                 );
             }
         }

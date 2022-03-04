@@ -16,7 +16,7 @@ use heron::*;
 use rand::*;
 
 use crate::{
-    level::{CourtRegion, CourtSettings, NetOffset},
+    level::{CourtRegion, CourtSettings, InitialRegion, NetOffset},
     palette::PaletteColor,
     player::{ActionStatus, Player, PlayerAim, PlayerSwing, ServingRegion},
     trail::{FadeOutTrail, Trail},
@@ -62,7 +62,7 @@ pub struct BallBouncedEvt {
 pub struct BallPlugin;
 impl Plugin for BallPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_startup_system(setup)
+        app.add_startup_system_to_stage(StartupStage::PostStartup, setup)
             .add_system(movement)
             .add_system(bounce)
             .add_system_to_stage(CoreStage::PostUpdate, handle_collisions)
@@ -71,20 +71,21 @@ impl Plugin for BallPlugin {
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let mut region = CourtRegion::get_random();
-    #[cfg(feature = "debug")]
-    {
-        region = CourtRegion::TopLeft;
-    }
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    region: Res<InitialRegion>,
+    court_set: Res<CourtSettings>,
+) {
     spawn_ball(
         &mut commands,
         &asset_server,
-        region,
+        region.0,
         0,
-        region.get_player_id(),
+        region.0.get_player_id(),
+        &court_set,
     );
-    commands.insert_resource(ServingRegion(region));
+    commands.insert_resource(ServingRegion(region.0));
 }
 
 // nice2have: try - slowly speedup during rally?
@@ -361,6 +362,7 @@ pub fn spawn_ball(
     serve_region: CourtRegion,
     fault_count: u8,
     player_id: usize,
+    court_set: &Res<CourtSettings>,
 ) {
     let bounce_e = commands
         .spawn_bundle(SpriteBundle {
@@ -412,7 +414,7 @@ pub fn spawn_ball(
         .id();
 
     let mut rng = rand::thread_rng();
-    let x = WIN_WIDTH / 2. - 330.;
+    let x = rng.gen_range((court_set.right / 2.)..=court_set.right) as f32;
     let x = if serve_region.is_left() { -x } else { x };
     let y = rng.gen_range(120..=280) as f32;
     let y = if serve_region.is_bottom() { -y } else { y };

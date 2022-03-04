@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_input::*;
 use bevy_prototype_lyon::prelude::{DrawMode, FillMode, StrokeMode};
 use bevy_tweening::{
     lens::{SpriteColorLens, TextColorLens},
@@ -6,7 +7,7 @@ use bevy_tweening::{
 };
 use rand::random;
 
-use crate::{level::Court, trail::Trail};
+use crate::{level::Court, trail::Trail, InputAction, InputAxis};
 
 const COURT_STROKE_WIDTH: f32 = 10.;
 
@@ -18,6 +19,7 @@ impl Plugin for PalettePlugin {
             .add_system(on_text_added)
             .add_system(on_trail_added)
             .add_system(on_court_added)
+            .add_system(handle_input)
             .insert_resource(if random::<bool>() {
                 CLAY_PALETTE
             } else {
@@ -26,7 +28,7 @@ impl Plugin for PalettePlugin {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct RgbColor {
     r: u8,
     g: u8,
@@ -187,7 +189,7 @@ fn on_trail_added(palette: Res<Palette>, mut q: Query<&mut DrawMode, Added<Trail
     }
 }
 
-fn on_court_added(palette: Res<Palette>, mut q: Query<&mut DrawMode, Added<Court>>) {
+fn on_court_added(palette: Res<Palette>, mut q: Query<&mut DrawMode, With<Court>>) {
     for mut draw_mode in q.iter_mut() {
         *draw_mode = DrawMode::Outlined {
             fill_mode: FillMode::color(palette.get_color(&PaletteColor::Court)),
@@ -196,5 +198,20 @@ fn on_court_added(palette: Res<Palette>, mut q: Query<&mut DrawMode, Added<Court
                 COURT_STROKE_WIDTH,
             ),
         };
+    }
+}
+
+fn handle_input(mut palette: ResMut<Palette>, input: Res<ActionInput<InputAction, InputAxis>>) {
+    for id in 0..=4 {
+        if input.just_pressed(id, InputAction::ChangePalette) {
+            let is_grass = palette.background == GRASS_PALETTE.background;
+            *palette = if is_grass {
+                CLAY_PALETTE
+            } else {
+                GRASS_PALETTE
+            };
+
+            break;
+        }
     }
 }

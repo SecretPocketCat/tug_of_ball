@@ -26,6 +26,9 @@ pub struct NetOffset(pub f32);
 #[derive(Component)]
 pub struct Court;
 
+#[derive(Component)]
+pub struct InitialRegion(pub CourtRegion);
+
 pub struct CourtSettings {
     // nice2have: replace by proper bounds
     pub(crate) left: f32,
@@ -140,7 +143,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let lines = [
         // horizonal split
-        (0., 0., Vec2::new(width, thickness), COURT_LINE_Z),
+        (0., 0., Vec2::new(width - 10., thickness), COURT_LINE_Z),
     ];
 
     for (x, y, size, z) in lines.iter() {
@@ -247,6 +250,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Transform::from_xyz(0., 0., COURT_Z),
         ))
         .insert(Court);
+
+    // dashed tug lines
+    let dash_line_x = x / 2.;
+    for x in [-dash_line_x, dash_line_x].iter() {
+        commands
+            .spawn_bundle(SpriteBundle {
+                texture: asset_server.load("art-ish/stroke.png"),
+                transform: Transform::from_xyz(*x, 0., COURT_LINE_Z),
+                sprite: Sprite {
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .insert(PaletteColor::CourtPost);
+    }
 
     // cheeky bg - maybe just set for camera?
     commands

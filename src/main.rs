@@ -7,10 +7,8 @@
 #![feature(drain_filter)]
 
 // todo list:
-// rounded court
-// court size
-// initial player position
 // ball 'steps' after bounce
+// circle rotates only when dash is charged
 // faces
 // better font
 // dash 'body' trail?
@@ -32,7 +30,7 @@ use bevy_tweening::TweeningPlugin;
 
 use debug::DebugPlugin;
 use heron::*;
-use level::LevelPlugin;
+use level::{CourtRegion, InitialRegion, LevelPlugin};
 use palette::PalettePlugin;
 use player::PlayerPlugin;
 use score::ScorePlugin;
@@ -50,7 +48,7 @@ mod trail;
 mod tween;
 
 const NAME: &str = "Tennis Rounds";
-const WIN_WIDTH: f32 = 1600.;
+const WIN_WIDTH: f32 = 1700.;
 const WIN_HEIGHT: f32 = 900.;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -58,6 +56,7 @@ enum InputAction {
     Swing,
     Dash,
     LockPosition,
+    ChangePalette,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -102,6 +101,12 @@ const PLAYER_Z: f32 = NET_Z + 1.;
 const BALL_Z: f32 = PLAYER_Z + 1.;
 
 fn main() {
+    let mut region = CourtRegion::get_random();
+    #[cfg(feature = "debug")]
+    {
+        region = CourtRegion::TopLeft;
+    }
+
     let mut app = App::new();
     app.insert_resource(Msaa { samples: 4 })
         .insert_resource(WindowDescriptor {
@@ -112,6 +117,7 @@ fn main() {
             ..Default::default()
         })
         .insert_resource(ClearColor(Color::WHITE))
+        .insert_resource(InitialRegion(region))
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
         .add_plugin(TweeningPlugin)
@@ -160,6 +166,7 @@ fn setup_bindings(
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::East)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::North)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::LeftTrigger2)?
+            .bind_button_action(id, InputAction::ChangePalette, GamepadButtonType::Select)?
             .bind_button_action(
                 id,
                 InputAction::LockPosition,
@@ -205,8 +212,6 @@ fn setup_bindings(
         gamepad_map.map_gamepad(id - 1, id);
     }
 
-    // gamepad_map.map_gamepad(0, 1);
-
     map.bind_button_action(1, InputAction::Dash, KeyCode::Space)?
         .bind_button_action(1, InputAction::Swing, KeyCode::J)?
         .bind_axis(
@@ -222,6 +227,7 @@ fn setup_bindings(
 
     map.bind_button_action(2, InputAction::Dash, KeyCode::Numpad0)?
         .bind_button_action(2, InputAction::Swing, KeyCode::NumpadAdd)?
+        .bind_button_action(2, InputAction::ChangePalette, KeyCode::P)?
         .bind_axis(
             2,
             InputAxis::MoveX,
@@ -232,7 +238,6 @@ fn setup_bindings(
             InputAxis::MoveY,
             AxisBinding::Buttons(KeyCode::Down.into(), KeyCode::Up.into()),
         );
-
     Ok(())
 }
 
