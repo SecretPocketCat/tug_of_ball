@@ -20,6 +20,7 @@ use crate::{
     palette::{Palette, PaletteColor},
     player::{ActionStatus, Player, PlayerAim, PlayerSwing, ServingRegion},
     trail::{FadeOutTrail, Trail},
+    tween::TweenDoneAction,
     PhysLayer, PlayerInput, TransformBundle, BALL_Z, PLAYER_Z, SHADOW_Z, WIN_WIDTH,
 };
 
@@ -211,7 +212,8 @@ fn spawn_bounce_track(
             start: end_col,
             end: Color::NONE,
         },
-    );
+    )
+    .with_completed_event(true, TweenDoneAction::DespawnRecursive.into());
 
     commands
         .spawn_bundle(SpriteBundle {

@@ -30,6 +30,8 @@ use crate::{
     WIN_HEIGHT, WIN_WIDTH,
 };
 
+pub const AIM_RING_ROTATION_DEG: f32 = 50.;
+
 #[derive(Inspectable, Clone, Copy)]
 pub enum ActionStatus<TActiveData: Default> {
     Ready,
@@ -155,6 +157,9 @@ pub struct PlayerAim {
     pub(crate) direction: Vec2,
 }
 
+#[derive(Component, Inspectable)]
+pub struct AimSprite;
+
 // nice2have: macro?
 impl ActionTimer<Vec2> for PlayerDash {
     fn get_cooldown_sec(&self) -> f32 {
@@ -180,7 +185,7 @@ pub struct PlayerSwing {
 }
 
 #[derive(Default, Component, Inspectable)]
-pub struct TransformRotation(f32);
+pub struct TransformRotation(f32, f32);
 
 impl PlayerSwing {
     pub fn start_cooldown(&mut self) {
@@ -231,7 +236,7 @@ impl PlayerBundle {
             dash: PlayerDash {
                 speed: 2200.,
                 duration_sec: 0.085,
-                cooldown_sec: 0.4,
+                cooldown_sec: 0.5,
                 ..Default::default()
             },
             swing: PlayerSwing {
@@ -257,6 +262,7 @@ impl Plugin for PlayerPlugin {
             .add_system(handle_swing_input)
             .add_system(on_ball_bounced)
             .add_system(rotate)
+            .add_system(update_aim_rotation)
             .add_system(animate)
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
@@ -346,11 +352,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<Ini
             .add_child(aim_charge_e)
             .with_children(|b| {
                 // circle
-                let rotation_speed: f32 = 15.0;
                 let rotation_speed = if is_left {
-                    -rotation_speed
+                    -AIM_RING_ROTATION_DEG
                 } else {
-                    rotation_speed
+                    AIM_RING_ROTATION_DEG
                 };
                 b.spawn_bundle(SpriteBundle {
                     texture: asset_server.load("art-ish/player_circle.png"),
@@ -358,7 +363,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<Ini
                     ..Default::default()
                 })
                 .insert(PaletteColor::PlayerAim)
-                .insert(TransformRotation(rotation_speed.to_radians()));
+                .insert(AimSprite)
+                .insert(TransformRotation(
+                    rotation_speed.to_radians(),
+                    rotation_speed.to_radians(),
+                ));
 
                 // body root
                 body_root_e = Some(
@@ -970,5 +979,29 @@ fn get_idle_body_tween(z: f32) -> Tracks<Transform> {
 fn rotate(mut q: Query<(&TransformRotation, &mut Transform)>, time: ScaledTime) {
     for (r, mut t) in q.iter_mut() {
         t.rotate(Quat::from_rotation_z(r.0 * time.scaled_delta_seconds()));
+    }
+}
+
+fn update_aim_rotation(
+    mut q: Query<(&Parent, &mut TransformRotation), With<AimSprite>>,
+    dash_q: Query<&PlayerDash>,
+    time: ScaledTime,
+) {
+    for (parent, mut rot) in q.iter_mut() {
+        if let Ok(dash) = dash_q.get(parent.0) {
+            match dash.status {
+                ActionStatus::Ready => {
+                    rot.0 += time.scaled_delta_seconds() * rot.1 * 3.;
+                    if rot.0.abs() > rot.1.abs() {
+                        rot.0 = rot.1;
+                    }
+                }
+                ActionStatus::Active(_) => {
+                    let mult = 1. - dash.timer.percent();
+                    rot.0 = rot.1 * mult * rot.1.signum();
+                }
+                ActionStatus::Cooldown => rot.0 = 0.,
+            };
+        }
     }
 }

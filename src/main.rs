@@ -7,7 +7,6 @@
 #![feature(drain_filter)]
 
 // todo list:
-// ball 'steps' after bounce
 // circle rotates only when dash is charged
 // faces
 // better font
