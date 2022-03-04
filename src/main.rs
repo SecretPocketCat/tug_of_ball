@@ -1,45 +1,44 @@
 // nice2have: make this a feature
 // // disable console opening on windows
-// #![windows_subsystem = "windows"]
-
+#![windows_subsystem = "windows"]
 #![feature(derive_default_enum)]
 #![feature(if_let_guard)]
 
+use ball::{Ball, BallBounce, BallPlugin};
 use bevy::{prelude::*, render::render_resource::FilterMode};
+use bevy_extensions::panic_on_error;
+use bevy_input::{
+    ActionInput, ActionInputPlugin, ActionMap, AxisBinding, BindingError, GamepadMap,
+};
+use bevy_time::TimePlugin;
 use bevy_tweening::TweeningPlugin;
 use debug::DebugPlugin;
 use heron::*;
-use bevy_extensions::panic_on_error;
-use bevy_input::{ActionMap, GamepadMap, BindingError, AxisBinding, ActionInputPlugin, ActionInput};
-use bevy_time::TimePlugin;
 use level::LevelPlugin;
+use player::{Player, PlayerDash, PlayerMovement, PlayerPlugin, PlayerSwing};
 use score::ScorePlugin;
-use serde::{Serialize, Deserialize};
-use player::{PlayerPlugin, Player, PlayerMovement, PlayerDash, PlayerSwing};
-use ball::{BallPlugin, Ball, BallBounce};
 use tween::TweenPlugin;
-use wall::WallPlugin;
 
-mod player;
 mod ball;
-mod wall;
 mod debug;
-mod score;
 mod level;
+mod player;
+mod score;
 mod tween;
+mod wall;
 
 const NAME: &str = "Tennis Rounds";
 const WIN_WIDTH: f32 = 1600.;
 const WIN_HEIGHT: f32 = 900.;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum InputAction {
     Swing,
     Dash,
     LockPosition,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum InputAxis {
     X,
     Y,
@@ -49,10 +48,9 @@ type PlayerInput = ActionInput<InputAction, InputAxis>;
 
 #[derive(PhysicsLayer)]
 enum PhysLayer {
-    All
-    // World,
-    // Player,
-    // Ball,
+    All, // World,
+         // Player,
+         // Ball
 }
 
 #[derive(Bundle, Default)]
@@ -114,38 +112,45 @@ fn setup_bindings(
     mut gamepad_map: ResMut<GamepadMap>,
 ) -> Result<(), BindingError> {
     for id in 1..=2 {
-        map
-        .bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger)?
-        .bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger2)?
-        .bind_button_action(id, InputAction::Swing, GamepadButtonType::South)?
+        map.bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger)?
+            .bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger2)?
+            .bind_button_action(id, InputAction::Swing, GamepadButtonType::South)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::West)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::East)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::North)?
-            .bind_button_action(id, InputAction::LockPosition, GamepadButtonType::LeftTrigger)?
-            .bind_button_action(id, InputAction::LockPosition, GamepadButtonType::LeftTrigger2)?
+            .bind_button_action(
+                id,
+                InputAction::LockPosition,
+                GamepadButtonType::LeftTrigger,
+            )?
+            .bind_button_action(
+                id,
+                InputAction::LockPosition,
+                GamepadButtonType::LeftTrigger2,
+            )?
             .bind_axis_with_deadzone(
                 id,
                 InputAxis::X,
                 AxisBinding::GamepadAxis(GamepadAxisType::LeftStickX),
-                0.2
+                0.2,
             )
             .bind_axis_with_deadzone(
                 id,
                 InputAxis::X,
                 AxisBinding::GamepadAxis(GamepadAxisType::DPadX),
-                0.2
+                0.2,
             )
             .bind_axis_with_deadzone(
                 id,
                 InputAxis::Y,
                 AxisBinding::GamepadAxis(GamepadAxisType::LeftStickY),
-                0.2
+                0.2,
             )
             .bind_axis_with_deadzone(
                 id,
                 InputAxis::Y,
                 AxisBinding::GamepadAxis(GamepadAxisType::DPadY),
-                0.2
+                0.2,
             );
 
         gamepad_map.map_gamepad(id - 1, id);
@@ -153,8 +158,7 @@ fn setup_bindings(
 
     // gamepad_map.map_gamepad(0, 1);
 
-    map
-        .bind_button_action(1, InputAction::Dash, KeyCode::Space)?
+    map.bind_button_action(1, InputAction::Dash, KeyCode::Space)?
         .bind_button_action(1, InputAction::Swing, KeyCode::J)?
         .bind_axis(
             1,
@@ -167,8 +171,7 @@ fn setup_bindings(
             AxisBinding::Buttons(KeyCode::S.into(), KeyCode::W.into()),
         );
 
-    map
-        .bind_button_action(2, InputAction::Dash, KeyCode::Numpad0)?
+    map.bind_button_action(2, InputAction::Dash, KeyCode::Numpad0)?
         .bind_button_action(2, InputAction::Swing, KeyCode::NumpadAdd)?
         .bind_axis(
             2,
@@ -180,7 +183,7 @@ fn setup_bindings(
             InputAxis::Y,
             AxisBinding::Buttons(KeyCode::Down.into(), KeyCode::Up.into()),
         );
-    
+
     Ok(())
 }
 
@@ -190,14 +193,13 @@ fn set_img_sampler_filter(
 ) {
     for ev in ev_asset.iter() {
         match ev {
-            AssetEvent::Created { handle } |
-            AssetEvent::Modified { handle } => {
+            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                 // set sampler filtering to add some AA (quite fuzzy though)
                 let mut texture = assets.get_mut(handle).unwrap();
                 texture.sampler_descriptor.mag_filter = FilterMode::Linear;
                 texture.sampler_descriptor.min_filter = FilterMode::Linear;
             }
-            _ => { }
+            _ => {}
         }
     }
 }
