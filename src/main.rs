@@ -7,16 +7,19 @@
 #![feature(drain_filter)]
 
 // todo list
+// tug of ball + player - check screen bounding box
 // rounded court
 // court size
 // initial player position
-// tug of ball + player - check screen bounding box
 // ball 'steps' after bounce
 // faces
 // better font
 // dash 'body' trail?
 // sfx
 // music
+// AI
+// fix WASM release (get rid of the serialiation/async load of binding)
+// resizable window
 
 use ball::{Ball, BallBounce, BallPlugin};
 use bevy::{prelude::*, render::render_resource::FilterMode};
@@ -24,7 +27,6 @@ use bevy_extensions::panic_on_error;
 use bevy_input::{
     ActionInput, ActionInputPlugin, ActionMap, AxisBinding, BindingError, GamepadMap,
 };
-use bevy_ninepatch::NinePatchPlugin;
 use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_time::TimePlugin;
 use bevy_tweening::TweeningPlugin;
@@ -114,7 +116,6 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(PhysicsPlugin::default())
         .add_plugin(TweeningPlugin)
-        .add_plugin(NinePatchPlugin::<()>::default())
         .add_plugin(ShapePlugin)
         .add_plugin(TimePlugin)
         .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::default())
@@ -126,7 +127,7 @@ fn main() {
         // .add_plugin(WallPlugin)
         .add_plugin(LevelPlugin)
         .add_plugin(PalettePlugin)
-        .add_plugin(DebugPlugin)
+        // .add_plugin(DebugPlugin)
         .add_startup_system(setup)
         .add_startup_system(setup_bindings.chain(panic_on_error))
         .add_system(set_img_sampler_filter)

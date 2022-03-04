@@ -4,7 +4,7 @@ use bevy::{
     math::Vec2,
     prelude::*,
     render::render_resource::{FilterMode, Texture},
-    sprite::{Sprite, SpriteBundle},
+    sprite::{collide_aabb::collide, Sprite, SpriteBundle},
 };
 use bevy_extensions::Vec2Conversion;
 use bevy_input::{ActionInput, ActionState};
@@ -24,11 +24,13 @@ use interpolation::{Ease, EaseFunction};
 use crate::{
     ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
     inverse_lerp,
-    level::CourtRegion,
+    level::{CourtRegion, NetOffset},
     palette::PaletteColor,
+    score::{add_point_to_score, Score},
     trail::{FadeOutTrail, Trail},
     tween::TweenDoneAction,
-    InputAction, InputAxis, PhysLayer, PlayerInput, TransformBundle, PLAYER_Z, SHADOW_Z, WIN_WIDTH,
+    InputAction, InputAxis, PhysLayer, PlayerInput, TransformBundle, PLAYER_Z, SHADOW_Z,
+    WIN_HEIGHT, WIN_WIDTH,
 };
 
 #[derive(Inspectable, Clone, Copy)]
@@ -109,7 +111,7 @@ pub struct Player {
 
 impl Player {
     pub fn is_left(&self) -> bool {
-        self.id == 1
+        is_left_player_id(self.id)
     }
 
     pub fn get_sign(&self) -> f32 {
@@ -119,6 +121,10 @@ impl Player {
             1.
         }
     }
+}
+
+pub fn is_left_player_id(id: usize) -> bool {
+    id == 1
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -429,6 +435,7 @@ fn move_player(
     )>,
     aim_q: Query<(&PlayerAim, &Parent)>,
     time: ScaledTime,
+    net_offset: Res<NetOffset>,
 ) {
     for (p_aim, parent) in aim_q.iter() {
         if let Ok((player, mut player_movement, mut player_dash, mut t, player_swing, mut p_anim)) =
@@ -500,12 +507,32 @@ fn move_player(
             }
 
             // todo: get/store properly
-            let player_w = 40.;
+            let player_size = Vec2::splat(80.);
             let is_left = player.is_left();
-            let edge = if is_left { -player_w } else { player_w };
+            // todo: get (from resource or component)
+            let player_area_size = if is_left {
+                Vec2::new(WIN_WIDTH / 2. + net_offset.0, WIN_HEIGHT)
+            } else {
+                Vec2::new(WIN_WIDTH / 2. - net_offset.0, WIN_HEIGHT)
+            };
+            let pos_offset = Vec3::new(player_area_size.x / 2., 0., 0.);
+            let player_area_pos = if is_left {
+                Vec3::X * net_offset.0 - pos_offset
+            } else {
+                Vec3::X * net_offset.0 + pos_offset
+            };
 
-            // todo: bounding box check?
-            if (is_left && final_pos.x < edge) || (!is_left && final_pos.x > edge) {
+            let coll = collide(final_pos, player_size, player_area_pos, player_area_size);
+
+            if coll.is_some() {
+                player_movement.easing_time = 0.;
+                player_movement.last_non_zero_raw_dir = Vec2::ZERO;
+                if p_anim.animation != PlayerAnimation::Idle {
+                    p_anim.animation = PlayerAnimation::Idle;
+                }
+
+                trace!("{}: {:?}", if is_left { "LeftP" } else { "RightP" }, coll);
+            } else {
                 if (final_pos - t.translation).length().abs() > 0.1 {
                     if !dashing {
                         if charging && p_anim.animation != PlayerAnimation::Walking {
@@ -521,12 +548,10 @@ fn move_player(
                 }
 
                 t.translation = final_pos;
-            } else {
-                player_movement.easing_time = 0.;
-            }
 
-            if dir_raw != Vec2::ZERO {
-                player_movement.last_non_zero_raw_dir = dir_raw;
+                if dir_raw != Vec2::ZERO {
+                    player_movement.last_non_zero_raw_dir = dir_raw;
+                }
             }
         }
     }
@@ -658,11 +683,12 @@ fn handle_action_cooldown<T: ActionTimer<TActiveData> + Component, TActiveData: 
 fn on_ball_bounced(
     mut commands: Commands,
     mut ev_r_ball_bounced: EventReader<BallBouncedEvt>,
-    mut player_q: Query<(&Player, &mut PlayerScore)>,
+    mut player_q: Query<(&Player)>,
     mut ball_q: Query<(&Ball, &mut BallStatus, &Transform)>,
     asset_server: Res<AssetServer>,
     mut serving_region: ResMut<ServingRegion>,
     entity_q: Query<Entity>,
+    mut score: ResMut<Score>,
 ) {
     for ev in ev_r_ball_bounced.iter() {
         if let Ok((ball, mut status, ball_t)) = ball_q.get_mut(ev.ball_e.clone()) {
@@ -683,9 +709,9 @@ fn on_ball_bounced(
                     if ball.region.is_out_of_bounds() && ev.bounce_count == 1 {
                         Some((Some(player_id), 0, "shooting out of bounds"))
                     } else if ev.bounce_count > bounce_limit {
-                        let (player, _) = player_q
+                        let player = player_q
                             .iter()
-                            .filter(|p| p.0.side == ev.side)
+                            .filter(|p| p.side == ev.side)
                             .nth(0)
                             .unwrap();
 
@@ -701,18 +727,7 @@ fn on_ball_bounced(
                 let mut swap_serve = false;
 
                 if let Some(losing_player) = losing_player {
-                    let mut score = None;
-                    let mut other_score = None;
-
-                    for (p, s) in player_q.iter_mut() {
-                        if p.id == losing_player {
-                            other_score = Some(s);
-                        } else {
-                            score = Some(s);
-                        }
-                    }
-
-                    swap_serve = add_point(&mut score.unwrap(), &mut other_score.unwrap());
+                    swap_serve = add_point_to_score(&mut score, !is_left_player_id(losing_player));
                     debug!(
                         "Player {} has lost a point to {}! (bounce_count: {})",
                         losing_player, reason, ev.bounce_count
@@ -757,30 +772,6 @@ fn on_ball_bounced(
             }
         }
     }
-}
-
-fn add_point(score: &mut PlayerScore, other_player_score: &mut PlayerScore) -> bool {
-    score.points += 1;
-
-    let required_points = (other_player_score.points + 2).max(4);
-
-    if score.points >= required_points {
-        score.games += 1;
-        score.points = 0;
-        other_player_score.points = 0;
-        return true;
-    } else if score.points == other_player_score.points && score.points > 3 {
-        // hacky way to get ADV in the UI
-        // nice2have: redo
-        score.points = 3;
-        other_player_score.points = 3;
-    }
-
-    if score.games >= 6 {
-        // todo: game done event?
-    }
-
-    false
 }
 
 // 2fix: sometimes the player shadow flickers over the body

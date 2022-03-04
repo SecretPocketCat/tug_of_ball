@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use std::{ops::RangeInclusive, time::Duration};
 
 use bevy::{
     math::Vec2,
@@ -7,13 +7,19 @@ use bevy::{
 };
 use bevy_extensions::Vec2Conversion;
 use bevy_inspector_egui::Inspectable;
-use bevy_ninepatch::{NinePatchBuilder, NinePatchBundle, NinePatchData};
+use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningType};
 use heron::*;
 use rand::*;
 
 use crate::{
-    palette::PaletteColor, PhysLayer, COURT_LINE_Z, COURT_Z, NET_Z, SHADOW_Z, WIN_HEIGHT, WIN_WIDTH,
+    palette::PaletteColor, score::Score, PhysLayer, COURT_LINE_Z, COURT_Z, NET_Z, SHADOW_Z,
+    WIN_HEIGHT, WIN_WIDTH,
 };
+
+#[derive(Component)]
+struct Net;
+
+pub struct NetOffset(pub f32);
 
 pub struct CourtSettings {
     // nice2have: replace by proper bounds
@@ -98,15 +104,13 @@ impl CourtRegion {
 pub struct LevelPlugin;
 impl Plugin for LevelPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_startup_system(setup);
+        app.insert_resource(NetOffset(0.))
+            .add_startup_system(setup)
+            .add_system(handle_net_offset);
     }
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut nine_patches: ResMut<Assets<NinePatchBuilder>>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let x = WIN_WIDTH / 2. - 300.;
     let height = WIN_HEIGHT - 250.;
     let y = height / 2.;
@@ -122,8 +126,6 @@ fn setup(
     let width = x * 2. + thickness;
 
     let lines = [
-        // net
-        (0., 5., Vec2::new(thickness * 0.8, height), NET_Z),
         // horizonal split
         (0., 0., Vec2::new(width, thickness), COURT_LINE_Z),
         // sidelines
@@ -146,23 +148,6 @@ fn setup(
             .insert(PaletteColor::CourtLines)
             .insert(Name::new("LevelLine"));
     }
-
-    // net shadow
-    commands
-        .spawn_bundle(SpriteBundle {
-            texture: asset_server.load("art-ish/net_post.png"),
-            sprite: Sprite {
-                custom_size: Some(lines[0].2),
-                ..Default::default()
-            },
-            transform: Transform {
-                translation: Vec3::new(-7., -3., SHADOW_Z),
-                scale: Vec3::new(1., 0.97, 1.),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(PaletteColor::Shadow);
 
     let region_x = x / 2. + thickness / 4.;
     let region_y = y / 2. + thickness / 4.;
@@ -195,28 +180,69 @@ fn setup(
             .insert(Name::new("Region"));
     }
 
-    // // court 9-patch
-    // let panel_texture_handle = asset_server.load("art-ish/court_9slice.png");
-    // let court_9slice_margin = 35;
-    // let nine_patch_handle = nine_patches.add(NinePatchBuilder::by_margins(court_9slice_margin, court_9slice_margin, court_9slice_margin, court_9slice_margin));
+    // net
+    let net_size = Vec2::new(thickness * 0.8, height);
+    commands
+        .spawn_bundle(SpriteBundle {
+            transform: Transform::from_xyz(0., 5., NET_Z),
+            sprite: Sprite {
+                custom_size: Some(net_size),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(PaletteColor::CourtLines)
+        .insert(Net)
+        .insert(Name::new("Net"))
+        .with_children(|b| {
+            // shadow
+            b.spawn_bundle(SpriteBundle {
+                texture: asset_server.load("art-ish/net_post.png"),
+                sprite: Sprite {
+                    custom_size: Some(net_size),
+                    ..Default::default()
+                },
+                transform: Transform {
+                    translation: Vec3::new(-7., -3., -NET_Z + SHADOW_Z),
+                    scale: Vec3::new(1., 0.97, 1.),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .insert(PaletteColor::Shadow);
 
-    // commands.spawn_bundle(
-    //     NinePatchBundle {
-    //         style: Style {
-    //             margin: Rect::all(Val::Auto),
-    //             size: Size::new(Val::Px(x * 2.), Val::Px(y * 2.)),
-    //             ..Default::default()
-    //         },
-    //         nine_patch_data: NinePatchData {
-    //             texture: panel_texture_handle,
-    //             nine_patch: nine_patch_handle,
-    //             ..Default::default()
-    //         },
-    //         transform: Transform::from_xyz(0., 0., -500.),
-    //         ..Default::default()
-    //     },
-    // );
+            // posts
+            let post_offset = 11.;
+            for (y, z_offset) in [(y + post_offset, -0.1), (-y + post_offset, 0.1)].iter() {
+                let z = NET_Z + z_offset;
+                b.spawn_bundle(SpriteBundle {
+                    texture: asset_server.load("art-ish/net_post.png"),
+                    transform: Transform::from_xyz(0., *y, z),
+                    sprite: Sprite {
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .insert(PaletteColor::CourtPost)
+                .with_children(|b| {
+                    b.spawn_bundle(SpriteBundle {
+                        texture: asset_server.load("art-ish/net_post.png"),
+                        transform: Transform {
+                            scale: Vec3::new(1.0, 0.5, 1.),
+                            translation: Vec3::new(-3., -17., -z + SHADOW_Z),
+                            ..Default::default()
+                        },
+                        sprite: Sprite {
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    })
+                    .insert(PaletteColor::Shadow);
+                });
+            }
+        });
 
+    // cheeky bg - maybe just set for camera?
     commands
         .spawn_bundle(SpriteBundle {
             sprite: Sprite {
@@ -227,36 +253,33 @@ fn setup(
         })
         .insert(PaletteColor::Background);
 
-    let post_offset = 11.;
-
-    for (y, z_offset) in [(y + post_offset, -0.1), (-y + post_offset, 0.1)].iter() {
-        let z = NET_Z + z_offset;
-        commands
-            .spawn_bundle(SpriteBundle {
-                texture: asset_server.load("art-ish/net_post.png"),
-                transform: Transform::from_xyz(0., *y, z),
-                sprite: Sprite {
-                    ..Default::default()
-                },
-                ..Default::default()
-            })
-            .insert(PaletteColor::CourtPost)
-            .with_children(|b| {
-                b.spawn_bundle(SpriteBundle {
-                    texture: asset_server.load("art-ish/net_post.png"),
-                    transform: Transform {
-                        scale: Vec3::new(1.0, 0.5, 1.),
-                        translation: Vec3::new(-3., -17., -z + SHADOW_Z),
-                        ..Default::default()
-                    },
-                    sprite: Sprite {
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .insert(PaletteColor::Shadow);
-            });
-    }
-
     commands.insert_resource(settings);
+}
+
+fn handle_net_offset(
+    mut commands: Commands,
+    score: Res<Score>,
+    mut offset: ResMut<NetOffset>,
+    net_q: Query<(Entity, &Transform), With<Net>>,
+) {
+    if score.is_changed() {
+        // todo: redo to games
+        offset.0 = (score.right_player.games as f32 - score.left_player.games as f32) * 50.;
+
+        info!("score changed!");
+        if let Ok((net_e, net_t)) = net_q.get_single() {
+            info!("net tweened!");
+
+            // todo: tween
+            commands.entity(net_e).insert(Animator::new(Tween::new(
+                EaseFunction::QuadraticInOut,
+                TweeningType::Once,
+                Duration::from_millis(400),
+                TransformPositionLens {
+                    start: net_t.translation,
+                    end: Vec3::new(offset.0, net_t.translation.y, net_t.translation.z),
+                },
+            )));
+        }
+    }
 }

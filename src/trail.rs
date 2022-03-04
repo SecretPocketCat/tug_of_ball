@@ -5,19 +5,12 @@ use bevy::{
     prelude::*,
     sprite::{Sprite, SpriteBundle},
 };
-use bevy_extensions::Vec2Conversion;
-use bevy_input::ActionInput;
-use bevy_inspector_egui::Inspectable;
 use bevy_prototype_lyon::prelude::*;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 use bevy_tweening::lens::{TransformPositionLens, TransformScaleLens};
-use bevy_tweening::*;
-use heron::rapier_plugin::PhysicsWorld;
-use heron::*;
-use rand::*;
 
 use crate::{
-    level::{CourtRegion, CourtSettings},
+    level::CourtRegion,
     palette::PaletteColor,
     player::{ActionStatus, Player, PlayerAim, PlayerMovement, PlayerSwing, ServingRegion},
     wall::Wall,
@@ -98,7 +91,7 @@ fn draw_trail(mut path_q: Query<(&mut Path, &mut Trail)>, time: Res<Time>) {
             let trail_dur = last.1 - trail.points[0].1;
             let mut points_back = Vec::with_capacity(trail.points.len());
 
-            // todo: the offset points should be angled (vertical movement breaks this right now, but that doesn't matter for the ball)
+            // nice2have: the offset points should be angled (vertical movement breaks this right now, but that doesn't matter for the ball)
             for (i, p) in trail.points.iter().rev().enumerate() {
                 let time_delta = time.seconds_since_startup() - p.1;
                 let w = (1. - (time_delta / trail_dur as f64)).clamp(0., 1.)

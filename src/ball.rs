@@ -12,7 +12,6 @@ use bevy_prototype_lyon::prelude::*;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 use bevy_tweening::lens::{TransformPositionLens, TransformScaleLens};
 use bevy_tweening::*;
-use heron::rapier_plugin::PhysicsWorld;
 use heron::*;
 use rand::*;
 

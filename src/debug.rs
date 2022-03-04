@@ -1,7 +1,7 @@
 use crate::{
     ball::{Ball, BallBounce},
     level::CourtRegion,
-    player::{Player, PlayerDash, PlayerMovement, PlayerScore, PlayerSwing},
+    player::{Player, PlayerDash, PlayerMovement, PlayerSwing},
 };
 use bevy::prelude::*;
 use bevy_inspector_egui::{RegisterInspectable, WorldInspectorPlugin};
@@ -18,7 +18,6 @@ impl Plugin for DebugPlugin {
             .register_inspectable::<PlayerMovement>()
             .register_inspectable::<PlayerDash>()
             .register_inspectable::<PlayerSwing>()
-            .register_inspectable::<PlayerScore>()
             .register_inspectable::<Ball>()
             .register_inspectable::<BallBounce>()
             .register_inspectable::<CourtRegion>()
