@@ -7,14 +7,14 @@
 #![feature(drain_filter)]
 
 // todo list
+// dash trail
+// trail palette color
 // player center offset
 // rounded court
 // ball 'steps' after bounce
 // initial aim dir
 // faces
 // better font
-// ball trail
-// dash trail
 
 use bevy::{prelude::*, render::render_resource::FilterMode};
 use bevy_ninepatch::NinePatchPlugin;
@@ -31,6 +31,7 @@ use score::ScorePlugin;
 use serde::{Serialize, Deserialize};
 use player::{PlayerPlugin, Player, PlayerMovement, PlayerDash, PlayerSwing};
 use ball::{BallPlugin, Ball, BallBounce};
+use trail::TrailPlugin;
 use tween::TweenPlugin;
 use wall::WallPlugin;
 
@@ -42,6 +43,7 @@ mod score;
 mod level;
 mod tween;
 mod palette;
+mod trail;
 
 const NAME: &str = "Tennis Rounds";
 const WIN_WIDTH: f32 = 1600.;
@@ -117,6 +119,7 @@ fn main() {
         .add_plugin(BallPlugin)
         .add_plugin(ScorePlugin)
         .add_plugin(TweenPlugin)
+        .add_plugin(TrailPlugin)
         // .add_plugin(WallPlugin)
         .add_plugin(LevelPlugin)
         .add_plugin(PalettePlugin)
