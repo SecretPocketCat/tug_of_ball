@@ -1,12 +1,14 @@
 use bevy::prelude::*;
-use bevy_prototype_lyon::prelude::{DrawMode, FillMode};
+use bevy_prototype_lyon::prelude::{DrawMode, FillMode, StrokeMode};
 use bevy_tweening::{
     lens::{SpriteColorLens, TextColorLens},
     Animator, EaseFunction, Tween, TweeningType,
 };
 use rand::random;
 
-use crate::trail::Trail;
+use crate::{level::Court, trail::Trail};
+
+const COURT_STROKE_WIDTH: f32 = 10.;
 
 pub struct PalettePlugin;
 impl Plugin for PalettePlugin {
@@ -15,6 +17,7 @@ impl Plugin for PalettePlugin {
             .add_system(on_sprite_added)
             .add_system(on_text_added)
             .add_system(on_trail_added)
+            .add_system(on_court_added)
             .insert_resource(if random::<bool>() {
                 CLAY_PALETTE
             } else {
@@ -181,5 +184,17 @@ fn on_text_added(palette: Res<Palette>, mut q: Query<(&PaletteColor, &mut Text),
 fn on_trail_added(palette: Res<Palette>, mut q: Query<&mut DrawMode, Added<Trail>>) {
     for mut draw_mode in q.iter_mut() {
         *draw_mode = DrawMode::Fill(FillMode::color(palette.get_color(&PaletteColor::BallTrail)));
+    }
+}
+
+fn on_court_added(palette: Res<Palette>, mut q: Query<&mut DrawMode, Added<Court>>) {
+    for mut draw_mode in q.iter_mut() {
+        *draw_mode = DrawMode::Outlined {
+            fill_mode: FillMode::color(palette.get_color(&PaletteColor::Court)),
+            outline_mode: StrokeMode::new(
+                palette.get_color(&PaletteColor::CourtLines),
+                COURT_STROKE_WIDTH,
+            ),
+        };
     }
 }

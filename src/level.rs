@@ -8,6 +8,7 @@ use bevy::{
 
 use bevy_extensions::Vec2Conversion;
 use bevy_inspector_egui::Inspectable;
+use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningType};
 use heron::*;
 use rand::*;
@@ -21,6 +22,9 @@ use crate::{
 pub struct Net;
 
 pub struct NetOffset(pub f32);
+
+#[derive(Component)]
+pub struct Court;
 
 pub struct CourtSettings {
     // nice2have: replace by proper bounds
@@ -110,6 +114,7 @@ impl Plugin for LevelPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.insert_resource(NetOffset(0.))
             .add_startup_system(setup)
+            .add_system(draw_court)
             .add_system(handle_net_offset);
     }
 }
@@ -136,11 +141,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let lines = [
         // horizonal split
         (0., 0., Vec2::new(width, thickness), COURT_LINE_Z),
-        // sidelines
-        (-x, 0., Vec2::new(thickness, height), COURT_LINE_Z),
-        (x, 0., Vec2::new(thickness, height), COURT_LINE_Z),
-        (0., -y, Vec2::new(width, thickness), COURT_LINE_Z),
-        (0., y, Vec2::new(width, thickness), COURT_LINE_Z),
     ];
 
     for (x, y, size, z) in lines.iter() {
@@ -240,6 +240,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             }
         });
 
+    commands
+        .spawn_bundle(GeometryBuilder::build_as(
+            &PathBuilder::new().build().0,
+            DrawMode::Fill(FillMode::color(Color::rgb_u8(32, 40, 61))),
+            Transform::from_xyz(0., 0., COURT_Z),
+        ))
+        .insert(Court);
+
     // cheeky bg - maybe just set for camera?
     commands
         .spawn_bundle(SpriteBundle {
@@ -252,6 +260,32 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(PaletteColor::Background);
 
     commands.insert_resource(settings);
+}
+
+fn draw_court(mut court_q: Query<&mut Path, With<Court>>, court: Res<CourtSettings>) {
+    if court.is_added() || court.is_changed() {
+        for mut path in court_q.iter_mut() {
+            trace!("drawing court");
+            let mut path_builder = PathBuilder::new();
+            let radius = 20.;
+            let top_l = Vec2::new(court.left, court.top);
+            let top_r = Vec2::new(court.right, court.top);
+            let btm_l = Vec2::new(court.left, court.bottom);
+            let btm_r = Vec2::new(court.right, court.bottom);
+            path_builder.move_to(top_r - Vec2::X * radius);
+            path_builder.quadratic_bezier_to(top_r, top_r - Vec2::Y * radius);
+            path_builder.line_to(btm_r + Vec2::Y * radius);
+            path_builder.quadratic_bezier_to(btm_r, btm_r - Vec2::X * radius);
+            path_builder.line_to(btm_l + Vec2::X * radius);
+            path_builder.quadratic_bezier_to(btm_l, btm_l + Vec2::Y * radius);
+            path_builder.line_to(top_l - Vec2::Y * radius);
+            path_builder.quadratic_bezier_to(top_l, top_l + Vec2::X * radius);
+
+            path_builder.close();
+            let shape = path_builder.build();
+            path.0 = shape.0;
+        }
+    }
 }
 
 fn spawn_region(

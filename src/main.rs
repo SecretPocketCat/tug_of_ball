@@ -6,9 +6,7 @@
 #![feature(if_let_guard)]
 #![feature(drain_filter)]
 
-// todo list
-// tug of ball
-// resize the aim area for the losing player
+// todo list:
 // rounded court
 // court size
 // initial player position

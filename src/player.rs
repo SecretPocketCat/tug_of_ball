@@ -786,7 +786,6 @@ fn animate(
 
             debug!("anim change to {:?}", anim.animation);
             match anim.animation {
-                // todo: facial expressions
                 PlayerAnimation::Dashing => {
                     stop_anim_entities.push(anim.face_e);
                     stop_anim_entities.push(anim.body_e);
