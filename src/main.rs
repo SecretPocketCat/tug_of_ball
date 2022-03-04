@@ -7,7 +7,6 @@
 #![feature(drain_filter)]
 
 // todo list
-// dash trail
 // trail palette color
 // player center offset
 // rounded court
@@ -15,6 +14,7 @@
 // initial aim dir
 // faces
 // better font
+// dash 'body' trail?
 
 use bevy::{prelude::*, render::render_resource::FilterMode};
 use bevy_ninepatch::NinePatchPlugin;

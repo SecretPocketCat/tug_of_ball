@@ -93,6 +93,7 @@ fn draw_trail(
             let trail_dur = last.1 - trail.points[0].1;
             let mut points_back = Vec::with_capacity(trail.points.len());
 
+            // todo: the offset points should be angled (vertical movement breaks this right now, but that doesn't matter for the ball)
             for (i, p) in trail.points.iter().rev().enumerate() {
                 let time_delta = time.seconds_since_startup() - p.1;
                 let w = (1. - (time_delta / trail_dur as f64)).clamp(0., 1.) * (trail.max_width as f64 / 2.);

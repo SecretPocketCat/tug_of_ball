@@ -4,6 +4,7 @@ use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2, render::rende
 use bevy_extensions::Vec2Conversion;
 use bevy_input::{ActionInput, ActionState};
 use bevy_inspector_egui::Inspectable;
+use bevy_prototype_lyon::prelude::*;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 use bevy_tweening::lens::{TransformRotationLens, TransformScaleLens, TransformPositionLens};
 use bevy_tweening::*;
@@ -11,7 +12,7 @@ use interpolation::{Ease, EaseFunction};
 use heron::rapier_plugin::{PhysicsWorld, rapier2d::prelude::{RigidBodyActivation, ColliderSet}, nalgebra::ComplexField};
 use heron::*;
 
-use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion, TransformBundle, PLAYER_Z, tween::TweenDoneAction, inverse_lerp, palette::PaletteColor, SHADOW_Z, trail::FadeOutTrail};
+use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion, TransformBundle, PLAYER_Z, tween::TweenDoneAction, inverse_lerp, palette::PaletteColor, SHADOW_Z, trail::{FadeOutTrail, Trail}};
 
 #[derive(Inspectable, Clone, Copy)]
 pub enum ActionStatus<TActiveData: Default> {
@@ -650,12 +651,14 @@ fn on_ball_bounced(
                     }
                 ).with_completed_event(true, TweenDoneAction::DespawnRecursive.into())));
                 
-                commands
-                    .entity(ball.trail_e.unwrap())
+                if let Ok(e) = entity_q.get(ball.trail_e.unwrap()) {
+                    commands
+                    .entity(e)
                     .insert(FadeOutTrail {
                         decrease_duration_by: 1.,
                         ..Default::default()
                     });
+                }
 
                 if swap_serve {
                     serving_region.0 = if serving_region.0.is_left() { CourtRegion::get_random_right() } else { CourtRegion::get_random_left() };

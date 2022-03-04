@@ -258,6 +258,7 @@ fn handle_regions(
     mut ball_bounce_q: Query<(&mut BallBounce, &Transform)>,
     region_q: Query<&CourtRegion>,
     court_set: Res<CourtSettings>,
+    entity_q: Query<Entity, Without<Ball>>,
 ) {
     let all_events: Vec<CollisionEvent> = coll_events.iter().cloned().collect();
     for (ball_e, ball_t) in ball_q.iter() {
@@ -315,12 +316,15 @@ fn handle_regions(
                             let hit_vel_mult = 0.25;
                             ball.dir *= Vec2::new(-hit_vel_mult, hit_vel_mult);
                             bounce.velocity *= 0.5;
-                            commands
-                                .entity(ball.trail_e.unwrap())
+
+                            if let Ok(e) = entity_q.get(ball.trail_e.unwrap()) {
+                                commands
+                                .entity(e)
                                 .insert(FadeOutTrail{
                                     stop_trail: true,
                                     ..Default::default()
                                 });
+                            }
                         }
                     }
                 }

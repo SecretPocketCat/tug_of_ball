@@ -1,6 +1,9 @@
 use bevy::prelude::*;
+use bevy_prototype_lyon::prelude::{DrawMode, FillMode};
 use bevy_tweening::{Animator, Tween, TweeningType, EaseFunction, lens::{SpriteColorLens, TextColorLens}};
 use rand::random;
+
+use crate::trail::Trail;
 
 pub struct PalettePlugin;
 impl Plugin for PalettePlugin {
@@ -9,6 +12,7 @@ impl Plugin for PalettePlugin {
             .add_system(on_palette_changed)
             .add_system(on_sprite_added)
             .add_system(on_text_added)
+            .add_system(on_trail_added)
             .insert_resource(if random::<bool>() { CLAY_PALETTE } else { GRASS_PALETTE });
     }
 }
@@ -47,6 +51,7 @@ pub struct Palette {
     court_lines: RgbColor,
     court_pickets: RgbColor,
     ball: RgbColor,
+    ball_trail: RgbColor,
     player: RgbColor,
     player_aim: RgbColor,
     player_face: RgbColor,
@@ -63,6 +68,7 @@ impl Palette {
             PaletteColor::CourtLines => self.court_lines.into(),
             PaletteColor::CourtPost => self.court_pickets.into(),
             PaletteColor::Ball => self.ball.into(),
+            PaletteColor::BallTrail => self.ball_trail.into(),
             PaletteColor::Player => self.player.into(),
             PaletteColor::PlayerAim => self.player_aim.into(),
             PaletteColor::PlayerFace => self.player_face.into(),
@@ -81,6 +87,7 @@ pub const GRASS_PALETTE: Palette = Palette {
     court_lines: RgbColor::new(251, 247, 243),
     court_pickets: RgbColor::new(109, 141, 138),
     ball: RgbColor::new(229, 176, 131),
+    ball_trail: RgbColor::new(246, 237, 205),
     player: RgbColor::new(251, 247, 243),
     player_aim: RgbColor::new(251, 247, 243),
     player_face: RgbColor::new(32, 40, 61),
@@ -97,6 +104,7 @@ pub const CLAY_PALETTE: Palette = Palette {
     court_lines: RgbColor::new(246, 237, 205),
     court_pickets: RgbColor::new(203, 129, 117),
     ball: RgbColor::new(109, 141, 138),
+    ball_trail: RgbColor::new(168, 200, 166),
     player: RgbColor::new(246, 237, 205),
     player_aim: RgbColor::new(246, 237, 205),
     player_face: RgbColor::new(101, 80, 87),
@@ -112,6 +120,7 @@ pub enum PaletteColor {
     CourtLines,
     CourtPost,
     Ball,
+    BallTrail,
     Player,
     PlayerAim,
     PlayerFace,
@@ -173,5 +182,14 @@ fn on_text_added(
 ) {
     for (col, mut text) in q.iter_mut() {
         text.sections[0].style.color = palette.get_color(col);
+    }
+}
+
+fn on_trail_added(
+    palette: Res<Palette>,
+    mut q: Query<&mut DrawMode, Added<Trail>>,
+) {
+    for mut draw_mode in q.iter_mut() {
+        *draw_mode = DrawMode::Fill(FillMode::color(palette.get_color(&PaletteColor::BallTrail)));
     }
 }
