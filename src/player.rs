@@ -1,18 +1,35 @@
-use std::{default, time::Duration, f32::consts::PI, ops::Add};
+use std::{default, f32::consts::PI, ops::Add, time::Duration};
 
-use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2, render::render_resource::{Texture, FilterMode}};
+use bevy::{
+    math::Vec2,
+    prelude::*,
+    render::render_resource::{FilterMode, Texture},
+    sprite::{Sprite, SpriteBundle},
+};
 use bevy_extensions::Vec2Conversion;
 use bevy_input::{ActionInput, ActionState};
 use bevy_inspector_egui::Inspectable;
 use bevy_prototype_lyon::prelude::*;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-use bevy_tweening::lens::{TransformRotationLens, TransformScaleLens, TransformPositionLens};
+use bevy_tweening::lens::{TransformPositionLens, TransformRotationLens, TransformScaleLens};
 use bevy_tweening::*;
-use interpolation::{Ease, EaseFunction};
-use heron::rapier_plugin::{PhysicsWorld, rapier2d::prelude::{RigidBodyActivation, ColliderSet}, nalgebra::ComplexField};
+use heron::rapier_plugin::{
+    nalgebra::ComplexField,
+    rapier2d::prelude::{ColliderSet, RigidBodyActivation},
+    PhysicsWorld,
+};
 use heron::*;
+use interpolation::{Ease, EaseFunction};
 
-use crate::{InputAction, InputAxis, PlayerInput, WIN_WIDTH, PhysLayer, ball::{BallBouncedEvt, spawn_ball, BallStatus, Ball}, level::CourtRegion, TransformBundle, PLAYER_Z, tween::TweenDoneAction, inverse_lerp, palette::PaletteColor, SHADOW_Z, trail::{FadeOutTrail, Trail}};
+use crate::{
+    ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
+    inverse_lerp,
+    level::CourtRegion,
+    palette::PaletteColor,
+    trail::{FadeOutTrail, Trail},
+    tween::TweenDoneAction,
+    InputAction, InputAxis, PhysLayer, PlayerInput, TransformBundle, PLAYER_Z, SHADOW_Z, WIN_WIDTH,
+};
 
 #[derive(Inspectable, Clone, Copy)]
 pub enum ActionStatus<TActiveData: Default> {
@@ -29,7 +46,7 @@ impl<TActiveData: Default> Default for ActionStatus<TActiveData> {
 
 trait ActionTimer<TActiveData: Default> {
     fn get_timer_mut(&mut self) -> &mut Timer;
-    
+
     fn get_action_status_mut(&mut self) -> &mut ActionStatus<TActiveData>;
 
     fn get_cooldown_sec(&self) -> f32;
@@ -37,8 +54,16 @@ trait ActionTimer<TActiveData: Default> {
     fn handle_action_timer(&mut self, scaled_delta_time: Duration) {
         let cooldown_sec = self.get_cooldown_sec();
         let status = self.get_action_status_mut();
-        let is_cooldown = if let ActionStatus::Cooldown = status { true } else { false };
-        let is_active = if let ActionStatus::Active(_) = status { true } else { false };
+        let is_cooldown = if let ActionStatus::Cooldown = status {
+            true
+        } else {
+            false
+        };
+        let is_active = if let ActionStatus::Active(_) = status {
+            true
+        } else {
+            false
+        };
 
         if is_cooldown || is_active {
             let t = self.get_timer_mut();
@@ -46,7 +71,11 @@ trait ActionTimer<TActiveData: Default> {
 
             if t.just_finished() {
                 *t = Timer::from_seconds(cooldown_sec, false);
-                *self.get_action_status_mut() = if is_cooldown { ActionStatus::Ready } else { ActionStatus::Cooldown };
+                *self.get_action_status_mut() = if is_cooldown {
+                    ActionStatus::Ready
+                } else {
+                    ActionStatus::Cooldown
+                };
             }
         }
     }
@@ -84,7 +113,11 @@ impl Player {
     }
 
     pub fn get_sign(&self) -> f32 {
-        if self.is_left() { -1. } else { 1. }
+        if self.is_left() {
+            -1.
+        } else {
+            1.
+        }
     }
 }
 
@@ -153,7 +186,6 @@ impl PlayerSwing {
     }
 }
 
-
 // nice2have: macro?
 impl ActionTimer<f32> for PlayerSwing {
     fn get_cooldown_sec(&self) -> f32 {
@@ -179,14 +211,9 @@ pub struct PlayerBundle {
 }
 
 impl PlayerBundle {
-    fn new(
-        id: usize,
-        initial_dir: Vec2,
-        aim_e: Entity,
-        aim_charge_e: Entity,
-    ) -> Self {
+    fn new(id: usize, initial_dir: Vec2, aim_e: Entity, aim_charge_e: Entity) -> Self {
         Self {
-            player: Player { 
+            player: Player {
                 id: id,
                 side: -initial_dir.x.signum(),
                 aim_e,
@@ -211,7 +238,7 @@ impl PlayerBundle {
             },
             score: PlayerScore {
                 ..Default::default()
-            }
+            },
         }
     }
 }
@@ -226,8 +253,7 @@ pub struct ServingRegion(pub CourtRegion);
 pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app
-            .add_startup_system(setup)
+        app.add_startup_system(setup)
             .add_system(move_player)
             .add_system(aim)
             .add_system(handle_swing_input)
@@ -235,24 +261,21 @@ impl Plugin for PlayerPlugin {
             .add_system(rotate)
             .add_system(animate)
             .add_system_set_to_stage(
-                CoreStage::PostUpdate, 
+                CoreStage::PostUpdate,
                 SystemSet::new()
                     .with_system(handle_action_cooldown::<PlayerDash, Vec2>)
-                    .with_system(handle_action_cooldown::<PlayerSwing, f32>)
+                    .with_system(handle_action_cooldown::<PlayerSwing, f32>),
             );
     }
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut left = None;
     let mut right = None;
 
     for i in 1..=2 {
-        let x = WIN_WIDTH / 2.- 100.;
-        let x = if i == 1 { -x } else { x }; 
+        let x = WIN_WIDTH / 2. - 100.;
+        let x = if i == 1 { -x } else { x };
         let is_left = x < 0.;
         let initial_dir = if is_left { Vec2::X } else { -Vec2::X };
 
@@ -260,111 +283,122 @@ fn setup(
         let mut body_root_e = None;
 
         // face
-        let face_e = commands.spawn_bundle(SpriteBundle {
-            texture: asset_server.load("art-ish/face_happy.png"),
-            sprite: Sprite {
-                flip_x: !is_left,
+        let face_e = commands
+            .spawn_bundle(SpriteBundle {
+                texture: asset_server.load("art-ish/face_happy.png"),
+                sprite: Sprite {
+                    flip_x: !is_left,
+                    ..Default::default()
+                },
                 ..Default::default()
-            },
-            ..Default::default()
-        }).insert(Animator::<Transform>::default())
-        .insert(PaletteColor::PlayerFace)
-        .id();
+            })
+            .insert(Animator::<Transform>::default())
+            .insert(PaletteColor::PlayerFace)
+            .id();
 
-         // aim
-         let aim_e = commands.spawn_bundle(TransformBundle::default())
-         .insert(PlayerAim {
-             direction: initial_dir,
-             ..Default::default()
-         })
-         .with_children(|b| {
-             // aim arrow
-             b.spawn_bundle(SpriteBundle {
-                 texture: asset_server.load("art-ish/aim_arrow.png"),
-                 transform: Transform::from_xyz(0., 135., -0.4),
-                 ..Default::default()
-             }).insert(PaletteColor::PlayerAim);
-         }).id();
-
-        let aim_charge_e = commands.spawn_bundle(SpriteBundle {
-            texture: asset_server.load("art-ish/aim_charge.png"),
-            transform: Transform {
-                translation: Vec3::new(0., 0., -0.7),
-                scale: Vec3::Z,
+        // aim
+        let aim_e = commands
+            .spawn_bundle(TransformBundle::default())
+            .insert(PlayerAim {
+                direction: initial_dir,
                 ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(PaletteColor::PlayerCharge)
-        .id();
+            })
+            .with_children(|b| {
+                // aim arrow
+                b.spawn_bundle(SpriteBundle {
+                    texture: asset_server.load("art-ish/aim_arrow.png"),
+                    transform: Transform::from_xyz(0., 135., -0.4),
+                    ..Default::default()
+                })
+                .insert(PaletteColor::PlayerAim);
+            })
+            .id();
+
+        let aim_charge_e = commands
+            .spawn_bundle(SpriteBundle {
+                texture: asset_server.load("art-ish/aim_charge.png"),
+                transform: Transform {
+                    translation: Vec3::new(0., 0., -0.7),
+                    scale: Vec3::Z,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .insert(PaletteColor::PlayerCharge)
+            .id();
 
         let player_e = commands
-        .spawn_bundle(TransformBundle::from_xyz(x, 0., PLAYER_Z))
-        .insert_bundle(PlayerBundle::new(
-            i, 
-            initial_dir,
-            aim_e,
-            aim_charge_e,
-        ))
-        .insert(RigidBody::KinematicPositionBased)
-        .insert(CollisionShape::Sphere {
-            radius: 100.,
-        })
-        .insert(CollisionLayers::none())
-        .insert(Name::new("Player"))
-        .add_child(aim_e)
-        .add_child(aim_charge_e)
-        .with_children(|b| {
-            // circle
-            let rotation_speed: f32 = 15.0;
-            let rotation_speed = if is_left { -rotation_speed } else { rotation_speed };
-            b.spawn_bundle(SpriteBundle {
-                texture: asset_server.load("art-ish/player_circle.png"),
-                transform: Transform::from_xyz(0., 0., -0.1),
-                ..Default::default()
-            }).insert(PaletteColor::PlayerAim)
-            .insert(TransformRotation(rotation_speed.to_radians()));
-
-            // body root
-            body_root_e = Some(b.spawn_bundle(TransformBundle::from_xyz(0., 0., 0.))
-            .insert(Name::new("player_body_root"))
-            .add_child(face_e)
+            .spawn_bundle(TransformBundle::from_xyz(x, 0., PLAYER_Z))
+            .insert_bundle(PlayerBundle::new(i, initial_dir, aim_e, aim_charge_e))
+            .insert(RigidBody::KinematicPositionBased)
+            .insert(CollisionShape::Sphere { radius: 100. })
+            .insert(CollisionLayers::none())
+            .insert(Name::new("Player"))
+            .add_child(aim_e)
+            .add_child(aim_charge_e)
             .with_children(|b| {
-                // body
-                body_e = Some(b.spawn_bundle(SpriteBundle {
-                    texture: asset_server.load("art-ish/player_body.png"),
+                // circle
+                let rotation_speed: f32 = 15.0;
+                let rotation_speed = if is_left {
+                    -rotation_speed
+                } else {
+                    rotation_speed
+                };
+                b.spawn_bundle(SpriteBundle {
+                    texture: asset_server.load("art-ish/player_circle.png"),
+                    transform: Transform::from_xyz(0., 0., -0.1),
                     ..Default::default()
-                }).insert(PaletteColor::Player)
-                .insert(Animator::<Transform>::default())
-                .insert(Name::new("player_body"))
-                .with_children(|b| {
-                    // shadow
-                    b.spawn_bundle(SpriteBundle {
-                        texture: asset_server.load("art-ish/player_body.png"),
-                        transform: Transform {
-                            scale: Vec3::new(1.0, 0.5, 1.),
-                            translation: Vec3::new(-5., -30., -PLAYER_Z + SHADOW_Z),
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    }).insert(PaletteColor::Shadow)
-                    .insert(Name::new("player_shadow"));
                 })
-                .id());
-            }).insert(Animator::<Transform>::default())
-            .id());
-        }).insert(PlayerAnimationData {
-            animation: PlayerAnimation::Idle,
-            face_e,
-            body_e: body_e.unwrap(),
-            body_root_e: body_root_e.unwrap(),
-        })
-        .id();
+                .insert(PaletteColor::PlayerAim)
+                .insert(TransformRotation(rotation_speed.to_radians()));
+
+                // body root
+                body_root_e = Some(
+                    b.spawn_bundle(TransformBundle::from_xyz(0., 0., 0.))
+                        .insert(Name::new("player_body_root"))
+                        .add_child(face_e)
+                        .with_children(|b| {
+                            // body
+                            body_e = Some(
+                                b.spawn_bundle(SpriteBundle {
+                                    texture: asset_server.load("art-ish/player_body.png"),
+                                    ..Default::default()
+                                })
+                                .insert(PaletteColor::Player)
+                                .insert(Animator::<Transform>::default())
+                                .insert(Name::new("player_body"))
+                                .with_children(|b| {
+                                    // shadow
+                                    b.spawn_bundle(SpriteBundle {
+                                        texture: asset_server.load("art-ish/player_body.png"),
+                                        transform: Transform {
+                                            scale: Vec3::new(1.0, 0.5, 1.),
+                                            translation: Vec3::new(-5., -30., -PLAYER_Z + SHADOW_Z),
+                                            ..Default::default()
+                                        },
+                                        ..Default::default()
+                                    })
+                                    .insert(PaletteColor::Shadow)
+                                    .insert(Name::new("player_shadow"));
+                                })
+                                .id(),
+                            );
+                        })
+                        .insert(Animator::<Transform>::default())
+                        .id(),
+                );
+            })
+            .insert(PlayerAnimationData {
+                animation: PlayerAnimation::Idle,
+                face_e,
+                body_e: body_e.unwrap(),
+                body_root_e: body_root_e.unwrap(),
+            })
+            .id();
 
         if is_left {
             left = Some(player_e);
-        }
-        else {
+        } else {
             right = Some(player_e);
         }
     }
@@ -378,55 +412,83 @@ fn setup(
 // nice2have: lerp dash
 fn move_player(
     input: Res<PlayerInput>,
-    mut query: Query<(&Player, &mut PlayerMovement, &mut PlayerDash, &mut Transform, &PlayerSwing, &mut PlayerAnimationData)>,
+    mut query: Query<(
+        &Player,
+        &mut PlayerMovement,
+        &mut PlayerDash,
+        &mut Transform,
+        &PlayerSwing,
+        &mut PlayerAnimationData,
+    )>,
     aim_q: Query<(&PlayerAim, &Parent)>,
     time: ScaledTime,
 ) {
     for (p_aim, parent) in aim_q.iter() {
-        if let Ok((player, mut player_movement, mut player_dash, mut t, player_swing, mut p_anim)) = query.get_mut(parent.0) {
+        if let Ok((player, mut player_movement, mut player_dash, mut t, player_swing, mut p_anim)) =
+            query.get_mut(parent.0)
+        {
             let dir_raw = input.get_xy_axes_raw(player.id, &InputAxis::MoveX, &InputAxis::MoveY);
             let swing_ready = matches!(player_swing.status, ActionStatus::Ready);
             let charging = swing_ready && input.held(player.id, InputAction::Swing);
-            let speed = if charging { player_movement.charging_speed } else { player_movement.speed };
+            let speed = if charging {
+                player_movement.charging_speed
+            } else {
+                player_movement.speed
+            };
             let mut dashing = false;
-            let dir = if dir_raw != Vec2::ZERO { dir_raw } else { player_movement.last_non_zero_raw_dir };
+            let dir = if dir_raw != Vec2::ZERO {
+                dir_raw
+            } else {
+                player_movement.last_non_zero_raw_dir
+            };
             let mut move_by = (dir * speed).to_vec3();
-    
+
             if input.just_pressed(player.id, InputAction::Dash) {
                 if let ActionStatus::Ready = player_dash.status {
                     let dir = dir_raw.normalize_or_zero();
-                    player_dash.status = ActionStatus::Active(if dir != Vec2::ZERO { dir } else { p_aim.direction });
+                    player_dash.status = ActionStatus::Active(if dir != Vec2::ZERO {
+                        dir
+                    } else {
+                        p_aim.direction
+                    });
                     player_dash.timer = Timer::from_seconds(player_dash.duration_sec, false);
                     p_anim.animation = PlayerAnimation::Dashing;
                     dashing = true;
                 }
             }
-    
+
             if let ActionStatus::Active(dash_dir) = player_dash.status {
                 if !player_dash.timer.finished() {
                     move_by = (dash_dir * player_dash.speed).to_vec3();
                     dashing = true;
-                }
-                else {
+                } else {
                     p_anim.animation = PlayerAnimation::Idle;
                 }
-            }
-            else if input.held(player.id, InputAction::LockPosition) {
+            } else if input.held(player.id, InputAction::LockPosition) {
                 move_by = Vec3::ZERO;
             }
-            
+
             let mut final_pos = t.translation + move_by * time.scaled_delta_seconds();
-            
+
             if !dashing {
                 // easing
-                let ease_time_delta = if dir_raw == Vec2::ZERO { -time.scaled_delta_seconds() } else { time.scaled_delta_seconds() };
+                let ease_time_delta = if dir_raw == Vec2::ZERO {
+                    -time.scaled_delta_seconds()
+                } else {
+                    time.scaled_delta_seconds()
+                };
                 player_movement.easing_time += ease_time_delta;
-                player_movement.easing_time = player_movement.easing_time.clamp(0., player_movement.time_to_max_speed);
+                player_movement.easing_time = player_movement
+                    .easing_time
+                    .clamp(0., player_movement.time_to_max_speed);
 
-                let ease_t = inverse_lerp(0., player_movement.time_to_max_speed, player_movement.easing_time);
+                let ease_t = inverse_lerp(
+                    0.,
+                    player_movement.time_to_max_speed,
+                    player_movement.easing_time,
+                );
                 final_pos = t.translation.lerp(final_pos, ease_t);
-            }
-            else {
+            } else {
                 player_movement.easing_time = player_movement.time_to_max_speed;
             }
 
@@ -435,24 +497,20 @@ fn move_player(
                     if !dashing {
                         if charging && p_anim.animation != PlayerAnimation::Walking {
                             p_anim.animation = PlayerAnimation::Walking;
-                        }
-                        else if !charging && p_anim.animation != PlayerAnimation::Running {
+                        } else if !charging && p_anim.animation != PlayerAnimation::Running {
                             p_anim.animation = PlayerAnimation::Running;
                         }
                     }
-                }
-                else {
+                } else {
                     if p_anim.animation != PlayerAnimation::Idle {
                         p_anim.animation = PlayerAnimation::Idle;
                     }
                 }
 
                 t.translation = final_pos;
-            }
-            else {
+            } else {
                 player_movement.easing_time = 0.;
             }
-
 
             if dir_raw != Vec2::ZERO {
                 player_movement.last_non_zero_raw_dir = dir_raw;
@@ -476,21 +534,23 @@ fn aim(
                 // fallback to movement dir
                 dir_raw = input.get_xy_axes_raw(p.id, &InputAxis::MoveX, &InputAxis::MoveY);
             }
-            
+
             let mut dir = dir_raw.normalize_or_zero();
 
             // swing charge UI
             if let Ok(mut t) = transform_q.get_mut(p.aim_charge_e) {
                 if let ActionStatus::Ready = player_swing.status {
-                    if let Some(ActionState::Held(action_data)) = input.get_button_action_state(p.id, &InputAction::Swing) {
+                    if let Some(ActionState::Held(action_data)) =
+                        input.get_button_action_state(p.id, &InputAction::Swing)
+                    {
                         let scale = get_swing_multiplier(action_data.duration);
                         t.scale = Vec2::splat(scale).extend(1.);
                     }
-                }
-                else if let ActionStatus::Active(_) = player_swing.status {
-                }
-                else {
-                    t.scale = Vec2::splat((t.scale.x - (time.scaled_delta_seconds() * 3.)).clamp(0., 1.)).extend(1.);
+                } else if let ActionStatus::Active(_) = player_swing.status {
+                } else {
+                    t.scale =
+                        Vec2::splat((t.scale.x - (time.scaled_delta_seconds() * 3.)).clamp(0., 1.))
+                            .extend(1.);
                 }
             }
 
@@ -501,15 +561,13 @@ fn aim(
             let clamp_x = 1.;
             let clamp_y = 0.8;
             let player_x_sign = p.get_sign();
-    
+
             if dir == Vec2::new(player_x_sign, 0.) {
                 // player aiming into their court/backwards - just aim straight
                 dir = Vec2::new(-player_x_sign, 0.);
-            }
-            else if player_x_sign < 0. {
+            } else if player_x_sign < 0. {
                 dir = dir.clamp(Vec2::new(clamp_x, -clamp_y), Vec2::new(clamp_x, clamp_y));
-            }
-            else {
+            } else {
                 dir = dir.clamp(Vec2::new(-clamp_x, -clamp_y), Vec2::new(-clamp_x, clamp_y));
             }
 
@@ -518,9 +576,14 @@ fn aim(
             let limit = 260f32.to_radians() * time.scaled_delta_seconds() * dir_raw.length();
             if target_rotation.angle_between(aim_t.rotation) <= limit {
                 aim_t.rotation = Quat::from_axis_angle(-Vec3::Z, dir.angle_between(Vec2::Y));
-            }
-            else {
-                let rotate_by = if target_rotation.to_euler(EulerRot::XYZ).2 > aim_t.rotation.to_euler(EulerRot::XYZ).2 { limit } else { -limit };
+            } else {
+                let rotate_by = if target_rotation.to_euler(EulerRot::XYZ).2
+                    > aim_t.rotation.to_euler(EulerRot::XYZ).2
+                {
+                    limit
+                } else {
+                    -limit
+                };
                 aim_t.rotate(Quat::from_rotation_z(rotate_by));
             }
 
@@ -529,7 +592,8 @@ fn aim(
 
             if let Ok(mut face_t) = transform_q.get_mut(p_anim.face_e) {
                 let axis = if p.is_left() { Vec2::X } else { -Vec2::X };
-                face_t.rotation = Quat::from_axis_angle(-Vec3::Z, aim.direction.angle_between(axis) * 0.25);
+                face_t.rotation =
+                    Quat::from_axis_angle(-Vec3::Z, aim.direction.angle_between(axis) * 0.25);
             }
         }
     }
@@ -541,14 +605,16 @@ fn handle_swing_input(
     mut query: Query<(&Player, &mut PlayerSwing, &mut CollisionLayers)>,
 ) {
     for (player, mut player_swing, mut coll_layers) in query.iter_mut() {
-        if let Some(ActionState::Released(key_data)) = input.get_button_action_state(player.id, &InputAction::Swing) {
+        if let Some(ActionState::Released(key_data)) =
+            input.get_button_action_state(player.id, &InputAction::Swing)
+        {
             if let ActionStatus::Ready = player_swing.status {
-                player_swing.status = ActionStatus::Active(get_swing_mutliplier_clamped(key_data.duration));
+                player_swing.status =
+                    ActionStatus::Active(get_swing_mutliplier_clamped(key_data.duration));
                 player_swing.timer = Timer::from_seconds(player_swing.duration_sec, false);
                 *coll_layers = CollisionLayers::all::<PhysLayer>();
             }
-        }
-        else {
+        } else {
             match player_swing.status {
                 ActionStatus::Ready | ActionStatus::Cooldown => {
                     *coll_layers = CollisionLayers::none();
@@ -586,7 +652,7 @@ fn on_ball_bounced(
     entity_q: Query<Entity>,
 ) {
     for ev in ev_r_ball_bounced.iter() {
-        if let Ok((ball, mut status, ball_t)) = ball_q.get_mut(ev.ball_e.clone()){
+        if let Ok((ball, mut status, ball_t)) = ball_q.get_mut(ev.ball_e.clone()) {
             let ball_res = match *status {
                 BallStatus::Fault(count, player_id) => {
                     // tofix: rarely a double fault is a false positive
@@ -595,7 +661,7 @@ fn on_ball_bounced(
                     let losing_player = if count > limit { Some(player_id) } else { None };
                     let fault_count = if count > limit { 0 } else { count };
                     Some((losing_player, fault_count, "double fault"))
-                },
+                }
                 BallStatus::Rally(player_id) => {
                     // nice2have: limit might come from an upgrade
                     let bounce_limit = 1;
@@ -603,8 +669,7 @@ fn on_ball_bounced(
                     // out of bounds
                     if ball.region.is_out_of_bounds() && ev.bounce_count == 1 {
                         Some((Some(player_id), 0, "shooting out of bounds"))
-                    }
-                    else if ev.bounce_count > bounce_limit {
+                    } else if ev.bounce_count > bounce_limit {
                         let (player, _) = player_q
                             .iter()
                             .filter(|p| p.0.side == ev.side)
@@ -612,11 +677,10 @@ fn on_ball_bounced(
                             .unwrap();
 
                         Some((Some(player.id), 0, "too many bounces"))
-                    }
-                    else {
+                    } else {
                         None
                     }
-                },
+                }
                 BallStatus::Serve(..) | BallStatus::Used => None,
             };
 
@@ -630,40 +694,53 @@ fn on_ball_bounced(
                     for (p, s) in player_q.iter_mut() {
                         if p.id == losing_player {
                             other_score = Some(s);
-                        }
-                        else {
+                        } else {
                             score = Some(s);
                         }
                     }
 
                     swap_serve = add_point(&mut score.unwrap(), &mut other_score.unwrap());
-                    debug!("Player {} has lost a point to {}! (bounce_count: {})", losing_player, reason, ev.bounce_count);
+                    debug!(
+                        "Player {} has lost a point to {}! (bounce_count: {})",
+                        losing_player, reason, ev.bounce_count
+                    );
                 }
 
                 *status = BallStatus::Used;
-                commands.entity(ev.ball_e).insert(Animator::new(Tween::new(
-                    EaseFunction::QuadraticIn,
-                    TweeningType::Once,
-                    Duration::from_millis(450),
-                    TransformScaleLens {
-                        start: ball_t.scale,
-                        end: Vec3::ZERO,
-                    }
-                ).with_completed_event(true, TweenDoneAction::DespawnRecursive.into())));
-                
+                commands.entity(ev.ball_e).insert(Animator::new(
+                    Tween::new(
+                        EaseFunction::QuadraticIn,
+                        TweeningType::Once,
+                        Duration::from_millis(450),
+                        TransformScaleLens {
+                            start: ball_t.scale,
+                            end: Vec3::ZERO,
+                        },
+                    )
+                    .with_completed_event(true, TweenDoneAction::DespawnRecursive.into()),
+                ));
+
                 if let Ok(e) = entity_q.get(ball.trail_e.unwrap()) {
-                    commands
-                    .entity(e)
-                    .insert(FadeOutTrail {
+                    commands.entity(e).insert(FadeOutTrail {
                         decrease_duration_by: 1.,
                         ..Default::default()
                     });
                 }
 
                 if swap_serve {
-                    serving_region.0 = if serving_region.0.is_left() { CourtRegion::get_random_right() } else { CourtRegion::get_random_left() };
+                    serving_region.0 = if serving_region.0.is_left() {
+                        CourtRegion::get_random_right()
+                    } else {
+                        CourtRegion::get_random_left()
+                    };
                 }
-                spawn_ball(&mut commands, &asset_server, serving_region.0, fault_count, serving_region.0.get_player_id());
+                spawn_ball(
+                    &mut commands,
+                    &asset_server,
+                    serving_region.0,
+                    fault_count,
+                    serving_region.0.get_player_id(),
+                );
             }
         }
     }
@@ -678,9 +755,8 @@ fn add_point(score: &mut PlayerScore, other_player_score: &mut PlayerScore) -> b
         score.games += 1;
         score.points = 0;
         other_player_score.points = 0;
-        return true
-    }
-    else if score.points == other_player_score.points && score.points > 3 {
+        return true;
+    } else if score.points == other_player_score.points && score.points > 3 {
         // hacky way to get ADV in the UI
         // nice2have: redo
         score.points = 3;
@@ -701,25 +777,24 @@ fn animate(
 ) {
     for (anim, anim_tracker) in player_q.iter() {
         if anim_tracker.is_changed() || anim_tracker.is_added() {
-            let mut stop_anim_entities: Vec::<Entity> = Vec::new();
+            let mut stop_anim_entities: Vec<Entity> = Vec::new();
             let mut body_root_tween = None;
 
             debug!("anim change to {:?}", anim.animation);
             match anim.animation {
                 // todo: set the proper face sprite for each anim
-
                 PlayerAnimation::Dashing => {
                     stop_anim_entities.push(anim.face_e);
                     stop_anim_entities.push(anim.body_e);
                     stop_anim_entities.push(anim.body_root_e);
-                    
+
                     // todo: dashing tween?
                     // if let Ok((mut animator, t)) = animator_q.get_mut(anim.body_e) {
                     //     animator.set_tweenable(get_dash_tween(t));
                     //     animator.rewind();
                     //     animator.state = AnimatorState::Playing;
                     // }
-                },
+                }
                 PlayerAnimation::Idle => {
                     stop_anim_entities.push(anim.body_root_e);
 
@@ -728,28 +803,28 @@ fn animate(
                         animator.rewind();
                         animator.state = AnimatorState::Playing;
                     }
-                    
+
                     if let Ok((mut animator, t)) = animator_q.get_mut(anim.body_e) {
                         animator.set_tweenable(get_idle_body_tween(t.translation.z));
                         animator.rewind();
                         animator.state = AnimatorState::Playing;
                     }
-                },
+                }
                 PlayerAnimation::Walking => {
                     stop_anim_entities.push(anim.face_e);
                     stop_anim_entities.push(anim.body_e);
                     body_root_tween = Some(get_move_tween(400, 4., 3.));
-                },
+                }
                 PlayerAnimation::Running => {
                     stop_anim_entities.push(anim.face_e);
                     stop_anim_entities.push(anim.body_e);
                     body_root_tween = Some(get_move_tween(300, 5., 8.));
-                },
+                }
                 PlayerAnimation::Celebrating => {
                     stop_anim_entities.push(anim.face_e);
                     stop_anim_entities.push(anim.body_e);
                     body_root_tween = Some(get_move_tween(500, 20., 12.));
-                },
+                }
             }
 
             for e in stop_anim_entities.iter() {
@@ -770,11 +845,7 @@ fn animate(
     }
 }
 
-fn get_move_tween(
-    walk_cycle_ms: u64,
-    pos_y: f32,
-    rot: f32,
-) -> Tracks<Transform> {
+fn get_move_tween(walk_cycle_ms: u64, pos_y: f32, rot: f32) -> Tracks<Transform> {
     let body_walk_pos_tween = Tween::new(
         EaseFunction::QuadraticInOut,
         TweeningType::PingPong,
@@ -797,37 +868,35 @@ fn get_move_tween(
     Tracks::new([body_walk_pos_tween, body_walk_rotation_tween])
 }
 
-fn get_reset_trans_tween(
-    transform: &Transform,
-    duration_ms: u64,
-) -> Tracks<Transform> {
+fn get_reset_trans_tween(transform: &Transform, duration_ms: u64) -> Tracks<Transform> {
     let pos_tween = get_reset_tween(
         duration_ms,
         TransformPositionLens {
-        start: transform.translation,
-        end: Vec3::new(0., 0., transform.translation.z),
-    });
+            start: transform.translation,
+            end: Vec3::new(0., 0., transform.translation.z),
+        },
+    );
 
     let scale_tween = get_reset_tween(
         duration_ms,
         TransformScaleLens {
-        start: transform.scale,
-        end: Vec3::ONE,
-    });
+            start: transform.scale,
+            end: Vec3::ONE,
+        },
+    );
 
     let rot_tween = get_reset_tween(
         duration_ms,
         TransformRotationLens {
-        start: transform.rotation,
-        end: Quat::IDENTITY,
-    });
+            start: transform.rotation,
+            end: Quat::IDENTITY,
+        },
+    );
 
     Tracks::new([pos_tween, scale_tween, rot_tween])
 }
 
-fn get_reset_tween<T, L: Lens<T> + Send + Sync + 'static>(
-    duration_ms: u64,
-    lens: L) -> Tween<T> {
+fn get_reset_tween<T, L: Lens<T> + Send + Sync + 'static>(duration_ms: u64, lens: L) -> Tween<T> {
     Tween::new(
         EaseFunction::QuadraticInOut,
         TweeningType::Once,
@@ -856,7 +925,7 @@ fn get_idle_body_tween(z: f32) -> Tracks<Transform> {
         TransformScaleLens {
             start: Vec3::ONE,
             end: Vec3::new(1.075, 0.925, 1.),
-        }
+        },
     );
     let body_idle_pos_tween = Tween::new(
         EaseFunction::QuadraticInOut,
@@ -867,7 +936,7 @@ fn get_idle_body_tween(z: f32) -> Tracks<Transform> {
             end: Vec3::new(0., -4., z),
         },
     );
-    
+
     Tracks::new([body_idle_size_tween, body_idle_pos_tween])
 }
 
@@ -883,14 +952,11 @@ fn get_idle_body_tween(z: f32) -> Tracks<Transform> {
 //             end: Quat::from_rotation_y(360f32.to_radians()),
 //         }
 //     );
-    
+
 //     dash_tween.then(get_reset_trans_tween(transform, 150))
 // }
 
-fn rotate(
-    mut q: Query<(&TransformRotation, &mut Transform)>,
-    time: ScaledTime,
-) {
+fn rotate(mut q: Query<(&TransformRotation, &mut Transform)>, time: ScaledTime) {
     for (r, mut t) in q.iter_mut() {
         t.rotate(Quat::from_rotation_z(r.0 * time.scaled_delta_seconds()));
     }

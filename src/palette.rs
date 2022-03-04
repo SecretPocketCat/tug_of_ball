@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::{DrawMode, FillMode};
-use bevy_tweening::{Animator, Tween, TweeningType, EaseFunction, lens::{SpriteColorLens, TextColorLens}};
+use bevy_tweening::{
+    lens::{SpriteColorLens, TextColorLens},
+    Animator, EaseFunction, Tween, TweeningType,
+};
 use rand::random;
 
 use crate::trail::Trail;
@@ -8,34 +11,32 @@ use crate::trail::Trail;
 pub struct PalettePlugin;
 impl Plugin for PalettePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app
-            .add_system(on_palette_changed)
+        app.add_system(on_palette_changed)
             .add_system(on_sprite_added)
             .add_system(on_text_added)
             .add_system(on_trail_added)
-            .insert_resource(if random::<bool>() { CLAY_PALETTE } else { GRASS_PALETTE });
+            .insert_resource(if random::<bool>() {
+                CLAY_PALETTE
+            } else {
+                GRASS_PALETTE
+            });
     }
 }
 
 #[derive(Clone, Copy)]
-pub struct RgbColor {r: u8, g: u8, b: u8, a: u8 }
+pub struct RgbColor {
+    r: u8,
+    g: u8,
+    b: u8,
+    a: u8,
+}
 impl RgbColor {
     pub const fn new(r: u8, g: u8, b: u8) -> Self {
-        Self {
-            r,
-            g,
-            b,
-            a: 255,
-        }
+        Self { r, g, b, a: 255 }
     }
 
     pub const fn new_with_alpha(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self {
-            r,
-            g,
-            b,
-            a,
-        }
+        Self { r, g, b, a }
     }
 }
 
@@ -137,9 +138,7 @@ fn on_palette_changed(
     if palette.is_changed() {
         for (e, col, sprite, text) in sprite_q.iter() {
             if let Some(sprite) = sprite {
-                commands
-                .entity(e)
-                .insert(Animator::new(Tween::new(
+                commands.entity(e).insert(Animator::new(Tween::new(
                     EaseFunction::QuadraticInOut,
                     TweeningType::Once,
                     std::time::Duration::from_millis(1000),
@@ -148,18 +147,15 @@ fn on_palette_changed(
                         end: palette.get_color(col),
                     },
                 )));
-            }
-            else if let Some(text) = text {
-                commands
-                .entity(e)
-                .insert(Animator::new(Tween::new(
+            } else if let Some(text) = text {
+                commands.entity(e).insert(Animator::new(Tween::new(
                     EaseFunction::QuadraticInOut,
                     TweeningType::Once,
                     std::time::Duration::from_millis(1000),
                     TextColorLens {
                         start: text.sections[0].style.color,
                         end: palette.get_color(col),
-                        section: 0
+                        section: 0,
                     },
                 )));
             }
@@ -176,19 +172,13 @@ fn on_sprite_added(
     }
 }
 
-fn on_text_added(
-    palette: Res<Palette>,
-    mut q: Query<(&PaletteColor, &mut Text), Added<Text>>,
-) {
+fn on_text_added(palette: Res<Palette>, mut q: Query<(&PaletteColor, &mut Text), Added<Text>>) {
     for (col, mut text) in q.iter_mut() {
         text.sections[0].style.color = palette.get_color(col);
     }
 }
 
-fn on_trail_added(
-    palette: Res<Palette>,
-    mut q: Query<&mut DrawMode, Added<Trail>>,
-) {
+fn on_trail_added(palette: Res<Palette>, mut q: Query<&mut DrawMode, Added<Trail>>) {
     for mut draw_mode in q.iter_mut() {
         *draw_mode = DrawMode::Fill(FillMode::color(palette.get_color(&PaletteColor::BallTrail)));
     }

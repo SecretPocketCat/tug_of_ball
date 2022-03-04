@@ -1,9 +1,13 @@
-use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2};
+use bevy::{
+    math::Vec2,
+    prelude::*,
+    sprite::{Sprite, SpriteBundle},
+};
 use bevy_extensions::Vec2Conversion;
 use bevy_inspector_egui::Inspectable;
 use heron::*;
 
-use crate::{WIN_WIDTH, WIN_HEIGHT, player::PlayerScore, palette::PaletteColor};
+use crate::{palette::PaletteColor, player::PlayerScore, WIN_HEIGHT, WIN_WIDTH};
 
 #[derive(Component, Inspectable)]
 struct PointsText;
@@ -14,16 +18,11 @@ struct GamesText;
 pub struct ScorePlugin;
 impl Plugin for ScorePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app
-            .add_startup_system(setup)
-            .add_system(update_score_ui);
+        app.add_startup_system(setup).add_system(update_score_ui);
     }
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // todo: center align
     commands
         .spawn_bundle(TextBundle {
@@ -91,9 +90,7 @@ fn update_score_ui(
     mut points_text_q: Query<&mut Text, (With<PointsText>, Without<GamesText>)>,
     mut games_text_q: Query<&mut Text, (With<GamesText>, Without<PointsText>)>,
 ) {
-    let any_changes = score_q
-        .iter()
-        .any(|(_, t)| { t.is_changed() });
+    let any_changes = score_q.iter().any(|(_, t)| t.is_changed());
 
     if any_changes {
         points_text_q.single_mut().sections[0].value = score_q

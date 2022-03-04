@@ -1,6 +1,10 @@
 use std::time::Duration;
 
-use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2};
+use bevy::{
+    math::Vec2,
+    prelude::*,
+    sprite::{Sprite, SpriteBundle},
+};
 use bevy_extensions::Vec2Conversion;
 use bevy_input::ActionInput;
 use bevy_inspector_egui::Inspectable;
@@ -12,7 +16,13 @@ use heron::rapier_plugin::PhysicsWorld;
 use heron::*;
 use rand::*;
 
-use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion, PlayerAim}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer, BALL_Z, TransformBundle, palette::PaletteColor, SHADOW_Z, PLAYER_Z};
+use crate::{
+    level::{CourtRegion, CourtSettings},
+    palette::PaletteColor,
+    player::{ActionStatus, Player, PlayerAim, PlayerMovement, PlayerSwing, ServingRegion},
+    wall::Wall,
+    InputAxis, PhysLayer, PlayerInput, TransformBundle, BALL_Z, PLAYER_Z, SHADOW_Z, WIN_WIDTH,
+};
 
 pub struct TrailPoint(Vec2, f64);
 
@@ -33,8 +43,7 @@ pub struct FadeOutTrail {
 pub struct TrailPlugin;
 impl Plugin for TrailPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app
-            .add_system(store_path_points)
+        app.add_system(store_path_points)
             .add_system(draw_trail)
             .add_system(fadeout_trail);
     }
@@ -58,34 +67,30 @@ fn store_path_points(
             if let Ok(t) = transform_q.get(trail.transform_e) {
                 let new_pos = t.translation.truncate();
                 let mut add_point = true;
-    
+
                 if let Some(mut last_point) = trail.points.last_mut() {
                     if last_point.0 == new_pos {
                         last_point.1 = curr_time;
                         add_point = false;
                     }
                 }
-                
+
                 if add_point {
                     trail.points.push(TrailPoint(new_pos, curr_time));
                 }
             }
         }
-      
 
         let duration = trail.duration_sec as f64;
-            trail.points.drain_filter(|p| p.1 + duration < curr_time);
-        
+        trail.points.drain_filter(|p| p.1 + duration < curr_time);
+
         if trail.points.len() == 0 {
             commands.entity(e).despawn_recursive();
         }
     }
 }
 
-fn draw_trail(
-    mut path_q: Query<(&mut Path, &mut Trail)>,
-    time: Res<Time>,
-) {
+fn draw_trail(mut path_q: Query<(&mut Path, &mut Trail)>, time: Res<Time>) {
     for (mut path, trail) in path_q.iter_mut() {
         if trail.points.len() > 1 {
             let mut path_builder = PathBuilder::new();
@@ -96,13 +101,13 @@ fn draw_trail(
             // todo: the offset points should be angled (vertical movement breaks this right now, but that doesn't matter for the ball)
             for (i, p) in trail.points.iter().rev().enumerate() {
                 let time_delta = time.seconds_since_startup() - p.1;
-                let w = (1. - (time_delta / trail_dur as f64)).clamp(0., 1.) * (trail.max_width as f64 / 2.);
+                let w = (1. - (time_delta / trail_dur as f64)).clamp(0., 1.)
+                    * (trail.max_width as f64 / 2.);
                 let pos = p.0 + Vec2::Y * w as f32;
 
                 if i == 0 {
                     path_builder.move_to(pos);
-                }
-                else {
+                } else {
                     path_builder.line_to(pos);
                 }
 
@@ -124,11 +129,9 @@ fn draw_trail(
     }
 }
 
-fn fadeout_trail(
-    mut path_q: Query<(&FadeOutTrail, &mut Trail)>,
-    time: ScaledTime,
-) {
+fn fadeout_trail(mut path_q: Query<(&FadeOutTrail, &mut Trail)>, time: ScaledTime) {
     for (fade, mut trail) in path_q.iter_mut() {
-        trail.duration_sec = (trail.duration_sec - fade.decrease_duration_by * time.scaled_delta_seconds()).max(0.);
+        trail.duration_sec =
+            (trail.duration_sec - fade.decrease_duration_by * time.scaled_delta_seconds()).max(0.);
     }
 }

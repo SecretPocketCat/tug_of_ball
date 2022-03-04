@@ -1,13 +1,19 @@
 use std::ops::RangeInclusive;
 
-use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2};
+use bevy::{
+    math::Vec2,
+    prelude::*,
+    sprite::{Sprite, SpriteBundle},
+};
 use bevy_extensions::Vec2Conversion;
 use bevy_inspector_egui::Inspectable;
 use bevy_ninepatch::{NinePatchBuilder, NinePatchBundle, NinePatchData};
 use heron::*;
 use rand::*;
 
-use crate::{WIN_WIDTH, WIN_HEIGHT, PhysLayer, COURT_LINE_Z, COURT_Z, palette::PaletteColor, NET_Z, SHADOW_Z};
+use crate::{
+    palette::PaletteColor, PhysLayer, COURT_LINE_Z, COURT_Z, NET_Z, SHADOW_Z, WIN_HEIGHT, WIN_WIDTH,
+};
 
 pub struct CourtSettings {
     // nice2have: replace by proper bounds
@@ -59,7 +65,11 @@ impl CourtRegion {
     }
 
     pub fn get_player_id(&self) -> usize {
-        if self.is_left() { 1 } else { 2 }
+        if self.is_left() {
+            1
+        } else {
+            2
+        }
     }
 
     pub fn get_random() -> Self {
@@ -69,7 +79,7 @@ impl CourtRegion {
     pub fn get_random_left() -> Self {
         Self::get_random_from_range(0..=1)
     }
-    
+
     pub fn get_random_right() -> Self {
         Self::get_random_from_range(2..=3)
     }
@@ -83,14 +93,12 @@ impl CourtRegion {
             CourtRegion::BottomRight,
         ][rng.gen_range(range)]
     }
-
 }
 
 pub struct LevelPlugin;
 impl Plugin for LevelPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app
-            .add_startup_system(setup);
+        app.add_startup_system(setup);
     }
 }
 
@@ -122,37 +130,39 @@ fn setup(
         (-x, 0., Vec2::new(thickness, height), COURT_LINE_Z),
         (x, 0., Vec2::new(thickness, height), COURT_LINE_Z),
         (0., -y, Vec2::new(width, thickness), COURT_LINE_Z),
-        (0., y, Vec2::new( width, thickness), COURT_LINE_Z),
+        (0., y, Vec2::new(width, thickness), COURT_LINE_Z),
     ];
 
     for (x, y, size, z) in lines.iter() {
-        commands.spawn_bundle(SpriteBundle {
-            transform: Transform::from_xyz(*x, *y, *z),
+        commands
+            .spawn_bundle(SpriteBundle {
+                transform: Transform::from_xyz(*x, *y, *z),
+                sprite: Sprite {
+                    custom_size: Some(*size),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .insert(PaletteColor::CourtLines)
+            .insert(Name::new("LevelLine"));
+    }
+
+    // net shadow
+    commands
+        .spawn_bundle(SpriteBundle {
+            texture: asset_server.load("art-ish/net_post.png"),
             sprite: Sprite {
-                custom_size: Some(*size),
+                custom_size: Some(lines[0].2),
+                ..Default::default()
+            },
+            transform: Transform {
+                translation: Vec3::new(-7., -3., SHADOW_Z),
+                scale: Vec3::new(1., 0.97, 1.),
                 ..Default::default()
             },
             ..Default::default()
         })
-        .insert(PaletteColor::CourtLines)
-        .insert(Name::new("LevelLine"));
-    }
-
-    // net shadow
-    commands.spawn_bundle(SpriteBundle {
-        texture: asset_server.load("art-ish/net_post.png"),
-        sprite: Sprite {
-            custom_size: Some(lines[0].2),
-            ..Default::default()
-        },
-        transform: Transform {
-            translation: Vec3::new(-7., -3., SHADOW_Z),
-            scale: Vec3::new(1., 0.97, 1.),
-            ..Default::default()
-        },
-        ..Default::default()
-    })
-    .insert(PaletteColor::Shadow);
+        .insert(PaletteColor::Shadow);
 
     let region_x = x / 2. + thickness / 4.;
     let region_y = y / 2. + thickness / 4.;
@@ -165,23 +175,24 @@ fn setup(
     ];
 
     for (x, y, region) in sensors.iter() {
-        commands.spawn_bundle(SpriteBundle {
-            transform: Transform::from_xyz(*x, *y, COURT_Z),
-            sprite: Sprite {
-                custom_size: Some(region_size.truncate() * 2.),
+        commands
+            .spawn_bundle(SpriteBundle {
+                transform: Transform::from_xyz(*x, *y, COURT_Z),
+                sprite: Sprite {
+                    custom_size: Some(region_size.truncate() * 2.),
+                    ..Default::default()
+                },
                 ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(PaletteColor::Court)
-        .insert(GlobalTransform::default())
-        .insert(RigidBody::Sensor)
-        .insert(CollisionShape::Cuboid {
-            half_extends: region_size,
-            border_radius: None,
-        })
-        .insert(region.clone())
-        .insert(Name::new("Region"));
+            })
+            .insert(PaletteColor::Court)
+            .insert(GlobalTransform::default())
+            .insert(RigidBody::Sensor)
+            .insert(CollisionShape::Cuboid {
+                half_extends: region_size,
+                border_radius: None,
+            })
+            .insert(region.clone())
+            .insert(Name::new("Region"));
     }
 
     // // court 9-patch
@@ -206,22 +217,22 @@ fn setup(
     //     },
     // );
 
-    commands.spawn_bundle(SpriteBundle {
-        sprite: Sprite {
-            custom_size: Some(Vec2::splat(5000.)),
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                custom_size: Some(Vec2::splat(5000.)),
+                ..Default::default()
+            },
             ..Default::default()
-        },
-        ..Default::default()
-    })
-    .insert(PaletteColor::Background);
+        })
+        .insert(PaletteColor::Background);
 
     let post_offset = 11.;
 
-    for (y, z_offset) in
-        [(y + post_offset, -0.1),
-        (-y + post_offset, 0.1)].iter() {
-            let z = NET_Z + z_offset;
-            commands.spawn_bundle(SpriteBundle {
+    for (y, z_offset) in [(y + post_offset, -0.1), (-y + post_offset, 0.1)].iter() {
+        let z = NET_Z + z_offset;
+        commands
+            .spawn_bundle(SpriteBundle {
                 texture: asset_server.load("art-ish/net_post.png"),
                 transform: Transform::from_xyz(0., *y, z),
                 sprite: Sprite {

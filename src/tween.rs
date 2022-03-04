@@ -1,4 +1,8 @@
-use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2};
+use bevy::{
+    math::Vec2,
+    prelude::*,
+    sprite::{Sprite, SpriteBundle},
+};
 use bevy_extensions::Vec2Conversion;
 use bevy_inspector_egui::Inspectable;
 use bevy_tweening::TweenCompleted;
@@ -15,7 +19,7 @@ impl From<u64> for TweenDoneAction {
     }
 }
 
-impl From<TweenDoneAction> for u64  {
+impl From<TweenDoneAction> for u64 {
     fn from(val: TweenDoneAction) -> Self {
         val as u64
     }
@@ -28,16 +32,13 @@ impl Plugin for TweenPlugin {
     }
 }
 
-fn on_tween_completed(
-    mut commands: Commands,
-    mut ev_reader: EventReader<TweenCompleted>,
-) {
+fn on_tween_completed(mut commands: Commands, mut ev_reader: EventReader<TweenCompleted>) {
     for ev in ev_reader.iter() {
         match TweenDoneAction::from(ev.user_data) {
-            TweenDoneAction::None => {},
+            TweenDoneAction::None => {}
             TweenDoneAction::DespawnRecursive => {
                 commands.entity(ev.entity).despawn_recursive();
-            },
+            }
         }
     }
 }

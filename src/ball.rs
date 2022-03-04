@@ -1,6 +1,10 @@
 use std::time::Duration;
 
-use bevy::{prelude::*, sprite::{SpriteBundle, Sprite}, math::Vec2};
+use bevy::{
+    math::Vec2,
+    prelude::*,
+    sprite::{Sprite, SpriteBundle},
+};
 use bevy_extensions::Vec2Conversion;
 use bevy_input::ActionInput;
 use bevy_inspector_egui::Inspectable;
@@ -12,7 +16,14 @@ use heron::rapier_plugin::PhysicsWorld;
 use heron::*;
 use rand::*;
 
-use crate::{player::{PlayerSwing, ActionStatus, PlayerMovement, Player, ServingRegion, PlayerAim}, PlayerInput, InputAxis, wall::Wall, WIN_WIDTH, level::{CourtRegion, CourtSettings}, PhysLayer, BALL_Z, TransformBundle, palette::PaletteColor, SHADOW_Z, PLAYER_Z, trail::{FadeOutTrail, Trail}};
+use crate::{
+    level::{CourtRegion, CourtSettings},
+    palette::PaletteColor,
+    player::{ActionStatus, Player, PlayerAim, PlayerMovement, PlayerSwing, ServingRegion},
+    trail::{FadeOutTrail, Trail},
+    wall::Wall,
+    InputAxis, PhysLayer, PlayerInput, TransformBundle, BALL_Z, PLAYER_Z, SHADOW_Z, WIN_WIDTH,
+};
 
 const BALL_SIZE: f32 = 35.;
 
@@ -53,8 +64,7 @@ pub struct BallBouncedEvt {
 pub struct BallPlugin;
 impl Plugin for BallPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app
-            .add_startup_system(setup)
+        app.add_startup_system(setup)
             .add_system(movement)
             .add_system(bounce)
             .add_system_to_stage(CoreStage::PostUpdate, handle_collisions)
@@ -63,14 +73,17 @@ impl Plugin for BallPlugin {
     }
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let region = CourtRegion::TopLeft;
     // let region = CourtRegion::get_random_left();
     // let region = CourtRegion::get_random();
-    spawn_ball(&mut commands, &asset_server, region, 0, region.get_player_id());
+    spawn_ball(
+        &mut commands,
+        &asset_server,
+        region,
+        0,
+        region.get_player_id(),
+    );
     commands.insert_resource(ServingRegion(region));
 }
 
@@ -125,30 +138,30 @@ fn bounce(
             if ball.dir == Vec2::ZERO {
                 continue;
             }
-    
+
             ball_bounce.velocity += ball_bounce.gravity * time.scaled_delta_seconds();
             t.translation.y += ball_bounce.velocity * time.scaled_delta_seconds();
-    
+
             if t.translation.y <= 0. {
                 t.translation.y = 0.01;
-                ball_bounce.velocity = get_bounce_velocity(ball.dir.length(), ball_bounce.max_velocity);
+                ball_bounce.velocity =
+                    get_bounce_velocity(ball.dir.length(), ball_bounce.max_velocity);
                 ball_bounce.count += 1;
                 trace!("Bounce {}", ball_bounce.count);
-    
+
                 // eval serve on bounce
                 if let BallStatus::Serve(region, fault_count, player_id) = *ball_status {
                     if ball.region != region.get_inverse().unwrap() {
                         // fault
                         *ball_status = BallStatus::Fault(fault_count + 1, player_id);
                         debug!("Bad serve {:?} => {:?}", region, ball.region);
-                    }
-                    else {
+                    } else {
                         // good serve
                         *ball_status = BallStatus::Rally(player_id);
                         debug!("Good serve {:?} => {:?}", region, ball.region);
                     }
                 }
-    
+
                 ev_w_bounce.send(BallBouncedEvt {
                     ball_e,
                     bounce_count: ball_bounce.count,
@@ -156,7 +169,7 @@ fn bounce(
                 });
                 debug!("Bounced {} times", ball_bounce.count);
             }
-        } 
+        }
     }
 }
 
@@ -205,45 +218,51 @@ fn handle_collisions(
                             let clamp_y = 0.8;
                             let player_x = player_t.translation.x;
                             let player_x_sign = player_x.signum();
-    
+
                             if dir == Vec2::new(player_x_sign, 0.) {
                                 // player aiming into their court/backwards - just aim straight
                                 dir = Vec2::new(-player_x_sign, 0.);
+                            } else if player_x < 0. {
+                                dir = dir.clamp(
+                                    Vec2::new(clamp_x, -clamp_y),
+                                    Vec2::new(clamp_x, clamp_y),
+                                );
+                            } else {
+                                dir = dir.clamp(
+                                    Vec2::new(-clamp_x, -clamp_y),
+                                    Vec2::new(-clamp_x, clamp_y),
+                                );
                             }
-                            else if player_x < 0. {
-                                dir = dir.clamp(Vec2::new(clamp_x, -clamp_y), Vec2::new(clamp_x, clamp_y));
-                            }
-                            else {
-                                dir = dir.clamp(Vec2::new(-clamp_x, -clamp_y), Vec2::new(-clamp_x, clamp_y));
-                            }
-    
+
                             ball.dir = dir * ball_speed_multiplier;
-                            ball_bounce.velocity = get_bounce_velocity(dir.length(), ball_bounce.max_velocity);
-    
-                            let rot = Quat::from_rotation_arc_2d(Vec2::Y, dir).to_euler(EulerRot::XYZ).2.to_degrees();
+                            ball_bounce.velocity =
+                                get_bounce_velocity(dir.length(), ball_bounce.max_velocity);
+
+                            let rot = Quat::from_rotation_arc_2d(Vec2::Y, dir)
+                                .to_euler(EulerRot::XYZ)
+                                .2
+                                .to_degrees();
                             trace!("Hit rot {:?}", rot);
-    
+
                             match *status {
                                 BallStatus::Serve(_, _, player_id) if player_id != player.id => {
                                     // vollied serve
                                     *status = BallStatus::Rally(player.id);
                                     trace!("Vollied serve");
-                                },
+                                }
                                 BallStatus::Rally(..) => {
-                                    // set rally player on hit, also applies to 
+                                    // set rally player on hit, also applies to
                                     *status = BallStatus::Rally(player.id);
-                                },
+                                }
                                 _ => {}
                             }
                         }
                     }
                 }
-            }
-
-            else if let Ok(wall_sprite) = wall_q.get(other_e) {
+            } else if let Ok(wall_sprite) = wall_q.get(other_e) {
                 let size = wall_sprite.custom_size.unwrap();
                 let is_hor = size.x > size.y;
-                let x = if is_hor { 1. } else { -1. }; 
+                let x = if is_hor { 1. } else { -1. };
                 ball.dir *= Vec2::new(x, -x);
             }
         }
@@ -271,8 +290,7 @@ fn handle_regions(
             let (entity_1, entity_2) = ev.rigid_body_entities();
             if ball_e == entity_1 {
                 other_e = entity_2;
-            }
-            else if ball_e == entity_2 {
+            } else if ball_e == entity_2 {
                 other_e = entity_1;
             } else {
                 continue;
@@ -284,16 +302,17 @@ fn handle_regions(
 
                     // entered region
                     region = Some(r);
-                }
-                else {
+                } else {
                     trace!("[{}] Exited {:?}", i, r);
 
                     // exited region
-                    if region.is_none() && *r != CourtRegion::OutOfBounds &&
-                        (ball_t.translation.x < court_set.left ||
-                        ball_t.translation.x > court_set.right ||
-                        ball_t.translation.y < court_set.bottom ||
-                        ball_t.translation.y > court_set.top) {
+                    if region.is_none()
+                        && *r != CourtRegion::OutOfBounds
+                        && (ball_t.translation.x < court_set.left
+                            || ball_t.translation.x > court_set.right
+                            || ball_t.translation.y < court_set.bottom
+                            || ball_t.translation.y > court_set.top)
+                    {
                         region = Some(&CourtRegion::OutOfBounds);
                     }
                 }
@@ -304,13 +323,16 @@ fn handle_regions(
             if let Ok(mut ball) = ball_mut_q.get_mut(ball_e) {
                 trace!("{:?} => {:?}", ball.region, r);
 
-                if (ball.region.is_left() && r.is_right()) ||
-                    (ball.region.is_right() && r.is_left()) {
-                    if let Ok((mut bounce, bounce_t)) = ball_bounce_q.get_mut(ball.bounce_e.unwrap()) {
+                if (ball.region.is_left() && r.is_right())
+                    || (ball.region.is_right() && r.is_left())
+                {
+                    if let Ok((mut bounce, bounce_t)) =
+                        ball_bounce_q.get_mut(ball.bounce_e.unwrap())
+                    {
                         bounce.count = 0;
                         trace!("Crossed net");
                         trace!("height over net {}", bounce_t.translation.y);
-    
+
                         if bounce_t.translation.y < 20. {
                             debug!("hit net");
                             let hit_vel_mult = 0.25;
@@ -318,9 +340,7 @@ fn handle_regions(
                             bounce.velocity *= 0.5;
 
                             if let Ok(e) = entity_q.get(ball.trail_e.unwrap()) {
-                                commands
-                                .entity(e)
-                                .insert(FadeOutTrail{
+                                commands.entity(e).insert(FadeOutTrail {
                                     stop_trail: true,
                                     ..Default::default()
                                 });
@@ -340,17 +360,19 @@ pub fn spawn_ball(
     asset_server: &Res<AssetServer>,
     serve_region: CourtRegion,
     fault_count: u8,
-    player_id: usize
+    player_id: usize,
 ) {
-    let bounce_e = commands.spawn_bundle(SpriteBundle {
-        texture: asset_server.load("art-ish/ball.png"),
-        sprite: Sprite {
-            custom_size: Some(Vec2::ONE * BALL_SIZE),
+    let bounce_e = commands
+        .spawn_bundle(SpriteBundle {
+            texture: asset_server.load("art-ish/ball.png"),
+            sprite: Sprite {
+                custom_size: Some(Vec2::ONE * BALL_SIZE),
+                ..Default::default()
+            },
+            transform: Transform::from_xyz(0., 0., 0.5),
             ..Default::default()
-        },
-        transform: Transform::from_xyz(0., 0., 0.5),
-        ..Default::default()
-        }).insert(BallBounce {
+        })
+        .insert(BallBounce {
             gravity: -420.,
             max_velocity: 200.,
             ..Default::default()
@@ -358,26 +380,29 @@ pub fn spawn_ball(
         .insert(PaletteColor::Ball)
         .id();
 
-    let shadow = commands.spawn_bundle(SpriteBundle {
-        texture: asset_server.load("art-ish/ball.png"),
-        sprite: Sprite {
-            custom_size: Some(Vec2::new(1.0, 0.5) * BALL_SIZE),
+    let shadow = commands
+        .spawn_bundle(SpriteBundle {
+            texture: asset_server.load("art-ish/ball.png"),
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(1.0, 0.5) * BALL_SIZE),
+                ..Default::default()
+            },
+            transform: Transform {
+                translation: Vec3::new(-3., -14., -BALL_Z + SHADOW_Z),
+                ..Default::default()
+            },
             ..Default::default()
-        },
-        transform: Transform {
-            translation: Vec3::new(-3., -14., -BALL_Z + SHADOW_Z),
-            ..Default::default()
-        },
-        ..Default::default()
         })
         .insert(PaletteColor::Shadow)
         .id();
 
-    let trail_e = commands.spawn_bundle(GeometryBuilder::build_as(
+    let trail_e = commands
+        .spawn_bundle(GeometryBuilder::build_as(
             &PathBuilder::new().build().0,
             DrawMode::Fill(FillMode::color(Color::rgb_u8(32, 40, 61))),
-            Transform::from_xyz(0.,0., PLAYER_Z + 0.5),
-        )).insert(Trail {
+            Transform::from_xyz(0., 0., PLAYER_Z + 0.5),
+        ))
+        .insert(Trail {
             points: Vec::new(),
             transform_e: bounce_e,
             duration_sec: 0.3,
@@ -391,14 +416,15 @@ pub fn spawn_ball(
     let x = if serve_region.is_left() { -x } else { x };
     let y = rng.gen_range(120..=280) as f32;
     let y = if serve_region.is_bottom() { -y } else { y };
-    let _ball_e = commands.spawn_bundle(TransformBundle {
-        transform: Transform {
-            translation: Vec3::new(x, y, BALL_Z),
-            scale: Vec3::ZERO,
+    let _ball_e = commands
+        .spawn_bundle(TransformBundle {
+            transform: Transform {
+                translation: Vec3::new(x, y, BALL_Z),
+                scale: Vec3::ZERO,
+                ..Default::default()
+            },
             ..Default::default()
-        },
-        ..Default::default()
-    })
+        })
         .insert(GlobalTransform::default())
         .insert(Ball {
             size: BALL_SIZE,
@@ -410,21 +436,21 @@ pub fn spawn_ball(
         })
         .insert(BallStatus::Serve(serve_region, fault_count, player_id))
         .insert(RigidBody::KinematicPositionBased)
-        .insert(CollisionShape::Sphere {
-            radius: 15.,
-        })
+        .insert(CollisionShape::Sphere { radius: 15. })
         .insert(CollisionLayers::all::<PhysLayer>())
         .insert(Name::new("Ball"))
         .add_child(bounce_e)
         .add_child(shadow)
-        .insert(Animator::new(
-            Delay::new(Duration::from_millis(500)).then(Tween::new(
-            EaseFunction::BackOut,
-            TweeningType::Once,
-            Duration::from_millis(450),
-            TransformScaleLens {
-                start: Vec2::ZERO.extend(1.),
-                end: Vec3::ONE,
-            }
-        )))).id();
+        .insert(Animator::new(Delay::new(Duration::from_millis(500)).then(
+            Tween::new(
+                EaseFunction::BackOut,
+                TweeningType::Once,
+                Duration::from_millis(450),
+                TransformScaleLens {
+                    start: Vec2::ZERO.extend(1.),
+                    end: Vec3::ONE,
+                },
+            ),
+        )))
+        .id();
 }
