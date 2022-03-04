@@ -7,13 +7,16 @@
 #![feature(drain_filter)]
 
 // todo list
-// initial aim dir
 // rounded court
+// court size
+// initial player position
 // tug of ball + player - check screen bounding box
 // ball 'steps' after bounce
 // faces
 // better font
 // dash 'body' trail?
+// sfx
+// music
 
 use ball::{Ball, BallBounce, BallPlugin};
 use bevy::{prelude::*, render::render_resource::FilterMode};

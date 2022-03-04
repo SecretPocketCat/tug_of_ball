@@ -298,7 +298,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
         // aim
         let aim_e = commands
-            .spawn_bundle(TransformBundle::default())
+            .spawn_bundle(TransformBundle {
+                transform: Transform::from_rotation(if is_left {
+                    Quat::from_rotation_z(-90f32.to_radians())
+                } else {
+                    Quat::from_rotation_z(90f32.to_radians())
+                }),
+                ..Default::default()
+            })
             .insert(PlayerAim {
                 direction: initial_dir,
                 ..Default::default()
@@ -495,10 +502,8 @@ fn move_player(
             // todo: get/store properly
             let player_w = 40.;
             let is_left = player.is_left();
-            let edge = if is_left
-                { -player_w } else
-                { player_w };
-            
+            let edge = if is_left { -player_w } else { player_w };
+
             // todo: bounding box check?
             if (is_left && final_pos.x < edge) || (!is_left && final_pos.x > edge) {
                 if (final_pos - t.translation).length().abs() > 0.1 {
