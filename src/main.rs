@@ -38,7 +38,6 @@ use level::{CourtRegion, InitialRegion, LevelPlugin};
 use palette::PalettePlugin;
 use player::PlayerPlugin;
 use score::ScorePlugin;
-use serde::{Deserialize, Serialize};
 use trail::TrailPlugin;
 use tween::TweenPlugin;
 
@@ -55,7 +54,7 @@ const NAME: &str = "Tennis Rounds";
 const WIN_WIDTH: f32 = 1700.;
 const WIN_HEIGHT: f32 = 900.;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum InputAction {
     Swing,
     Dash,
@@ -63,7 +62,7 @@ enum InputAction {
     ChangePalette,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum InputAxis {
     MoveX,
     MoveY,
