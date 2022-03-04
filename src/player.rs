@@ -90,6 +90,7 @@ pub enum PlayerAnimation {
     Running,
     Dashing,
     Celebrating,
+    Shooting,
 }
 
 #[derive(Component, Inspectable)]
@@ -254,19 +255,21 @@ impl PlayerBundle {
     }
 }
 
+const SWING_LABEL: &str = "swing";
+
 pub struct ServingRegion(pub CourtRegion);
 
 pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_startup_system_to_stage(StartupStage::PostStartup, setup)
-            .add_system(move_player)
+            .add_system(move_player.before(SWING_LABEL))
             .add_system(aim)
-            .add_system(handle_swing_input)
+            .add_system(handle_swing_input.label(SWING_LABEL))
             .add_system(on_ball_bounced)
             .add_system(rotate)
             .add_system(update_aim_rotation)
-            .add_system(animate)
+            .add_system(animate.after(SWING_LABEL))
             .add_system(unblock_animation)
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
@@ -659,10 +662,17 @@ fn aim(
 
 // nice2have: on swing down cancel prev swing?
 fn handle_swing_input(
+    mut commands: Commands,
     input: Res<ActionInput<InputAction, InputAxis>>,
-    mut query: Query<(&Player, &mut PlayerSwing, &mut CollisionLayers)>,
+    mut query: Query<(
+        Entity,
+        &Player,
+        &mut PlayerSwing,
+        &mut CollisionLayers,
+        &mut PlayerAnimationData,
+    )>,
 ) {
-    for (player, mut player_swing, mut coll_layers) in query.iter_mut() {
+    for (e, player, mut player_swing, mut coll_layers, mut anim) in query.iter_mut() {
         if let Some(ActionState::Released(key_data)) =
             input.get_button_action_state(player.id, &InputAction::Swing)
         {
@@ -671,6 +681,9 @@ fn handle_swing_input(
                     ActionStatus::Active(get_swing_mutliplier_clamped(key_data.duration));
                 player_swing.timer = Timer::from_seconds(player_swing.duration_sec, false);
                 *coll_layers = CollisionLayers::all::<PhysLayer>();
+
+                anim.animation = PlayerAnimation::Shooting;
+                // commands.entity(e).insert(component)
             }
         } else {
             match player_swing.status {
@@ -817,14 +830,25 @@ fn animate(
 
             debug!("anim change to {:?}", anim.animation);
             match anim.animation {
-                PlayerAnimation::Dashing => {
+                PlayerAnimation::Shooting => {
                     stop_anim_entities.push(anim.face_e);
-                    // stop_anim_entities.push(anim.body_e);
                     stop_anim_entities.push(anim.body_root_e);
 
-                    // nice2have: dashing tween?
                     if let Ok((mut animator, t)) = animator_q.get_mut(anim.body_e) {
-                        let (tween, dur) = get_dash_tween(t);
+                        let (tween, dur) = get_body_scale_tween(t, 1.8, 300);
+                        animator.set_tweenable(tween);
+                        animator.rewind();
+                        animator.state = AnimatorState::Playing;
+
+                        commands.entity(anim_e).insert(PlayerAnimationBlock(dur));
+                    }
+                }
+                PlayerAnimation::Dashing => {
+                    stop_anim_entities.push(anim.face_e);
+                    stop_anim_entities.push(anim.body_root_e);
+
+                    if let Ok((mut animator, t)) = animator_q.get_mut(anim.body_e) {
+                        let (tween, dur) = get_body_scale_tween(t, 1.3, 220);
                         animator.set_tweenable(tween);
                         animator.rewind();
                         animator.state = AnimatorState::Playing;
@@ -991,12 +1015,12 @@ fn get_idle_body_tween(z: f32) -> Tracks<Transform> {
     Tracks::new([body_idle_size_tween, body_idle_pos_tween])
 }
 
-fn get_dash_tween(transform: &Transform) -> (Sequence<Transform>, f32) {
-    let end = (Vec2::ONE * 1.3).extend(1.);
+fn get_body_scale_tween(transform: &Transform, scale: f32, dur: u64) -> (Sequence<Transform>, f32) {
+    let end = (Vec2::ONE * scale).extend(1.);
     let t = Tween::new(
-        EaseFunction::BounceOut,
+        EaseFunction::QuadraticOut,
         TweeningType::Once,
-        Duration::from_millis(120),
+        Duration::from_millis(dur / 2),
         TransformScaleLens {
             start: transform.scale,
             end: end,
@@ -1005,7 +1029,7 @@ fn get_dash_tween(transform: &Transform) -> (Sequence<Transform>, f32) {
     .then(Tween::new(
         EaseFunction::QuadraticIn,
         TweeningType::Once,
-        Duration::from_millis(80),
+        Duration::from_millis(dur / 2),
         TransformScaleLens {
             start: end,
             end: Vec3::ONE,

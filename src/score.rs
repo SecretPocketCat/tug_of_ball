@@ -7,9 +7,6 @@ use crate::palette::PaletteColor;
 #[derive(Component, Inspectable)]
 struct PointsText;
 
-#[derive(Component, Inspectable)]
-struct GamesText;
-
 #[derive(Default)]
 pub struct PlayerScore {
     pub points: u8,
@@ -32,15 +29,16 @@ impl Plugin for ScorePlugin {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // todo: center align
     commands
         .spawn_bundle(TextBundle {
             style: Style {
                 align_self: AlignSelf::Center,
-                position_type: PositionType::Absolute,
-                position: Rect {
-                    top: Val::Px(5.0),
-                    right: Val::Px(15.0),
+                position_type: PositionType::Relative,
+                margin: Rect {
+                    top: Val::Auto,
+                    bottom: Val::Px(10.0),
+                    right: Val::Auto,
+                    left: Val::Auto,
                     ..Default::default()
                 },
                 ..Default::default()
@@ -48,7 +46,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             text: Text::with_section(
                 "",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: asset_server.load("fonts/Typo_Round_Regular_Demo.otf"),
                     font_size: 100.0,
                     color: Color::WHITE,
                 },
@@ -61,52 +59,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         })
         .insert(PaletteColor::Text)
-        .insert(PointsText);
-
-    commands
-        .spawn_bundle(TextBundle {
-            style: Style {
-                align_self: AlignSelf::Center,
-                position_type: PositionType::Absolute,
-                position: Rect {
-                    top: Val::Px(5.0),
-                    left: Val::Px(15.0),
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-            text: Text::with_section(
-                "",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 100.0,
-                    color: Color::WHITE,
-                },
-                // Note: You can use `Default::default()` in place of the `TextAlignment`
-                TextAlignment {
-                    horizontal: HorizontalAlign::Center,
-                    ..Default::default()
-                },
-            ),
-            ..Default::default()
-        })
-        .insert(PaletteColor::Text)
-        .insert(GamesText);
+        .insert(PointsText)
+        .insert(Name::new("ScoreText"));
 }
 
-fn update_score_ui(
-    score: Res<Score>,
-    mut points_text_q: Query<&mut Text, (With<PointsText>, Without<GamesText>)>,
-    mut games_text_q: Query<&mut Text, (With<GamesText>, Without<PointsText>)>,
-) {
+fn update_score_ui(score: Res<Score>, mut points_text_q: Query<&mut Text, With<PointsText>>) {
     if score.is_changed() {
         points_text_q.single_mut().sections[0].value = format!(
             "{} | {}",
             score.left_player.points, score.right_player.points
         );
-
-        games_text_q.single_mut().sections[0].value =
-            format!("{} | {}", score.left_player.games, score.right_player.games);
     }
 }
 

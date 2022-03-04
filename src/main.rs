@@ -1,5 +1,6 @@
 // nice2have: make this a feature
 // // disable console opening on windows
+
 // #![windows_subsystem = "windows"]
 
 #![feature(derive_default_enum)]
@@ -7,14 +8,17 @@
 #![feature(drain_filter)]
 
 // todo list:
-// shoot tween
-// faces
-// better font
 // sfx
+// faces
+// reset
+
 // music
 // AI
 // fix WASM release (get rid of the serialiation/async load of binding)
 // resizable window
+
+// font
+// https://www.dafont.com/typo-round.font
 
 // nice2have dash 'body' trail?
 
@@ -113,7 +117,8 @@ fn main() {
             title: NAME.to_string(),
             width: WIN_WIDTH,
             height: WIN_HEIGHT,
-            scale_factor_override: Some(1.),
+            resizable: false,
+            // scale_factor_override: Some(1.),
             ..Default::default()
         })
         .insert_resource(ClearColor(Color::WHITE))
