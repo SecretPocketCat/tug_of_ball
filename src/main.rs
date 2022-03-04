@@ -21,7 +21,7 @@
 // fix WASM release (get rid of the serialiation/async load of binding)
 // resizable window
 
-use ball::{Ball, BallBounce, BallPlugin};
+use ball::BallPlugin;
 use bevy::{prelude::*, render::render_resource::FilterMode};
 use bevy_extensions::panic_on_error;
 use bevy_input::{
@@ -30,16 +30,15 @@ use bevy_input::{
 use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_time::TimePlugin;
 use bevy_tweening::TweeningPlugin;
-use debug::DebugPlugin;
+
 use heron::*;
 use level::LevelPlugin;
 use palette::PalettePlugin;
-use player::{Player, PlayerDash, PlayerMovement, PlayerPlugin, PlayerSwing};
+use player::PlayerPlugin;
 use score::ScorePlugin;
 use serde::{Deserialize, Serialize};
 use trail::TrailPlugin;
 use tween::TweenPlugin;
-use wall::WallPlugin;
 
 mod ball;
 mod debug;
@@ -73,6 +72,7 @@ enum InputAxis {
 type PlayerInput = ActionInput<InputAction, InputAxis>;
 
 #[derive(PhysicsLayer)]
+#[allow(dead_code)]
 enum PhysLayer {
     All, // World,
          // Player,

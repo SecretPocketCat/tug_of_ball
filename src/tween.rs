@@ -1,10 +1,8 @@
 use bevy::{
-    math::Vec2,
     prelude::*,
-    sprite::{Sprite, SpriteBundle},
 };
-use bevy_extensions::Vec2Conversion;
-use bevy_inspector_egui::Inspectable;
+
+
 use bevy_tweening::TweenCompleted;
 
 #[repr(u64)]

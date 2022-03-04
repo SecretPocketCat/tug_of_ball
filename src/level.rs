@@ -5,15 +5,15 @@ use bevy::{
     prelude::*,
     sprite::{Sprite, SpriteBundle},
 };
-use bevy_extensions::Vec2Conversion;
+
 use bevy_inspector_egui::Inspectable;
 use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningType};
 use heron::*;
 use rand::*;
 
 use crate::{
-    palette::PaletteColor, score::Score, PhysLayer, COURT_LINE_Z, COURT_Z, NET_Z, SHADOW_Z,
-    WIN_HEIGHT, WIN_WIDTH,
+    palette::PaletteColor, score::Score, COURT_LINE_Z, COURT_Z, NET_Z, SHADOW_Z, WIN_HEIGHT,
+    WIN_WIDTH,
 };
 
 #[derive(Component)]
@@ -39,6 +39,7 @@ pub enum CourtRegion {
     BottomRight,
 }
 
+#[allow(dead_code)]
 impl CourtRegion {
     pub fn is_left(&self) -> bool {
         *self == CourtRegion::BottomLeft || *self == CourtRegion::TopLeft
@@ -266,11 +267,7 @@ fn handle_net_offset(
         // todo: redo to games
         offset.0 = (score.right_player.games as f32 - score.left_player.games as f32) * 50.;
 
-        info!("score changed!");
         if let Ok((net_e, net_t)) = net_q.get_single() {
-            info!("net tweened!");
-
-            // todo: tween
             commands.entity(net_e).insert(Animator::new(Tween::new(
                 EaseFunction::QuadraticInOut,
                 TweeningType::Once,

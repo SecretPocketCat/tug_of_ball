@@ -1,25 +1,19 @@
-use std::{default, f32::consts::PI, ops::Add, time::Duration};
+use std::time::Duration;
 
 use bevy::{
     math::Vec2,
     prelude::*,
-    render::render_resource::{FilterMode, Texture},
     sprite::{collide_aabb::collide, Sprite, SpriteBundle},
 };
 use bevy_extensions::Vec2Conversion;
 use bevy_input::{ActionInput, ActionState};
 use bevy_inspector_egui::Inspectable;
-use bevy_prototype_lyon::prelude::*;
+
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 use bevy_tweening::lens::{TransformPositionLens, TransformRotationLens, TransformScaleLens};
 use bevy_tweening::*;
-use heron::rapier_plugin::{
-    nalgebra::ComplexField,
-    rapier2d::prelude::{ColliderSet, RigidBodyActivation},
-    PhysicsWorld,
-};
 use heron::*;
-use interpolation::{Ease, EaseFunction};
+use interpolation::EaseFunction;
 
 use crate::{
     ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
@@ -27,7 +21,7 @@ use crate::{
     level::{CourtRegion, NetOffset},
     palette::PaletteColor,
     score::{add_point_to_score, Score},
-    trail::{FadeOutTrail, Trail},
+    trail::FadeOutTrail,
     tween::TweenDoneAction,
     InputAction, InputAxis, PhysLayer, PlayerInput, TransformBundle, PLAYER_Z, SHADOW_Z,
     WIN_HEIGHT, WIN_WIDTH,
@@ -249,11 +243,6 @@ impl PlayerBundle {
     }
 }
 
-pub struct Players {
-    left: Entity,
-    right: Entity,
-}
-
 pub struct ServingRegion(pub CourtRegion);
 
 pub struct PlayerPlugin;
@@ -276,9 +265,6 @@ impl Plugin for PlayerPlugin {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let mut left = None;
-    let mut right = None;
-
     for i in 1..=2 {
         let x = WIN_WIDTH / 2. - 100.;
         let x = if i == 1 { -x } else { x };
@@ -340,7 +326,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .insert(PaletteColor::PlayerCharge)
             .id();
 
-        let player_e = commands
+        let _player_e = commands
             .spawn_bundle(TransformBundle::from_xyz(x, 0., PLAYER_Z))
             .insert_bundle(PlayerBundle::new(i, initial_dir, aim_e, aim_charge_e))
             .insert(RigidBody::KinematicPositionBased)
@@ -408,18 +394,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 body_root_e: body_root_e.unwrap(),
             })
             .id();
-
-        if is_left {
-            left = Some(player_e);
-        } else {
-            right = Some(player_e);
-        }
     }
-
-    commands.insert_resource(Players {
-        left: left.unwrap(),
-        right: right.unwrap(),
-    });
 }
 
 // nice2have: lerp dash
@@ -683,7 +658,7 @@ fn handle_action_cooldown<T: ActionTimer<TActiveData> + Component, TActiveData: 
 fn on_ball_bounced(
     mut commands: Commands,
     mut ev_r_ball_bounced: EventReader<BallBouncedEvt>,
-    mut player_q: Query<(&Player)>,
+    player_q: Query<&Player>,
     mut ball_q: Query<(&Ball, &mut BallStatus, &Transform)>,
     asset_server: Res<AssetServer>,
     mut serving_region: ResMut<ServingRegion>,
@@ -840,7 +815,7 @@ fn animate(
             }
 
             if let Some(move_tween) = body_root_tween {
-                if let Ok((mut animator, t)) = animator_q.get_mut(anim.body_root_e) {
+                if let Ok((mut animator, _t)) = animator_q.get_mut(anim.body_root_e) {
                     animator.set_tweenable(move_tween);
                     animator.state = AnimatorState::Playing;
                 }

@@ -6,7 +6,7 @@ use crate::{
 use bevy::prelude::*;
 use bevy_inspector_egui::{RegisterInspectable, WorldInspectorPlugin};
 use bevy_prototype_lyon::prelude::{
-    DrawMode, GeometryBuilder, LineCap, LineJoin, Path, PathBuilder, StrokeMode, StrokeOptions,
+    Path,
 };
 use bevy_time::ScaledTime;
 
@@ -26,6 +26,6 @@ impl Plugin for DebugPlugin {
     }
 }
 
-fn test_setup(mut commands: Commands) {}
+fn test_setup(_commands: Commands) {}
 
-fn test_system(mut path_q: Query<&mut Path>, time: ScaledTime) {}
+fn test_system(_path_q: Query<&mut Path>, _time: ScaledTime) {}

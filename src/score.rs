@@ -1,13 +1,11 @@
 use bevy::{
-    math::Vec2,
     prelude::*,
-    sprite::{Sprite, SpriteBundle},
 };
-use bevy_extensions::Vec2Conversion;
-use bevy_inspector_egui::Inspectable;
-use heron::*;
 
-use crate::{palette::PaletteColor, WIN_HEIGHT, WIN_WIDTH};
+use bevy_inspector_egui::Inspectable;
+
+
+use crate::{palette::PaletteColor};
 
 #[derive(Component, Inspectable)]
 struct PointsText;

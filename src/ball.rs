@@ -6,11 +6,11 @@ use bevy::{
     sprite::{Sprite, SpriteBundle},
 };
 use bevy_extensions::Vec2Conversion;
-use bevy_input::ActionInput;
+
 use bevy_inspector_egui::Inspectable;
 use bevy_prototype_lyon::prelude::*;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-use bevy_tweening::lens::{TransformPositionLens, TransformScaleLens};
+use bevy_tweening::lens::{TransformScaleLens};
 use bevy_tweening::*;
 use heron::*;
 use rand::*;
@@ -18,10 +18,9 @@ use rand::*;
 use crate::{
     level::{CourtRegion, CourtSettings},
     palette::PaletteColor,
-    player::{ActionStatus, Player, PlayerAim, PlayerMovement, PlayerSwing, ServingRegion},
+    player::{ActionStatus, Player, PlayerAim, PlayerSwing, ServingRegion},
     trail::{FadeOutTrail, Trail},
-    wall::Wall,
-    InputAxis, PhysLayer, PlayerInput, TransformBundle, BALL_Z, PLAYER_Z, SHADOW_Z, WIN_WIDTH,
+    wall::Wall, PhysLayer, PlayerInput, TransformBundle, BALL_Z, PLAYER_Z, SHADOW_Z, WIN_WIDTH,
 };
 
 const BALL_SIZE: f32 = 35.;
@@ -133,7 +132,7 @@ fn bounce(
     time: ScaledTime,
 ) {
     for (mut ball_bounce, mut t, p) in bounce_query.iter_mut() {
-        if let Ok((ball_e, mut ball, mut ball_status, ball_t)) = ball_q.get_mut(p.0) {
+        if let Ok((ball_e, ball, mut ball_status, ball_t)) = ball_q.get_mut(p.0) {
             if ball.dir == Vec2::ZERO {
                 continue;
             }
@@ -175,7 +174,7 @@ fn bounce(
 // nice2have: 'auto dash swing'?
 fn handle_collisions(
     mut coll_events: EventReader<CollisionEvent>,
-    input: Res<PlayerInput>,
+    _input: Res<PlayerInput>,
     mut ball_q: Query<(&mut Ball, &mut BallStatus, &Children)>,
     mut ball_bounce_q: Query<&mut BallBounce>,
     player_aim_q: Query<&PlayerAim>,
