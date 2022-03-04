@@ -1,14 +1,6 @@
-
-
-use bevy::{
-    math::Vec2,
-    prelude::*,
-};
+use bevy::{math::Vec2, prelude::*};
 use bevy_prototype_lyon::prelude::*;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-
-
-
 
 pub struct TrailPoint(Vec2, f64);
 
@@ -29,8 +21,8 @@ pub struct FadeOutTrail {
 pub struct TrailPlugin;
 impl Plugin for TrailPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_system(store_path_points)
-            .add_system(draw_trail)
+        app.add_system_to_stage(CoreStage::PostUpdate, store_path_points)
+            .add_system_to_stage(CoreStage::Last, draw_trail)
             .add_system(fadeout_trail);
     }
 }
