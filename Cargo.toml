@@ -6,10 +6,12 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 bevy = "0.6"
-bevy_input = { git = "https://github.com/SecretPocketCat/bevy_input", features = ["multiplayer", "serialize"] }
+bevy_input = { git = "https://github.com/SecretPocketCat/bevy_input", features = [
+    "multiplayer",
+] }
 bevy_extensions = { git = "https://github.com/SecretPocketCat/bevy_extensions" }
 bevy_time = { git = "https://github.com/SecretPocketCat/bevy_time" }
-serde = { version = "1.0.130", features = ["derive"] }
+# serde = { version = "1.0.130", features = ["derive"] }
 rand = "0.8.5"
 bevy_tweening = "*"
 bevy-inspector-egui = { version = "0.8.2" }
