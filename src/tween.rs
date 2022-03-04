@@ -1,7 +1,4 @@
-use bevy::{
-    prelude::*,
-};
-
+use bevy::prelude::*;
 
 use bevy_tweening::TweenCompleted;
 

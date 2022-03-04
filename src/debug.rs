@@ -5,9 +5,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_inspector_egui::{RegisterInspectable, WorldInspectorPlugin};
-use bevy_prototype_lyon::prelude::{
-    Path,
-};
+use bevy_prototype_lyon::prelude::Path;
 use bevy_time::ScaledTime;
 
 pub struct DebugPlugin;
