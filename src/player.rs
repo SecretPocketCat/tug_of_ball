@@ -20,14 +20,16 @@ use interpolation::EaseFunction;
 
 use crate::{
     ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
-    inverse_lerp,
+    extra::TransformBundle,
+    input::PlayerInput,
     level::{CourtRegion, CourtSettings, InitialRegion, Net, NetOffset},
     palette::PaletteColor,
+    physics::PhysLayer,
+    render::{PLAYER_Z, SHADOW_Z},
     score::{add_point_to_score, Score},
     trail::FadeOutTrail,
-    tween::TweenDoneAction,
-    InputAction, InputAxis, PhysLayer, PlayerInput, TransformBundle, PLAYER_Z, SHADOW_Z,
-    WIN_HEIGHT, WIN_WIDTH,
+    tween::{inverse_lerp, TweenDoneAction},
+    InputAction, InputAxis, WIN_HEIGHT, WIN_WIDTH,
 };
 
 pub const AIM_RING_ROTATION_DEG: f32 = 50.;
@@ -663,7 +665,7 @@ fn aim(
 // nice2have: on swing down cancel prev swing?
 fn handle_swing_input(
     mut commands: Commands,
-    input: Res<ActionInput<InputAction, InputAxis>>,
+    input: Res<PlayerInput>,
     mut query: Query<(
         Entity,
         &Player,

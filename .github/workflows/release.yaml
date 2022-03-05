@@ -6,8 +6,8 @@ on:
       - "*"
 
 env:
-  # update with the name of the main binary
-  binary: tennis_rounds
+  # update with the name of the main binary (name in cargo.toml)
+  binary: tug_of_ball
 
 jobs:
   # Build for wasm

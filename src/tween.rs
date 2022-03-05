@@ -39,3 +39,7 @@ fn on_tween_completed(mut commands: Commands, mut ev_reader: EventReader<TweenCo
         }
     }
 }
+
+pub fn inverse_lerp(a: f32, b: f32, t: f32) -> f32 {
+    (t - a) / (b - a)
+}

@@ -7,7 +7,11 @@ use bevy_tweening::{
 };
 use rand::random;
 
-use crate::{level::Court, trail::Trail, InputAction, InputAxis};
+use crate::{
+    input::{InputAction, PlayerInput},
+    level::Court,
+    trail::Trail,
+};
 
 const COURT_STROKE_WIDTH: f32 = 10.;
 
@@ -201,7 +205,7 @@ fn on_court_added(palette: Res<Palette>, mut q: Query<&mut DrawMode, With<Court>
     }
 }
 
-fn handle_input(mut palette: ResMut<Palette>, input: Res<ActionInput<InputAction, InputAxis>>) {
+fn handle_input(mut palette: ResMut<Palette>, input: Res<PlayerInput>) {
     for id in 0..=4 {
         if input.just_pressed(id, InputAction::ChangePalette) {
             let is_grass = palette.background == GRASS_PALETTE.background;

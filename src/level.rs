@@ -14,8 +14,12 @@ use heron::*;
 use rand::*;
 
 use crate::{
-    palette::PaletteColor, score::Score, PhysLayer, TransformBundle, COURT_LINE_Z, COURT_Z, NET_Z,
-    SHADOW_Z, WIN_HEIGHT, WIN_WIDTH,
+    extra::TransformBundle,
+    palette::PaletteColor,
+    physics::PhysLayer,
+    render::{COURT_LINE_Z, COURT_Z, NET_Z, SHADOW_Z},
+    score::Score,
+    WIN_HEIGHT, WIN_WIDTH,
 };
 
 #[derive(Component)]

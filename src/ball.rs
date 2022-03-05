@@ -16,15 +16,47 @@ use heron::*;
 use rand::*;
 
 use crate::{
+    extra::TransformBundle,
+    input::PlayerInput,
     level::{CourtRegion, CourtSettings, InitialRegion, NetOffset},
     palette::{Palette, PaletteColor},
+    physics::PhysLayer,
     player::{ActionStatus, Player, PlayerAim, PlayerSwing, ServingRegion},
+    render::{BALL_Z, PLAYER_Z, SHADOW_Z},
     trail::{FadeOutTrail, Trail},
     tween::TweenDoneAction,
-    PhysLayer, PlayerInput, TransformBundle, BALL_Z, PLAYER_Z, SHADOW_Z, WIN_WIDTH,
 };
 
 const BALL_SIZE: f32 = 35.;
+
+pub struct BallPlugin;
+impl Plugin for BallPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.add_startup_system_to_stage(StartupStage::PostStartup, setup)
+            .add_system(movement)
+            .add_system(bounce)
+            .add_system_to_stage(CoreStage::PostUpdate, handle_collisions)
+            .add_system_to_stage(CoreStage::PostUpdate, handle_regions)
+            .add_event::<BallBouncedEvt>();
+    }
+}
+
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    region: Res<InitialRegion>,
+    court_set: Res<CourtSettings>,
+) {
+    spawn_ball(
+        &mut commands,
+        &asset_server,
+        region.0,
+        0,
+        region.0.get_player_id(),
+        &court_set,
+    );
+    commands.insert_resource(ServingRegion(region.0));
+}
 
 #[derive(Default, Component, Inspectable)]
 pub struct Ball {
@@ -58,35 +90,6 @@ pub struct BallBouncedEvt {
     pub(crate) ball_e: Entity,
     pub(crate) bounce_count: usize,
     pub(crate) side: f32,
-}
-
-pub struct BallPlugin;
-impl Plugin for BallPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_startup_system_to_stage(StartupStage::PostStartup, setup)
-            .add_system(movement)
-            .add_system(bounce)
-            .add_system_to_stage(CoreStage::PostUpdate, handle_collisions)
-            .add_system_to_stage(CoreStage::PostUpdate, handle_regions)
-            .add_event::<BallBouncedEvt>();
-    }
-}
-
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    region: Res<InitialRegion>,
-    court_set: Res<CourtSettings>,
-) {
-    spawn_ball(
-        &mut commands,
-        &asset_server,
-        region.0,
-        0,
-        region.0.get_player_id(),
-        &court_set,
-    );
-    commands.insert_resource(ServingRegion(region.0));
 }
 
 // nice2have: try - slowly speedup during rally?
