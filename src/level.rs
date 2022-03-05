@@ -6,7 +6,7 @@ use bevy::{
     sprite::{Sprite, SpriteBundle},
 };
 
-use bevy_extensions::Vec2Conversion;
+
 use bevy_inspector_egui::Inspectable;
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningType};
@@ -316,7 +316,7 @@ fn spawn_region(
     x: f32,
     y: f32,
     region_size: Vec3,
-    debug_color: Color,
+    _debug_color: Color,
 ) {
     commands
         .spawn_bundle(TransformBundle::from_xyz(x, y, COURT_Z))
@@ -328,7 +328,7 @@ fn spawn_region(
         .insert(CollisionLayers::all::<PhysLayer>())
         .insert(region.clone())
         .insert(Name::new("Region"))
-        .with_children(|b| {
+        .with_children(|_b| {
             #[cfg(feature = "debug")]
             {
                 let mut col = debug_color;
@@ -379,7 +379,7 @@ fn handle_net_offset(
         }
 
         // resize regions
-        for (region_e, region, mut region_t, mut region_coll_shape) in region_q.iter_mut() {
+        for (region_e, region, region_t, _region_coll_shape) in region_q.iter_mut() {
             let x = if region.is_left() {
                 -settings.region_x + offset.0 / 2.
             } else {

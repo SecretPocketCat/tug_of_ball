@@ -4,12 +4,12 @@ use bevy::{
     math::Vec2,
     prelude::*,
     sprite::{
-        collide_aabb::{collide, Collision},
+        collide_aabb::{collide},
         Sprite, SpriteBundle,
     },
 };
 use bevy_extensions::Vec2Conversion;
-use bevy_input::{ActionInput, ActionState};
+use bevy_input::{ActionState};
 use bevy_inspector_egui::Inspectable;
 
 use bevy_time::{ScaledTime, ScaledTimeDelta};
@@ -664,7 +664,7 @@ fn aim(
 
 // nice2have: on swing down cancel prev swing?
 fn handle_swing_input(
-    mut commands: Commands,
+    _commands: Commands,
     input: Res<PlayerInput>,
     mut query: Query<(
         Entity,
@@ -674,7 +674,7 @@ fn handle_swing_input(
         &mut PlayerAnimationData,
     )>,
 ) {
-    for (e, player, mut player_swing, mut coll_layers, mut anim) in query.iter_mut() {
+    for (_e, player, mut player_swing, mut coll_layers, mut anim) in query.iter_mut() {
         if let Some(ActionState::Released(key_data)) =
             input.get_button_action_state(player.id, &InputAction::Swing)
         {

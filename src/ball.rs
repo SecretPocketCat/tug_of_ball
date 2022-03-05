@@ -149,7 +149,7 @@ fn bounce(
     time: ScaledTime,
     net: Res<NetOffset>,
 ) {
-    for (mut ball_bounce, mut t, bounce_global_t, p) in bounce_query.iter_mut() {
+    for (mut ball_bounce, mut t, _bounce_global_t, p) in bounce_query.iter_mut() {
         if let Ok((ball_e, ball, mut ball_status, ball_t)) = ball_q.get_mut(p.0) {
             if ball.dir == Vec2::ZERO {
                 continue;
@@ -267,7 +267,7 @@ fn handle_collisions(
 
             let mut ball_bounce = ball_bounce_q.get_mut(bounce_e.clone()).unwrap();
 
-            if let Ok((player, mut swing, player_t)) = player_q.get_mut(other_e) {
+            if let Ok((player, mut swing, _player_t)) = player_q.get_mut(other_e) {
                 if let ActionStatus::Active(ball_speed_multiplier) = swing.status {
                     if !swing.timer.finished() {
                         swing.start_cooldown();

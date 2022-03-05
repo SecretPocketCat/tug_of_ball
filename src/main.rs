@@ -12,7 +12,7 @@ use bevy_time::TimePlugin;
 use bevy_tweening::TweeningPlugin;
 
 use camera::CameraPlugin;
-use debug::DebugPlugin;
+
 use heron::*;
 use input::{InputAction, InputAxis, InputPlugin};
 use level::{CourtRegion, InitialRegion, LevelPlugin};
@@ -42,8 +42,8 @@ mod window;
 const NAME: &str = "Tag of Ball";
 
 fn main() {
-    let mut region = CourtRegion::get_random();
-    let mut scale_factor_override = None;
+    let region = CourtRegion::get_random();
+    let scale_factor_override = None;
 
     #[cfg(feature = "debug")]
     {
