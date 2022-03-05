@@ -326,7 +326,7 @@ fn spawn_region(
             border_radius: None,
         })
         .insert(CollisionLayers::all::<PhysLayer>())
-        .insert(region.clone())
+        .insert(region)
         .insert(Name::new("Region"))
         .with_children(|_b| {
             #[cfg(feature = "debug")]

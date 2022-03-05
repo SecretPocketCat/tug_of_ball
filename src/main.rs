@@ -2,6 +2,7 @@
 #![feature(derive_default_enum)]
 #![feature(if_let_guard)]
 #![feature(drain_filter)]
+#![allow(clippy::type_complexity, clippy::too_many_arguments)]
 
 use asset::AssetPlugin;
 use ball::BallPlugin;

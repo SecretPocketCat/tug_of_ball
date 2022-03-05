@@ -39,7 +39,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     bottom: Val::Px(10.0),
                     right: Val::Auto,
                     left: Val::Auto,
-                    ..Default::default()
                 },
                 ..Default::default()
             },

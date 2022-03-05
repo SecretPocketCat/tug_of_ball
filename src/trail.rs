@@ -62,7 +62,7 @@ fn store_path_points(
         let duration = trail.duration_sec as f64;
         trail.points.drain_filter(|p| p.1 + duration < curr_time);
 
-        if trail.points.len() == 0 {
+        if trail.points.is_empty() {
             commands.entity(e).despawn_recursive();
         }
     }

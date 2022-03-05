@@ -3,13 +3,10 @@ use std::time::Duration;
 use bevy::{
     math::Vec2,
     prelude::*,
-    sprite::{
-        collide_aabb::{collide},
-        Sprite, SpriteBundle,
-    },
+    sprite::{collide_aabb::collide, Sprite, SpriteBundle},
 };
 use bevy_extensions::Vec2Conversion;
-use bevy_input::{ActionState};
+use bevy_input::ActionState;
 use bevy_inspector_egui::Inspectable;
 
 use bevy_time::{ScaledTime, ScaledTimeDelta};
@@ -57,16 +54,8 @@ trait ActionTimer<TActiveData: Default> {
     fn handle_action_timer(&mut self, scaled_delta_time: Duration) {
         let cooldown_sec = self.get_cooldown_sec();
         let status = self.get_action_status_mut();
-        let is_cooldown = if let ActionStatus::Cooldown = status {
-            true
-        } else {
-            false
-        };
-        let is_active = if let ActionStatus::Active(_) = status {
-            true
-        } else {
-            false
-        };
+        let is_cooldown = matches!(status, ActionStatus::Cooldown);
+        let is_active = matches!(status, ActionStatus::Active(_));
 
         if is_cooldown || is_active {
             let t = self.get_timer_mut();
@@ -228,7 +217,7 @@ impl PlayerBundle {
     fn new(id: usize, initial_dir: Vec2, aim_e: Entity, aim_charge_e: Entity) -> Self {
         Self {
             player: Player {
-                id: id,
+                id,
                 side: -initial_dir.x.signum(),
                 aim_e,
                 aim_charge_e,
@@ -324,7 +313,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<Ini
             })
             .insert(PlayerAim {
                 direction: initial_dir,
-                ..Default::default()
             })
             .with_children(|b| {
                 // aim arrow
@@ -566,10 +554,8 @@ fn move_player(
                             p_anim.animation = PlayerAnimation::Running;
                         }
                     }
-                } else {
-                    if p_anim.animation != PlayerAnimation::Idle {
-                        p_anim.animation = PlayerAnimation::Idle;
-                    }
+                } else if p_anim.animation != PlayerAnimation::Idle {
+                    p_anim.animation = PlayerAnimation::Idle;
                 }
 
                 player_t.translation = final_pos;
@@ -727,7 +713,7 @@ fn on_ball_bounced(
     court_set: Res<CourtSettings>,
 ) {
     for ev in ev_r_ball_bounced.iter() {
-        if let Ok((ball, mut status, ball_t)) = ball_q.get_mut(ev.ball_e.clone()) {
+        if let Ok((ball, mut status, ball_t)) = ball_q.get_mut(ev.ball_e) {
             let ball_res = match *status {
                 BallStatus::Fault(count, player_id) => {
                     // tofix: rarely a double fault is a false positive
@@ -745,11 +731,7 @@ fn on_ball_bounced(
                     if ball.region.is_out_of_bounds() && ev.bounce_count == 1 {
                         Some((Some(player_id), 0, "shooting out of bounds"))
                     } else if ev.bounce_count > bounce_limit {
-                        let player = player_q
-                            .iter()
-                            .filter(|p| p.side == ev.side)
-                            .nth(0)
-                            .unwrap();
+                        let player = player_q.iter().find(|p| p.side == ev.side).unwrap();
 
                         Some((Some(player.id), 0, "too many bounces"))
                     } else {
@@ -1025,7 +1007,7 @@ fn get_body_scale_tween(transform: &Transform, scale: f32, dur: u64) -> (Sequenc
         Duration::from_millis(dur / 2),
         TransformScaleLens {
             start: transform.scale,
-            end: end,
+            end,
         },
     )
     .then(Tween::new(

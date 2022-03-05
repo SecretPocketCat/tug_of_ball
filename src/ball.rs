@@ -254,18 +254,18 @@ fn handle_collisions(
             if let Ok(b) = ball_q.get_mut(entity_1) {
                 ball = b.0;
                 status = b.1;
-                bounce_e = b.2.iter().nth(0).unwrap();
+                bounce_e = b.2.iter().next().unwrap();
                 other_e = entity_2;
             } else if let Ok(b) = ball_q.get_mut(entity_2) {
                 ball = b.0;
                 status = b.1;
-                bounce_e = b.2.iter().nth(0).unwrap();
+                bounce_e = b.2.iter().next().unwrap();
                 other_e = entity_1;
             } else {
                 continue;
             }
 
-            let mut ball_bounce = ball_bounce_q.get_mut(bounce_e.clone()).unwrap();
+            let mut ball_bounce = ball_bounce_q.get_mut(*bounce_e).unwrap();
 
             if let Ok((player, mut swing, _player_t)) = player_q.get_mut(other_e) {
                 if let ActionStatus::Active(ball_speed_multiplier) = swing.status {
@@ -484,8 +484,8 @@ pub fn spawn_ball(
             size: BALL_SIZE,
             speed: 1100.,
             region: serve_region,
-            bounce_e: Some(bounce_e.clone()),
-            trail_e: Some(trail_e.clone()),
+            bounce_e: Some(bounce_e),
+            trail_e: Some(trail_e),
             ..Default::default()
         })
         .insert(BallStatus::Serve(serve_region, fault_count, player_id))

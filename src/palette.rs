@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_input::*;
 use bevy_prototype_lyon::prelude::{DrawMode, FillMode, StrokeMode};
 use bevy_tweening::{
     lens::{SpriteColorLens, TextColorLens},
