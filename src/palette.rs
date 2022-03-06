@@ -31,6 +31,7 @@ impl Plugin for PalettePlugin {
     }
 }
 
+// I was just lazy to redo the color in smt. that allows const (which rgba_u8 does not)
 #[derive(Clone, Copy, PartialEq)]
 pub struct RgbColor {
     r: u8,
