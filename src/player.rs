@@ -10,7 +10,7 @@ use bevy_input::ActionState;
 use bevy_inspector_egui::Inspectable;
 
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-use bevy_tweening::lens::{TransformPositionLens, TransformRotationLens, TransformScaleLens};
+use bevy_tweening::lens::{TransformScaleLens};
 use bevy_tweening::*;
 use heron::*;
 use interpolation::EaseFunction;
