@@ -1,16 +1,15 @@
 use crate::{
     input_binding::{InputAction, InputAxis, PlayerInput},
     player::{
-        get_swing_multiplier_clamped, Player, PlayerDash, PlayerMovement, PlayerSwing,
+        get_swing_multiplier_clamped, Player, PlayerAim, PlayerDash, PlayerMovement, PlayerSwing,
         SWING_LABEL,
     },
     player_action::PlayerActionStatus,
+    player_animation::AgentAnimationData,
 };
 use bevy::prelude::*;
 
 use bevy_input::*;
-
-
 
 pub struct PlayerControllerPlugin;
 impl Plugin for PlayerControllerPlugin {
@@ -19,18 +18,17 @@ impl Plugin for PlayerControllerPlugin {
     }
 }
 
-// todo: decouple from input, just set target pos and fire an event?
-// nice2have: lerp dash
 fn process_player_input(
     input: Res<PlayerInput>,
-    mut query: Query<(
+    mut q: Query<(
         &Player,
         &mut PlayerMovement,
         &mut PlayerDash,
         &mut PlayerSwing,
     )>,
+    mut aim_q: Query<&mut PlayerAim>,
 ) {
-    for (player, mut player_movement, mut player_dash, mut player_swing) in query.iter_mut() {
+    for (player, mut player_movement, mut player_dash, mut player_swing) in q.iter_mut() {
         // movement
         player_movement.raw_dir = if input.held(player.id, InputAction::LockPosition) {
             Vec2::ZERO
@@ -38,8 +36,17 @@ fn process_player_input(
             input.get_xy_axes_raw(player.id, &InputAxis::MoveX, &InputAxis::MoveY)
         };
 
-        // todo:
         // aim
+        if let Ok(mut player_aim) = aim_q.get_mut(player.aim_e) {
+            // start with aim dir
+            player_aim.raw_dir =
+                input.get_xy_axes_raw(player.id, &InputAxis::AimX, &InputAxis::AimY);
+            if player_aim.raw_dir == Vec2::ZERO {
+                // fallback to movement dir
+                player_aim.raw_dir =
+                    input.get_xy_axes_raw(player.id, &InputAxis::MoveX, &InputAxis::MoveY);
+            }
+        }
 
         // dash
         if input.just_pressed(player.id, InputAction::Dash) {

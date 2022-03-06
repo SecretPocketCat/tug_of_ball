@@ -10,18 +10,20 @@ use bevy_tweening::*;
 
 use interpolation::EaseFunction;
 
+use crate::player::{get_swing_multiplier, Player, PlayerAim, PlayerSwing};
 use crate::{
     animation::TransformRotation,
-    player::{AimSprite, PlayerDash, SWING_LABEL},
+    player::{PlayerDash, SwingRangeSprite, SWING_LABEL},
     player_action::PlayerActionStatus,
 };
 
 pub struct PlayerAnimationPlugin;
 impl Plugin for PlayerAnimationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_system(animate_aim_rotation)
-            .add_system(animate.after(SWING_LABEL))
-            .add_system(unblock_animation);
+        app.add_system(animate.after(SWING_LABEL))
+            .add_system(unblock_animation)
+            .add_system(animate_dash_state_ui)
+            .add_system(animate_swing_charge_ui);
     }
 }
 
@@ -276,8 +278,8 @@ fn get_body_scale_tween(transform: &Transform, scale: f32, dur: u64) -> (Sequenc
     (t, 0.5)
 }
 
-fn animate_aim_rotation(
-    mut q: Query<(&Parent, &mut TransformRotation), With<AimSprite>>,
+fn animate_dash_state_ui(
+    mut q: Query<(&Parent, &mut TransformRotation), With<SwingRangeSprite>>,
     dash_q: Query<&PlayerDash>,
     time: ScaledTime,
 ) {
@@ -296,6 +298,25 @@ fn animate_aim_rotation(
                 }
                 PlayerActionStatus::Cooldown => rot.rotation_rad = 0.,
             };
+        }
+    }
+}
+
+fn animate_swing_charge_ui(
+    player_q: Query<(&Player, &PlayerSwing)>,
+    mut aim_charge_q: Query<&mut Transform>,
+    time: ScaledTime,
+) {
+    for (player, player_swing) in player_q.iter() {
+        if let Ok(mut t) = aim_charge_q.get_mut(player.aim_charge_e) {
+            if let PlayerActionStatus::Charging(dur) = player_swing.status {
+                let scale = get_swing_multiplier(dur);
+                t.scale = Vec2::splat(scale).extend(1.);
+            } else if !matches!(player_swing.status, PlayerActionStatus::Active(_)) {
+                t.scale =
+                    Vec2::splat((t.scale.x - (time.scaled_delta_seconds() * 3.)).clamp(0., 1.))
+                        .extend(1.);
+            }
         }
     }
 }

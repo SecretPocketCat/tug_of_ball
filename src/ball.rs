@@ -274,7 +274,7 @@ fn handle_collisions(
                         swing.start_cooldown();
 
                         if let Ok(aim) = player_aim_q.get(player.aim_e) {
-                            let mut dir = aim.direction;
+                            let mut dir = aim.dir;
 
                             let clamp_x = 1.;
                             let clamp_y = 0.8;

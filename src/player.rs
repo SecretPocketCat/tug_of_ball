@@ -20,7 +20,6 @@ use crate::{
     ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
     extra::TransformBundle,
     impl_player_action_timer,
-    input_binding::PlayerInput,
     level::{CourtRegion, CourtSettings, InitialRegion, Net, NetOffset, ServingRegion},
     palette::PaletteColor,
     physics::PhysLayer,
@@ -28,7 +27,8 @@ use crate::{
     player_animation::{AgentAnimationData, PlayerAnimation},
     render::{PLAYER_Z, SHADOW_Z},
     score::{add_point_to_score, PlayerScore, Score},
-    trail::FadeOutTrail, InputAxis, WIN_HEIGHT, WIN_WIDTH,
+    trail::FadeOutTrail,
+    WIN_HEIGHT, WIN_WIDTH,
 };
 
 pub const AIM_RING_ROTATION_DEG: f32 = 50.;
@@ -50,7 +50,7 @@ impl Plugin for PlayerPlugin {
 pub struct Player {
     pub id: usize,
     pub aim_e: Entity,
-    aim_charge_e: Entity,
+    pub aim_charge_e: Entity,
     side: f32,
 }
 
@@ -68,7 +68,7 @@ impl Player {
     }
 }
 
-// todo: just add a side enum and add it to player or as a component?
+// todo: just add a side enum and add it to player or as a component? (covered by the size field - currently quite a mess)
 pub fn is_left_player_id(id: usize) -> bool {
     id == 1
 }
@@ -97,11 +97,12 @@ impl_player_action_timer!(PlayerDash, Vec2);
 
 #[derive(Default, Component, Inspectable)]
 pub struct PlayerAim {
-    pub direction: Vec2,
+    pub raw_dir: Vec2,
+    pub dir: Vec2,
 }
 
 #[derive(Component, Inspectable)]
-pub struct AimSprite;
+pub struct SwingRangeSprite;
 
 #[derive(Default, Component, Inspectable)]
 pub struct PlayerSwing {
@@ -215,7 +216,8 @@ fn spawn_player(
             ..Default::default()
         })
         .insert(PlayerAim {
-            direction: initial_dir,
+            dir: initial_dir,
+            raw_dir: Vec2::ZERO,
         })
         .with_children(|b| {
             // aim arrow
@@ -263,7 +265,7 @@ fn spawn_player(
                 ..Default::default()
             })
             .insert(PaletteColor::PlayerAim)
-            .insert(AimSprite)
+            .insert(SwingRangeSprite)
             .insert(TransformRotation::new(rotation_speed.to_radians()));
 
             // body root
@@ -434,37 +436,16 @@ fn move_player(
     }
 }
 
-// todo: decouple from input
+// todo: clamp angle based on Y distance from center?
 fn aim(
-    input: Res<PlayerInput>,
-    player_q: Query<(&Player, &AgentAnimationData, &PlayerSwing)>,
+    player_q: Query<(&Player, &AgentAnimationData)>,
     mut aim_q: Query<(&mut PlayerAim, &mut Transform, &Parent)>,
     mut transform_q: Query<&mut Transform, Without<PlayerAim>>,
     time: ScaledTime,
 ) {
     for (mut aim, mut aim_t, aim_parent) in aim_q.iter_mut() {
-        if let Ok((p, p_anim, player_swing)) = player_q.get(aim_parent.0) {
-            // start with aim dir
-            let mut dir_raw = input.get_xy_axes_raw(p.id, &InputAxis::AimX, &InputAxis::AimY);
-            if dir_raw == Vec2::ZERO {
-                // fallback to movement dir
-                dir_raw = input.get_xy_axes_raw(p.id, &InputAxis::MoveX, &InputAxis::MoveY);
-            }
-
-            let mut dir = dir_raw.normalize_or_zero();
-
-            // todo: split
-            // swing charge UI
-            if let Ok(mut t) = transform_q.get_mut(p.aim_charge_e) {
-                if let PlayerActionStatus::Charging(dur) = player_swing.status {
-                    let scale = get_swing_multiplier(dur);
-                    t.scale = Vec2::splat(scale).extend(1.);
-                } else if !matches!(player_swing.status, PlayerActionStatus::Active(_)) {
-                    t.scale =
-                        Vec2::splat((t.scale.x - (time.scaled_delta_seconds() * 3.)).clamp(0., 1.))
-                            .extend(1.);
-                }
-            }
+        if let Ok((p, p_anim)) = player_q.get(aim_parent.0) {
+            let mut dir = aim.raw_dir.normalize_or_zero();
 
             if dir == Vec2::ZERO {
                 continue;
@@ -485,7 +466,7 @@ fn aim(
 
             // nice2have: extract this to extensions & for now just move to extra
             let target_rotation = Quat::from_axis_angle(-Vec3::Z, dir.angle_between(Vec2::Y));
-            let limit = 260f32.to_radians() * time.scaled_delta_seconds() * dir_raw.length();
+            let limit = 260f32.to_radians() * time.scaled_delta_seconds() * aim.raw_dir.length();
             if target_rotation.angle_between(aim_t.rotation) <= limit {
                 aim_t.rotation = Quat::from_axis_angle(-Vec3::Z, dir.angle_between(Vec2::Y));
             } else {
@@ -500,12 +481,12 @@ fn aim(
             }
 
             let clamped_dir = aim_t.rotation * Vec3::Y;
-            aim.direction = clamped_dir.truncate();
+            aim.dir = clamped_dir.truncate();
 
             if let Ok(mut face_t) = transform_q.get_mut(p_anim.face_e) {
                 let axis = if p.is_left() { Vec2::X } else { -Vec2::X };
                 face_t.rotation =
-                    Quat::from_axis_angle(-Vec3::Z, aim.direction.angle_between(axis) * 0.25);
+                    Quat::from_axis_angle(-Vec3::Z, aim.dir.angle_between(axis) * 0.25);
             }
         }
     }
