@@ -5,7 +5,6 @@ use crate::{
         SWING_LABEL,
     },
     player_action::PlayerActionStatus,
-    player_animation::AgentAnimationData,
 };
 use bevy::prelude::*;
 

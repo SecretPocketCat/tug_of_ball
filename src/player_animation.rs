@@ -10,7 +10,7 @@ use bevy_tweening::*;
 
 use interpolation::EaseFunction;
 
-use crate::player::{get_swing_multiplier, Player, PlayerAim, PlayerSwing};
+use crate::player::{get_swing_multiplier, Player, PlayerSwing};
 use crate::{
     animation::TransformRotation,
     player::{PlayerDash, SwingRangeSprite, SWING_LABEL},
