@@ -10,7 +10,7 @@ use bevy_input::ActionState;
 use bevy_inspector_egui::Inspectable;
 
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-use bevy_tweening::lens::{TransformScaleLens};
+use bevy_tweening::lens::TransformScaleLens;
 use bevy_tweening::*;
 use heron::*;
 use interpolation::EaseFunction;
@@ -19,13 +19,14 @@ use crate::{
     animation::{inverse_lerp, TransformRotation, TweenDoneAction},
     ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
     extra::TransformBundle,
+    impl_player_action_timer,
     input::PlayerInput,
     level::{CourtRegion, CourtSettings, InitialRegion, Net, NetOffset, ServingRegion},
     palette::PaletteColor,
     player_action::{ActionStatus, ActionTimer},
     player_animation::{AgentAnimation, AgentAnimationData},
     render::{PLAYER_Z, SHADOW_Z},
-    score::{add_point_to_score, Score},
+    score::{add_point_to_score, PlayerScore, Score},
     trail::FadeOutTrail,
     InputAction, InputAxis, WIN_HEIGHT, WIN_WIDTH,
 };
@@ -41,12 +42,6 @@ impl Plugin for PlayerPlugin {
             .add_system(move_player.before(SWING_LABEL))
             .add_system(aim)
             .add_system(on_ball_bounced);
-    }
-}
-
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<InitialRegion>) {
-    for id in 1..=2 {
-        let _e = spawn_player(id, &mut commands, &asset_server, &region);
     }
 }
 
@@ -96,12 +91,7 @@ pub struct PlayerDash {
     speed: f32,
 }
 
-#[derive(Default, Component, Inspectable)]
-pub struct PlayerScore {
-    pub points: u8,
-    pub games: u8,
-    // pub sets: u8,
-}
+impl_player_action_timer!(PlayerDash, Vec2);
 
 #[derive(Default, Component, Inspectable)]
 pub struct PlayerAim {
@@ -110,21 +100,6 @@ pub struct PlayerAim {
 
 #[derive(Component, Inspectable)]
 pub struct AimSprite;
-
-// nice2have: macro?
-impl ActionTimer<Vec2> for PlayerDash {
-    fn get_cooldown_sec(&self) -> f32 {
-        self.cooldown_sec
-    }
-
-    fn get_timer_mut(&mut self) -> &mut Timer {
-        &mut self.timer
-    }
-
-    fn get_action_status_mut(&mut self) -> &mut ActionStatus<Vec2> {
-        &mut self.status
-    }
-}
 
 #[derive(Default, Component, Inspectable)]
 pub struct PlayerSwing {
@@ -142,20 +117,7 @@ impl PlayerSwing {
     }
 }
 
-// nice2have: macro?
-impl ActionTimer<f32> for PlayerSwing {
-    fn get_cooldown_sec(&self) -> f32 {
-        self.cooldown_sec
-    }
-
-    fn get_timer_mut(&mut self) -> &mut Timer {
-        &mut self.timer
-    }
-
-    fn get_action_status_mut(&mut self) -> &mut ActionStatus<f32> {
-        &mut self.status
-    }
-}
+impl_player_action_timer!(PlayerSwing, f32);
 
 #[derive(Bundle)]
 pub struct PlayerBundle {
@@ -166,6 +128,7 @@ pub struct PlayerBundle {
     score: PlayerScore,
 }
 
+// todo: just remove the bundle and insert the components directly?
 impl PlayerBundle {
     fn new(id: usize, initial_dir: Vec2, aim_e: Entity, aim_charge_e: Entity) -> Self {
         Self {
@@ -196,6 +159,12 @@ impl PlayerBundle {
                 ..Default::default()
             },
         }
+    }
+}
+
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<InitialRegion>) {
+    for id in 1..=2 {
+        let _e = spawn_player(id, &mut commands, &asset_server, &region);
     }
 }
 
@@ -578,7 +547,7 @@ fn aim(
     }
 }
 
-pub fn get_swing_mutliplier_clamped(duration: f32) -> f32 {
+pub fn get_swing_multiplier_clamped(duration: f32) -> f32 {
     get_swing_multiplier(duration).clamp(0.4, 1.)
 }
 

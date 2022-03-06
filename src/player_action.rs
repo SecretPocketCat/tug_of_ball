@@ -68,3 +68,22 @@ fn handle_action_cooldown<T: ActionTimer<TActiveData> + Component, TActiveData: 
         activity.handle_action_timer(time.scaled_delta());
     }
 }
+
+#[macro_export]
+macro_rules! impl_player_action_timer {
+    ($t: ty, $value_t: ty) => {
+        impl ActionTimer<$value_t> for $t {
+            fn get_cooldown_sec(&self) -> f32 {
+                self.cooldown_sec
+            }
+
+            fn get_timer_mut(&mut self) -> &mut Timer {
+                &mut self.timer
+            }
+
+            fn get_action_status_mut(&mut self) -> &mut ActionStatus<$value_t> {
+                &mut self.status
+            }
+        }
+    };
+}

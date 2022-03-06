@@ -42,23 +42,6 @@ impl Plugin for BallPlugin {
     }
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    region: Res<InitialRegion>,
-    court_set: Res<CourtSettings>,
-) {
-    spawn_ball(
-        &mut commands,
-        &asset_server,
-        region.0,
-        0,
-        region.0.get_player_id(),
-        &court_set,
-    );
-    commands.insert_resource(ServingRegion(region.0));
-}
-
 #[derive(Default, Component, Inspectable)]
 pub struct Ball {
     dir: Vec2,
@@ -91,6 +74,23 @@ pub struct BallBouncedEvt {
     pub ball_e: Entity,
     pub bounce_count: usize,
     pub side: f32,
+}
+
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    region: Res<InitialRegion>,
+    court_set: Res<CourtSettings>,
+) {
+    spawn_ball(
+        &mut commands,
+        &asset_server,
+        region.0,
+        0,
+        region.0.get_player_id(),
+        &court_set,
+    );
+    commands.insert_resource(ServingRegion(region.0));
 }
 
 // nice2have: try - slowly speedup during rally?

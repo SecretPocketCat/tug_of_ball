@@ -5,7 +5,7 @@ use heron::CollisionLayers;
 
 use crate::{
     physics::PhysLayer,
-    player::{get_swing_mutliplier_clamped, Player, PlayerSwing, SWING_LABEL},
+    player::{get_swing_multiplier_clamped, Player, PlayerSwing, SWING_LABEL},
     player_action::ActionStatus,
     player_animation::{AgentAnimation, AgentAnimationData},
 };
@@ -143,7 +143,7 @@ fn handle_swing_input(
         {
             if let ActionStatus::Ready = player_swing.status {
                 player_swing.status =
-                    ActionStatus::Active(get_swing_mutliplier_clamped(key_data.duration));
+                    ActionStatus::Active(get_swing_multiplier_clamped(key_data.duration));
                 player_swing.timer = Timer::from_seconds(player_swing.duration_sec, false);
                 *coll_layers = CollisionLayers::all::<PhysLayer>();
 

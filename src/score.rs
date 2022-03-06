@@ -1,23 +1,6 @@
-use bevy::prelude::*;
-
-use bevy_inspector_egui::Inspectable;
-
 use crate::palette::PaletteColor;
-
-#[derive(Component, Inspectable)]
-struct PointsText;
-
-#[derive(Default)]
-pub struct PlayerScore {
-    pub points: u8,
-    pub games: u8,
-}
-
-#[derive(Default)]
-pub struct Score {
-    pub left_player: PlayerScore,
-    pub right_player: PlayerScore,
-}
+use bevy::prelude::*;
+use bevy_inspector_egui::Inspectable;
 
 pub struct ScorePlugin;
 impl Plugin for ScorePlugin {
@@ -26,6 +9,22 @@ impl Plugin for ScorePlugin {
             .add_startup_system(setup)
             .add_system(update_score_ui);
     }
+}
+
+#[derive(Component, Inspectable)]
+struct PointsText;
+
+#[derive(Default)]
+pub struct Score {
+    pub left_player: PlayerScore,
+    pub right_player: PlayerScore,
+}
+
+#[derive(Default, Component, Inspectable)]
+pub struct PlayerScore {
+    pub points: u8,
+    pub games: u8,
+    // pub sets: u8,
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {

@@ -25,6 +25,7 @@ use score::ScorePlugin;
 use trail::TrailPlugin;
 use window::{WIN_HEIGHT, WIN_WIDTH};
 
+// todo: namespace modules (e.g. player)
 mod ai_player_controller;
 mod animation;
 mod asset;
