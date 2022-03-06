@@ -6,7 +6,7 @@ use bevy_tweening::TweenCompleted;
 pub struct AnimationPlugin;
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_system(rotate);
+        app.add_system(rotate).add_system(on_tween_completed);
     }
 }
 
@@ -41,13 +41,6 @@ impl From<u64> for TweenDoneAction {
 impl From<TweenDoneAction> for u64 {
     fn from(val: TweenDoneAction) -> Self {
         val as u64
-    }
-}
-
-pub struct TweenPlugin;
-impl Plugin for TweenPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_system(on_tween_completed);
     }
 }
 

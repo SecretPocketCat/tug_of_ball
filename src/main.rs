@@ -4,7 +4,7 @@
 #![feature(drain_filter)]
 #![allow(clippy::type_complexity, clippy::too_many_arguments)]
 
-use animation::{AnimationPlugin, TweenPlugin};
+use animation::AnimationPlugin;
 use asset::AssetPlugin;
 use ball::BallPlugin;
 use bevy::prelude::*;
@@ -93,8 +93,7 @@ fn main() {
         .add_plugin(PlayerActionPlugin)
         .add_plugin(PlayerAnimationPlugin)
         .add_plugin(ScorePlugin)
-        .add_plugin(TrailPlugin)
-        .add_plugin(TweenPlugin);
+        .add_plugin(TrailPlugin);
 
     if cfg!(feature = "debug") {
         app.add_plugin(DebugPlugin);
