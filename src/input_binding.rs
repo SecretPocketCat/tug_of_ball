@@ -1,8 +1,8 @@
 use crate::{
     physics::PhysLayer,
     player::{get_swing_multiplier_clamped, Player, PlayerSwing, SWING_LABEL},
-    player_action::ActionStatus,
-    player_animation::{AgentAnimation, AgentAnimationData},
+    player_action::PlayerActionStatus,
+    player_animation::{PlayerAnimation, AgentAnimationData},
 };
 use bevy::prelude::*;
 use bevy_extensions::panic_on_error;

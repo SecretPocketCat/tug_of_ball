@@ -23,7 +23,7 @@ use crate::{
     palette::{Palette, PaletteColor},
     physics::PhysLayer,
     player::{Player, PlayerAim, PlayerSwing},
-    player_action::ActionStatus,
+    player_action::PlayerActionStatus,
     render::{BALL_Z, PLAYER_Z, SHADOW_Z},
     trail::{FadeOutTrail, Trail},
 };
@@ -269,7 +269,7 @@ fn handle_collisions(
             let mut ball_bounce = ball_bounce_q.get_mut(*bounce_e).unwrap();
 
             if let Ok((player, mut swing, _player_t)) = player_q.get_mut(other_e) {
-                if let ActionStatus::Active(ball_speed_multiplier) = swing.status {
+                if let PlayerActionStatus::Active(ball_speed_multiplier) = swing.status {
                     if !swing.timer.finished() {
                         swing.start_cooldown();
 

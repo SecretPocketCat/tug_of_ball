@@ -19,30 +19,31 @@ impl Plugin for PlayerActionPlugin {
 }
 
 #[derive(Inspectable, Clone, Copy)]
-pub enum ActionStatus<TActiveData: Default> {
+pub enum PlayerActionStatus<TActiveData: Default> {
     Ready,
+    Charging(f32),
     Active(TActiveData),
     Cooldown,
 }
 
-impl<TActiveData: Default> Default for ActionStatus<TActiveData> {
+impl<TActiveData: Default> Default for PlayerActionStatus<TActiveData> {
     fn default() -> Self {
-        ActionStatus::Ready
+        PlayerActionStatus::Ready
     }
 }
 
 pub trait ActionTimer<TActiveData: Default> {
     fn get_timer_mut(&mut self) -> &mut Timer;
 
-    fn get_action_status_mut(&mut self) -> &mut ActionStatus<TActiveData>;
+    fn get_action_status_mut(&mut self) -> &mut PlayerActionStatus<TActiveData>;
 
     fn get_cooldown_sec(&self) -> f32;
 
     fn handle_action_timer(&mut self, scaled_delta_time: Duration) {
         let cooldown_sec = self.get_cooldown_sec();
         let status = self.get_action_status_mut();
-        let is_cooldown = matches!(status, ActionStatus::Cooldown);
-        let is_active = matches!(status, ActionStatus::Active(_));
+        let is_cooldown = matches!(status, PlayerActionStatus::Cooldown);
+        let is_active = matches!(status, PlayerActionStatus::Active(_));
 
         if is_cooldown || is_active {
             let t = self.get_timer_mut();
@@ -51,9 +52,9 @@ pub trait ActionTimer<TActiveData: Default> {
             if t.just_finished() {
                 *t = Timer::from_seconds(cooldown_sec, false);
                 *self.get_action_status_mut() = if is_cooldown {
-                    ActionStatus::Ready
+                    PlayerActionStatus::Ready
                 } else {
-                    ActionStatus::Cooldown
+                    PlayerActionStatus::Cooldown
                 };
             }
         }
@@ -81,7 +82,7 @@ macro_rules! impl_player_action_timer {
                 &mut self.timer
             }
 
-            fn get_action_status_mut(&mut self) -> &mut ActionStatus<$value_t> {
+            fn get_action_status_mut(&mut self) -> &mut PlayerActionStatus<$value_t> {
                 &mut self.status
             }
         }

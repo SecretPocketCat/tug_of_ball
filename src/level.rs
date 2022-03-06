@@ -166,24 +166,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     }
 
     let colliders = [
-        (-region_x, region_y, CourtRegion::TopLeft, Color::ORANGE),
-        (
-            -region_x,
-            -region_y,
-            CourtRegion::BottomLeft,
-            Color::ALICE_BLUE,
-        ),
-        (region_x, region_y, CourtRegion::TopRight, Color::GREEN),
-        (
-            region_x,
-            -region_y,
-            CourtRegion::BottomRight,
-            Color::FUCHSIA,
-        ),
+        (-region_x, region_y, CourtRegion::TopLeft),
+        (-region_x, -region_y, CourtRegion::BottomLeft),
+        (region_x, region_y, CourtRegion::TopRight),
+        (region_x, -region_y, CourtRegion::BottomRight),
     ];
 
-    for (x, y, region, debug_col) in colliders.iter() {
-        spawn_region(&mut commands, *region, *x, *y, region_size, *debug_col);
+    for (x, y, region) in colliders.iter() {
+        spawn_region(&mut commands, *region, *x, *y, region_size);
     }
 
     // net
@@ -311,14 +301,7 @@ fn draw_court(mut court_q: Query<&mut Path, With<Court>>, court: Res<CourtSettin
     }
 }
 
-fn spawn_region(
-    commands: &mut Commands,
-    region: CourtRegion,
-    x: f32,
-    y: f32,
-    region_size: Vec3,
-    _debug_color: Color,
-) {
+fn spawn_region(commands: &mut Commands, region: CourtRegion, x: f32, y: f32, region_size: Vec3) {
     commands
         .spawn_bundle(TransformBundle::from_xyz(x, y, COURT_Z))
         .insert(RigidBody::KinematicPositionBased)
@@ -328,24 +311,7 @@ fn spawn_region(
         })
         .insert(CollisionLayers::all::<PhysLayer>())
         .insert(region)
-        .insert(Name::new("Region"))
-        .with_children(|_b| {
-            #[cfg(feature = "debug")]
-            {
-                let mut col = debug_color;
-                col.set_a(0.3);
-                b.spawn_bundle(SpriteBundle {
-                    // transform: Transform::from_xyz(*x, *y, COURT_Z + 0.5),
-                    sprite: Sprite {
-                        custom_size: Some(region_size.truncate() * 2.),
-                        color: col,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .insert(Name::new("RegionDebug"));
-            }
-        });
+        .insert(Name::new("Region"));
 }
 
 fn handle_net_offset(
@@ -360,8 +326,7 @@ fn handle_net_offset(
         let offset_mult = -50.;
         offset.0 = (score.right_player.games as f32 - score.left_player.games as f32) * offset_mult;
 
-        #[cfg(feature = "debug")]
-        {
+        if cfg!(feature = "debug") {
             offset.0 =
                 (score.right_player.points as f32 - score.left_player.points as f32) * offset_mult;
         }
@@ -389,14 +354,7 @@ fn handle_net_offset(
             let side_mult = if region.is_left() { 1. } else { -1. };
             let mut extends = settings.base_region_size;
             extends.x += (offset.0 / 2.) * side_mult;
-            spawn_region(
-                &mut commands,
-                *region,
-                x,
-                region_t.translation.y,
-                extends,
-                Color::NONE,
-            );
+            spawn_region(&mut commands, *region, x, region_t.translation.y, extends);
 
             commands.entity(region_e).despawn_recursive();
         }

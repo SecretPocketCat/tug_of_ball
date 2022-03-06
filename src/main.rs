@@ -13,6 +13,7 @@ use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_time::TimePlugin;
 use bevy_tweening::TweeningPlugin;
 use camera::CameraPlugin;
+use debug::DebugPlugin;
 use heron::*;
 use input_binding::{InputAction, InputAxis, InputBindingPlugin};
 use level::{CourtRegion, InitialRegion, LevelPlugin};
@@ -49,11 +50,10 @@ mod window;
 const NAME: &str = "Tag of Ball";
 
 fn main() {
-    let region = CourtRegion::get_random();
-    let scale_factor_override = None;
+    let mut region = CourtRegion::get_random();
+    let mut scale_factor_override = None;
 
-    #[cfg(feature = "debug")]
-    {
+    if cfg!(feature = "debug") {
         region = CourtRegion::TopLeft;
         scale_factor_override = Some(1.);
     }
@@ -96,15 +96,11 @@ fn main() {
         .add_plugin(TrailPlugin)
         .add_plugin(TweenPlugin);
 
-    // heron 2d-debug adds lyon plugin as well, which would cause a panic
-    #[cfg(not(feature = "debug"))]
-    {
-        app.add_plugin(ShapePlugin);
-    }
-
-    #[cfg(feature = "debug")]
-    {
+    if cfg!(feature = "debug") {
         app.add_plugin(DebugPlugin);
+    } else {
+        // heron 2d-debug adds lyon plugin as well, which would cause a panic
+        app.add_plugin(ShapePlugin);
     }
 
     app.run();

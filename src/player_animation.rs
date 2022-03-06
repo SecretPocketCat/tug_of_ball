@@ -1,10 +1,6 @@
 use std::time::Duration;
 
-use bevy::{
-    math::Vec2,
-    prelude::*,
-};
-
+use bevy::{math::Vec2, prelude::*};
 
 use bevy_inspector_egui::Inspectable;
 
@@ -15,9 +11,9 @@ use bevy_tweening::*;
 use interpolation::EaseFunction;
 
 use crate::{
-    animation::{TransformRotation},
+    animation::TransformRotation,
     player::{AimSprite, PlayerDash, SWING_LABEL},
-    player_action::ActionStatus,
+    player_action::PlayerActionStatus,
 };
 
 pub struct PlayerAnimationPlugin;
@@ -30,7 +26,7 @@ impl Plugin for PlayerAnimationPlugin {
 }
 
 #[derive(Default, Component, Inspectable, PartialEq, Debug)]
-pub enum AgentAnimation {
+pub enum PlayerAnimation {
     #[default]
     Idle,
     Walking,
@@ -42,7 +38,7 @@ pub enum AgentAnimation {
 
 #[derive(Component, Inspectable)]
 pub struct AgentAnimationData {
-    pub animation: AgentAnimation,
+    pub animation: PlayerAnimation,
     pub face_e: Entity,
     pub body_e: Entity,
     pub body_root_e: Entity,
@@ -72,7 +68,7 @@ fn animate(
 
             debug!("anim change to {:?}", anim.animation);
             match anim.animation {
-                AgentAnimation::Shooting => {
+                PlayerAnimation::Shooting => {
                     stop_anim_entities.push(anim.face_e);
                     stop_anim_entities.push(anim.body_root_e);
 
@@ -85,7 +81,7 @@ fn animate(
                         commands.entity(anim_e).insert(AgentAnimationBlock(dur));
                     }
                 }
-                AgentAnimation::Dashing => {
+                PlayerAnimation::Dashing => {
                     stop_anim_entities.push(anim.face_e);
                     stop_anim_entities.push(anim.body_root_e);
 
@@ -98,7 +94,7 @@ fn animate(
                         commands.entity(anim_e).insert(AgentAnimationBlock(dur));
                     }
                 }
-                AgentAnimation::Idle => {
+                PlayerAnimation::Idle => {
                     stop_anim_entities.push(anim.body_root_e);
 
                     if let Ok((mut animator, t)) = animator_q.get_mut(anim.face_e) {
@@ -113,17 +109,17 @@ fn animate(
                         animator.state = AnimatorState::Playing;
                     }
                 }
-                AgentAnimation::Walking => {
+                PlayerAnimation::Walking => {
                     stop_anim_entities.push(anim.face_e);
                     stop_anim_entities.push(anim.body_e);
                     body_root_tween = Some(get_move_tween(400, 4., 3.));
                 }
-                AgentAnimation::Running => {
+                PlayerAnimation::Running => {
                     stop_anim_entities.push(anim.face_e);
                     stop_anim_entities.push(anim.body_e);
                     body_root_tween = Some(get_move_tween(300, 5., 8.));
                 }
-                AgentAnimation::Celebrating => {
+                PlayerAnimation::Celebrating => {
                     stop_anim_entities.push(anim.face_e);
                     stop_anim_entities.push(anim.body_e);
                     body_root_tween = Some(get_move_tween(500, 20., 12.));
@@ -288,17 +284,17 @@ fn animate_aim_rotation(
     for (parent, mut rot) in q.iter_mut() {
         if let Ok(dash) = dash_q.get(parent.0) {
             match dash.status {
-                ActionStatus::Ready => {
+                PlayerActionStatus::Ready | PlayerActionStatus::Charging(..) => {
                     rot.rotation_rad += time.scaled_delta_seconds() * rot.rotation_max_rad * 3.;
                     if rot.rotation_rad.abs() > rot.rotation_max_rad.abs() {
                         rot.rotation_rad = rot.rotation_max_rad;
                     }
                 }
-                ActionStatus::Active(_) => {
+                PlayerActionStatus::Active(..) => {
                     let mult = 1. - dash.timer.percent();
                     rot.rotation_rad = rot.rotation_max_rad * mult * rot.rotation_max_rad.signum();
                 }
-                ActionStatus::Cooldown => rot.rotation_rad = 0.,
+                PlayerActionStatus::Cooldown => rot.rotation_rad = 0.,
             };
         }
     }

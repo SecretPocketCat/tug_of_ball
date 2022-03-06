@@ -24,8 +24,8 @@ use crate::{
     level::{CourtRegion, CourtSettings, InitialRegion, Net, NetOffset, ServingRegion},
     palette::PaletteColor,
     physics::PhysLayer,
-    player_action::{ActionStatus, ActionTimer},
-    player_animation::{AgentAnimation, AgentAnimationData},
+    player_action::{ActionTimer, PlayerActionStatus},
+    player_animation::{AgentAnimationData, PlayerAnimation},
     render::{PLAYER_Z, SHADOW_Z},
     score::{add_point_to_score, PlayerScore, Score},
     trail::FadeOutTrail,
@@ -80,15 +80,16 @@ pub struct PlayerMovement {
     charging_speed: f32,
     easing_time: f32,
     time_to_max_speed: f32,
+    pub raw_dir: Vec2,
     last_non_zero_raw_dir: Vec2,
 }
 
 #[derive(Default, Component, Inspectable)]
 pub struct PlayerDash {
-    pub status: ActionStatus<Vec2>,
+    pub status: PlayerActionStatus<Vec2>,
     #[inspectable(ignore)]
     pub timer: Timer,
-    duration_sec: f32,
+    pub duration_sec: f32,
     cooldown_sec: f32,
     speed: f32,
 }
@@ -105,7 +106,7 @@ pub struct AimSprite;
 
 #[derive(Default, Component, Inspectable)]
 pub struct PlayerSwing {
-    pub status: ActionStatus<f32>,
+    pub status: PlayerActionStatus<f32>,
     pub duration_sec: f32,
     pub cooldown_sec: f32,
     #[inspectable(ignore)]
@@ -114,7 +115,7 @@ pub struct PlayerSwing {
 
 impl PlayerSwing {
     pub fn start_cooldown(&mut self) {
-        self.status = ActionStatus::Cooldown;
+        self.status = PlayerActionStatus::Cooldown;
         self.timer = Timer::from_seconds(self.cooldown_sec, false);
     }
 }
@@ -303,7 +304,7 @@ fn spawn_player(
             );
         })
         .insert(AgentAnimationData {
-            animation: AgentAnimation::Idle,
+            animation: PlayerAnimation::Idle,
             face_e,
             body_e: body_e.unwrap(),
             body_root_e: body_root_e.unwrap(),
@@ -311,158 +312,124 @@ fn spawn_player(
         .id()
 }
 
-// todo: decouple from input, just set target pos and fire an event?
 // nice2have: lerp dash
 fn move_player(
-    input: Res<PlayerInput>,
     mut query: Query<(
         &Player,
         &mut PlayerMovement,
-        &mut PlayerDash,
+        &PlayerDash,
         &mut Transform,
         &PlayerSwing,
         &mut AgentAnimationData,
     )>,
-    aim_q: Query<(&PlayerAim, &Parent)>,
     net_q: Query<&GlobalTransform, With<Net>>,
     time: ScaledTime,
     net_offset: Res<NetOffset>,
 ) {
-    for (p_aim, parent) in aim_q.iter() {
-        if let Ok((
-            player,
-            mut player_movement,
-            mut player_dash,
-            mut player_t,
-            player_swing,
-            mut p_anim,
-        )) = query.get_mut(parent.0)
-        {
-            let dir_raw = input.get_xy_axes_raw(player.id, &InputAxis::MoveX, &InputAxis::MoveY);
-            let swing_ready = matches!(player_swing.status, ActionStatus::Ready);
-            let charging = swing_ready && input.held(player.id, InputAction::Swing);
-            let speed = if charging {
-                player_movement.charging_speed
-            } else {
-                player_movement.speed
-            };
-            let mut dashing = false;
-            let dir = if dir_raw != Vec2::ZERO {
-                dir_raw
-            } else {
-                player_movement.last_non_zero_raw_dir
-            };
-            let mut move_by = (dir * speed).to_vec3();
+    for (player, mut player_movement, player_dash, mut player_t, player_swing, mut p_anim) in
+        query.iter_mut()
+    {
+        let charging = matches!(player_swing.status, PlayerActionStatus::Charging(_));
+        let speed = if charging {
+            player_movement.charging_speed
+        } else {
+            player_movement.speed
+        };
+        let dir = if player_movement.raw_dir != Vec2::ZERO {
+            player_movement.raw_dir
+        } else {
+            player_movement.last_non_zero_raw_dir
+        };
+        let mut move_by = (dir * speed).to_vec3();
+        let mut dashing = false;
 
-            if input.just_pressed(player.id, InputAction::Dash) {
-                if let ActionStatus::Ready = player_dash.status {
-                    let dir = dir_raw.normalize_or_zero();
-                    player_dash.status = ActionStatus::Active(if dir != Vec2::ZERO {
-                        dir
-                    } else {
-                        p_aim.direction
-                    });
-                    player_dash.timer = Timer::from_seconds(player_dash.duration_sec, false);
-                    p_anim.animation = AgentAnimation::Dashing;
-                    dashing = true;
+        if let PlayerActionStatus::Active(dash_dir) = player_dash.status {
+            move_by = (dash_dir * player_dash.speed).to_vec3();
+            dashing = true;
+        }
+
+        let mut final_pos = player_t.translation + move_by * time.scaled_delta_seconds();
+
+        if !dashing {
+            // easing
+            let ease_time_delta = if player_movement.raw_dir == Vec2::ZERO {
+                -time.scaled_delta_seconds()
+            } else {
+                time.scaled_delta_seconds()
+            };
+            player_movement.easing_time += ease_time_delta;
+            player_movement.easing_time = player_movement
+                .easing_time
+                .clamp(0., player_movement.time_to_max_speed);
+
+            let ease_t = inverse_lerp(
+                0.,
+                player_movement.time_to_max_speed,
+                player_movement.easing_time,
+            );
+            final_pos = player_t.translation.lerp(final_pos, ease_t);
+        } else {
+            // todo: ease dash as well
+            player_movement.easing_time = player_movement.time_to_max_speed;
+        }
+
+        // nice2have: get/store properly
+        let player_size = Vec2::splat(80.);
+        let is_left = player.is_left();
+        // nice2have: get (from resource or component)
+        let player_area_size = if is_left {
+            Vec2::new(WIN_WIDTH / 2. + net_offset.0, WIN_HEIGHT)
+        } else {
+            Vec2::new(WIN_WIDTH / 2. - net_offset.0, WIN_HEIGHT)
+        };
+        let pos_offset = Vec3::new(player_area_size.x / 2., 0., 0.);
+        let player_area_pos = if is_left {
+            Vec3::X * net_offset.0 - pos_offset
+        } else {
+            Vec3::X * net_offset.0 + pos_offset
+        };
+
+        // nice2have: using colliders would probably make more sense
+        let coll = collide(final_pos, player_size, player_area_pos, player_area_size);
+        if coll.is_some() {
+            // need to handle side coll in case the player gets pushed by a moving net
+            player_movement.easing_time = 0.;
+            player_movement.last_non_zero_raw_dir = Vec2::ZERO;
+
+            if let Ok(net_t) = net_q.get_single() {
+                let player_x = player_t.translation.x;
+                let player_half_w = player_size.x / 2.;
+                let net_x = net_t.translation.x;
+
+                if is_left && (player_x + player_half_w) > net_x {
+                    player_t.translation.x = net_x - player_half_w;
+                } else if !is_left && (player_x - player_half_w) < net_x {
+                    player_t.translation.x = net_x + player_half_w;
                 }
             }
 
-            if let ActionStatus::Active(dash_dir) = player_dash.status {
-                if !player_dash.timer.finished() {
-                    move_by = (dash_dir * player_dash.speed).to_vec3();
-                    dashing = true;
-                } else {
-                    p_anim.animation = AgentAnimation::Idle;
-                }
-            } else if input.held(player.id, InputAction::LockPosition) {
-                move_by = Vec3::ZERO;
+            if p_anim.animation != PlayerAnimation::Idle {
+                p_anim.animation = PlayerAnimation::Idle;
             }
 
-            let mut final_pos = player_t.translation + move_by * time.scaled_delta_seconds();
-
-            if !dashing {
-                // easing
-                let ease_time_delta = if dir_raw == Vec2::ZERO {
-                    -time.scaled_delta_seconds()
-                } else {
-                    time.scaled_delta_seconds()
-                };
-                player_movement.easing_time += ease_time_delta;
-                player_movement.easing_time = player_movement
-                    .easing_time
-                    .clamp(0., player_movement.time_to_max_speed);
-
-                let ease_t = inverse_lerp(
-                    0.,
-                    player_movement.time_to_max_speed,
-                    player_movement.easing_time,
-                );
-                final_pos = player_t.translation.lerp(final_pos, ease_t);
-            } else {
-                player_movement.easing_time = player_movement.time_to_max_speed;
-            }
-
-            // nice2have: get/store properly
-            let player_size = Vec2::splat(80.);
-            let is_left = player.is_left();
-            // nice2have: get (from resource or component)
-            let player_area_size = if is_left {
-                Vec2::new(WIN_WIDTH / 2. + net_offset.0, WIN_HEIGHT)
-            } else {
-                Vec2::new(WIN_WIDTH / 2. - net_offset.0, WIN_HEIGHT)
-            };
-            let pos_offset = Vec3::new(player_area_size.x / 2., 0., 0.);
-            let player_area_pos = if is_left {
-                Vec3::X * net_offset.0 - pos_offset
-            } else {
-                Vec3::X * net_offset.0 + pos_offset
-            };
-
-            let coll = collide(final_pos, player_size, player_area_pos, player_area_size);
-
-            if coll.is_some() {
-                player_movement.easing_time = 0.;
-                player_movement.last_non_zero_raw_dir = Vec2::ZERO;
-
-                // nice2have: using colliders would probably make more sense
-                // need to handle side coll in case the player gets pushed by a moving net
-
-                if let Ok(net_t) = net_q.get_single() {
-                    let player_x = player_t.translation.x;
-                    let player_half_w = player_size.x / 2.;
-                    let net_x = net_t.translation.x;
-
-                    if is_left && (player_x + player_half_w) > net_x {
-                        player_t.translation.x = net_x - player_half_w;
-                    } else if !is_left && (player_x - player_half_w) < net_x {
-                        player_t.translation.x = net_x + player_half_w;
+            trace!("{}: {:?}", if is_left { "LeftP" } else { "RightP" }, coll);
+        } else {
+            if (final_pos - player_t.translation).length().abs() > 0.1 {
+                if !dashing {
+                    if charging && p_anim.animation != PlayerAnimation::Walking {
+                        p_anim.animation = PlayerAnimation::Walking;
+                    } else if !charging && p_anim.animation != PlayerAnimation::Running {
+                        p_anim.animation = PlayerAnimation::Running;
                     }
                 }
+            } else if p_anim.animation != PlayerAnimation::Idle {
+                p_anim.animation = PlayerAnimation::Idle;
+            }
 
-                if p_anim.animation != AgentAnimation::Idle {
-                    p_anim.animation = AgentAnimation::Idle;
-                }
+            player_t.translation = final_pos;
 
-                trace!("{}: {:?}", if is_left { "LeftP" } else { "RightP" }, coll);
-            } else {
-                if (final_pos - player_t.translation).length().abs() > 0.1 {
-                    if !dashing {
-                        if charging && p_anim.animation != AgentAnimation::Walking {
-                            p_anim.animation = AgentAnimation::Walking;
-                        } else if !charging && p_anim.animation != AgentAnimation::Running {
-                            p_anim.animation = AgentAnimation::Running;
-                        }
-                    }
-                } else if p_anim.animation != AgentAnimation::Idle {
-                    p_anim.animation = AgentAnimation::Idle;
-                }
-
-                player_t.translation = final_pos;
-
-                if dir_raw != Vec2::ZERO {
-                    player_movement.last_non_zero_raw_dir = dir_raw;
-                }
+            if player_movement.raw_dir != Vec2::ZERO {
+                player_movement.last_non_zero_raw_dir = player_movement.raw_dir;
             }
         }
     }
@@ -487,17 +454,13 @@ fn aim(
 
             let mut dir = dir_raw.normalize_or_zero();
 
+            // todo: split
             // swing charge UI
             if let Ok(mut t) = transform_q.get_mut(p.aim_charge_e) {
-                if let ActionStatus::Ready = player_swing.status {
-                    if let Some(ActionState::Held(action_data)) =
-                        input.get_button_action_state(p.id, &InputAction::Swing)
-                    {
-                        let scale = get_swing_multiplier(action_data.duration);
-                        t.scale = Vec2::splat(scale).extend(1.);
-                    }
-                } else if let ActionStatus::Active(_) = player_swing.status {
-                } else {
+                if let PlayerActionStatus::Charging(dur) = player_swing.status {
+                    let scale = get_swing_multiplier(dur);
+                    t.scale = Vec2::splat(scale).extend(1.);
+                } else if !matches!(player_swing.status, PlayerActionStatus::Active(_)) {
                     t.scale =
                         Vec2::splat((t.scale.x - (time.scaled_delta_seconds() * 3.)).clamp(0., 1.))
                             .extend(1.);
@@ -560,12 +523,16 @@ fn swing(
     for (player_swing, player_swing_tracker, mut coll_layers, mut anim) in query.iter_mut() {
         if player_swing_tracker.is_changed() {
             match player_swing.status {
-                ActionStatus::Ready | ActionStatus::Cooldown => {
+                PlayerActionStatus::Ready
+                | PlayerActionStatus::Cooldown
+                | PlayerActionStatus::Charging(_) => {
                     *coll_layers = CollisionLayers::none();
                 }
-                ActionStatus::Active(_) => {
+                PlayerActionStatus::Active(_) => {
                     *coll_layers = CollisionLayers::all::<PhysLayer>();
-                    anim.animation = AgentAnimation::Shooting;
+
+                    // 2fix: animation should fire only after collision or the timer runs out
+                    anim.animation = PlayerAnimation::Shooting;
                 }
             }
         }

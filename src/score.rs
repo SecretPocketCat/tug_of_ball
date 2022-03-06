@@ -79,9 +79,8 @@ pub fn add_point_to_score(score: &mut Score, add_to_left_player: bool) -> bool {
 
     scoring.points += 1;
 
-    let required_points = (other.points + 2).max(4);
-    #[cfg(feature = "debug")]
-    {
+    let mut required_points = (other.points + 2).max(4);
+    if cfg!(feature = "debug") {
         required_points = 100;
     }
 
