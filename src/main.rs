@@ -4,6 +4,7 @@
 #![feature(drain_filter)]
 #![allow(clippy::type_complexity, clippy::too_many_arguments)]
 
+use animation::{AnimationPlugin, TweenPlugin};
 use asset::AssetPlugin;
 use ball::BallPlugin;
 use bevy::prelude::*;
@@ -11,19 +12,21 @@ use bevy_input::ActionInputPlugin;
 use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_time::TimePlugin;
 use bevy_tweening::TweeningPlugin;
-
 use camera::CameraPlugin;
-
 use heron::*;
 use input::{InputAction, InputAxis, InputPlugin};
 use level::{CourtRegion, InitialRegion, LevelPlugin};
 use palette::PalettePlugin;
 use player::PlayerPlugin;
+use player_action::PlayerActionPlugin;
+use player_animation::PlayerAnimationPlugin;
+use player_controller::PlayerControllerPlugin;
 use score::ScorePlugin;
 use trail::TrailPlugin;
-use tween::TweenPlugin;
 use window::{WIN_HEIGHT, WIN_WIDTH};
 
+mod ai_player_controller;
+mod animation;
 mod asset;
 mod ball;
 mod camera;
@@ -34,10 +37,12 @@ mod level;
 mod palette;
 mod physics;
 mod player;
+mod player_action;
+mod player_animation;
+mod player_controller;
 mod render;
 mod score;
 mod trail;
-mod tween;
 mod window;
 
 const NAME: &str = "Tag of Ball";
@@ -54,6 +59,7 @@ fn main() {
 
     let mut app = App::new();
     app.insert_resource(Msaa { samples: 4 })
+        // resources needed before default plugins to take effect
         .insert_resource(WindowDescriptor {
             title: NAME.to_string(),
             width: WIN_WIDTH,
@@ -63,25 +69,31 @@ fn main() {
             ..Default::default()
         })
         .insert_resource(ClearColor(Color::WHITE))
+        // game resources
         .insert_resource(InitialRegion(region))
+        // bevy plugins
         .add_plugins(DefaultPlugins)
         // 3rd party crates
         .add_plugin(PhysicsPlugin::default())
         .add_plugin(TweeningPlugin)
-        // my crates
+        // game crates
         .add_plugin(TimePlugin)
         .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::default())
-        // app plugins
-        .add_plugin(PlayerPlugin)
+        // game plugins
+        .add_plugin(AnimationPlugin)
+        .add_plugin(AssetPlugin)
         .add_plugin(BallPlugin)
-        .add_plugin(ScorePlugin)
-        .add_plugin(TweenPlugin)
-        .add_plugin(TrailPlugin)
+        .add_plugin(CameraPlugin)
+        .add_plugin(InputPlugin)
         .add_plugin(LevelPlugin)
         .add_plugin(PalettePlugin)
-        .add_plugin(InputPlugin)
-        .add_plugin(CameraPlugin)
-        .add_plugin(AssetPlugin);
+        .add_plugin(PlayerPlugin)
+        .add_plugin(PlayerControllerPlugin)
+        .add_plugin(PlayerActionPlugin)
+        .add_plugin(PlayerAnimationPlugin)
+        .add_plugin(ScorePlugin)
+        .add_plugin(TrailPlugin)
+        .add_plugin(TweenPlugin);
 
     // heron 2d-debug adds lyon plugin as well, which would cause a panic
     #[cfg(not(feature = "debug"))]

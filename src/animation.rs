@@ -1,8 +1,30 @@
 use bevy::prelude::*;
-
+use bevy_inspector_egui::Inspectable;
+use bevy_time::{ScaledTime, ScaledTimeDelta};
 use bevy_tweening::TweenCompleted;
 
+pub struct AnimationPlugin;
+impl Plugin for AnimationPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.add_system(rotate);
+    }
+}
 
+// todo: struct
+#[derive(Default, Component, Inspectable)]
+pub struct TransformRotation {
+    pub rotation_rad: f32,
+    pub rotation_max_rad: f32,
+}
+
+impl TransformRotation {
+    pub fn new(rotation_rad: f32) -> Self {
+        Self {
+            rotation_rad,
+            rotation_max_rad: rotation_rad,
+        }
+    }
+}
 
 #[repr(u64)]
 pub enum TweenDoneAction {
@@ -37,6 +59,14 @@ fn on_tween_completed(mut commands: Commands, mut ev_reader: EventReader<TweenCo
                 commands.entity(ev.entity).despawn_recursive();
             }
         }
+    }
+}
+
+fn rotate(mut q: Query<(&TransformRotation, &mut Transform)>, time: ScaledTime) {
+    for (r, mut t) in q.iter_mut() {
+        t.rotate(Quat::from_rotation_z(
+            r.rotation_rad * time.scaled_delta_seconds(),
+        ));
     }
 }
 

@@ -16,15 +16,16 @@ use heron::*;
 use rand::*;
 
 use crate::{
+    animation::TweenDoneAction,
     extra::TransformBundle,
     input::PlayerInput,
-    level::{CourtRegion, CourtSettings, InitialRegion, NetOffset},
+    level::{CourtRegion, CourtSettings, InitialRegion, NetOffset, ServingRegion},
     palette::{Palette, PaletteColor},
     physics::PhysLayer,
-    player::{ActionStatus, Player, PlayerAim, PlayerSwing, ServingRegion},
+    player::{Player, PlayerAim, PlayerSwing},
+    player_action::ActionStatus,
     render::{BALL_Z, PLAYER_Z, SHADOW_Z},
     trail::{FadeOutTrail, Trail},
-    tween::TweenDoneAction,
 };
 
 const BALL_SIZE: f32 = 35.;
@@ -64,9 +65,9 @@ pub struct Ball {
     size: f32,
     speed: f32,
     prev_pos: Vec3,
-    pub(crate) region: CourtRegion,
+    pub region: CourtRegion,
     bounce_e: Option<Entity>,
-    pub(crate) trail_e: Option<Entity>,
+    pub trail_e: Option<Entity>,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -87,9 +88,9 @@ pub enum BallStatus {
 }
 
 pub struct BallBouncedEvt {
-    pub(crate) ball_e: Entity,
-    pub(crate) bounce_count: usize,
-    pub(crate) side: f32,
+    pub ball_e: Entity,
+    pub bounce_count: usize,
+    pub side: f32,
 }
 
 // nice2have: try - slowly speedup during rally?

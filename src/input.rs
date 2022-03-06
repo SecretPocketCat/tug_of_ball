@@ -1,6 +1,14 @@
 use bevy::prelude::*;
 use bevy_extensions::panic_on_error;
 use bevy_input::*;
+use heron::CollisionLayers;
+
+use crate::{
+    physics::PhysLayer,
+    player::{get_swing_mutliplier_clamped, Player, PlayerSwing, SWING_LABEL},
+    player_action::ActionStatus,
+    player_animation::{AgentAnimation, AgentAnimationData},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InputAction {
@@ -23,7 +31,8 @@ pub type PlayerInput = ActionInput<InputAction, InputAxis>;
 pub struct InputPlugin;
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_startup_system(setup_bindings.chain(panic_on_error));
+        app.add_startup_system(setup_bindings.chain(panic_on_error))
+            .add_system(handle_swing_input.label(SWING_LABEL));
     }
 }
 
@@ -114,4 +123,39 @@ fn setup_bindings(
             AxisBinding::Buttons(KeyCode::Down.into(), KeyCode::Up.into()),
         );
     Ok(())
+}
+
+// nice2have: on swing down cancel prev swing?
+fn handle_swing_input(
+    _commands: Commands,
+    input: Res<PlayerInput>,
+    mut query: Query<(
+        Entity,
+        &Player,
+        &mut PlayerSwing,
+        &mut CollisionLayers,
+        &mut AgentAnimationData,
+    )>,
+) {
+    for (_e, player, mut player_swing, mut coll_layers, mut anim) in query.iter_mut() {
+        if let Some(ActionState::Released(key_data)) =
+            input.get_button_action_state(player.id, &InputAction::Swing)
+        {
+            if let ActionStatus::Ready = player_swing.status {
+                player_swing.status =
+                    ActionStatus::Active(get_swing_mutliplier_clamped(key_data.duration));
+                player_swing.timer = Timer::from_seconds(player_swing.duration_sec, false);
+                *coll_layers = CollisionLayers::all::<PhysLayer>();
+
+                anim.animation = AgentAnimation::Shooting;
+            }
+        } else {
+            match player_swing.status {
+                ActionStatus::Ready | ActionStatus::Cooldown => {
+                    *coll_layers = CollisionLayers::none();
+                }
+                _ => {}
+            }
+        }
+    }
 }

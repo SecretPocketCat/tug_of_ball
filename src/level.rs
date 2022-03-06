@@ -6,7 +6,6 @@ use bevy::{
     sprite::{Sprite, SpriteBundle},
 };
 
-
 use bevy_inspector_egui::Inspectable;
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningType};
@@ -33,14 +32,16 @@ pub struct Court;
 #[derive(Component)]
 pub struct InitialRegion(pub CourtRegion);
 
+pub struct ServingRegion(pub CourtRegion);
+
 pub struct CourtSettings {
     // nice2have: replace by proper bounds
-    pub(crate) left: f32,
-    pub(crate) right: f32,
-    pub(crate) top: f32,
-    pub(crate) bottom: f32,
-    pub(crate) base_region_size: Vec3,
-    pub(crate) region_x: f32,
+    pub left: f32,
+    pub right: f32,
+    pub top: f32,
+    pub bottom: f32,
+    pub base_region_size: Vec3,
+    pub region_x: f32,
 }
 
 #[derive(Default, Component, Inspectable, Clone, Copy, Debug, PartialEq)]

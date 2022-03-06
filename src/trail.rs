@@ -11,7 +11,6 @@ impl Plugin for TrailPlugin {
     }
 }
 
-// todo: named fields struct
 pub struct TrailPoint {
     position: Vec2,
     time: f64,
@@ -19,16 +18,16 @@ pub struct TrailPoint {
 
 #[derive(Component)]
 pub struct Trail {
-    pub(crate) points: Vec<TrailPoint>,
-    pub(crate) transform_e: Entity,
-    pub(crate) duration_sec: f32,
-    pub(crate) max_width: f32,
+    pub points: Vec<TrailPoint>,
+    pub transform_e: Entity,
+    pub duration_sec: f32,
+    pub max_width: f32,
 }
 
 #[derive(Component, Default)]
 pub struct FadeOutTrail {
-    pub(crate) decrease_duration_by: f32,
-    pub(crate) stop_trail: bool,
+    pub decrease_duration_by: f32,
+    pub stop_trail: bool,
 }
 
 fn store_path_points(
