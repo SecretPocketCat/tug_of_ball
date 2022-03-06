@@ -48,20 +48,18 @@ fn process_player_input(
                 player_aim.raw_dir =
                     input.get_xy_axes_raw(player.id, &InputAxis::MoveX, &InputAxis::MoveY);
             }
-        }
 
-        // dash
-        if input.just_pressed(player.id, InputAction::Dash) {
-            if let PlayerActionStatus::Ready = player_dash.status {
-                let dir = player_movement.raw_dir.normalize_or_zero();
-                player_dash.status = PlayerActionStatus::Active(if dir != Vec2::ZERO {
-                    dir
-                } else {
-                    // todo:
-                    // p_aim.direction
-                    Vec2::ZERO
-                });
-                player_dash.timer = Timer::from_seconds(player_dash.duration_sec, false);
+            // dash
+            if input.just_pressed(player.id, InputAction::Dash) {
+                if let PlayerActionStatus::Ready = player_dash.status {
+                    let dir = player_movement.raw_dir.normalize_or_zero();
+                    player_dash.status = PlayerActionStatus::Active(if dir != Vec2::ZERO {
+                        dir
+                    } else {
+                        player_aim.dir
+                    });
+                    player_dash.timer = Timer::from_seconds(player_dash.duration_sec, false);
+                }
             }
         }
 
