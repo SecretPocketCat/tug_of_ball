@@ -5,6 +5,7 @@ use crate::{
         SWING_LABEL,
     },
     player_action::PlayerActionStatus,
+    GameState,
 };
 use bevy::prelude::*;
 use bevy_input::*;
@@ -12,7 +13,10 @@ use bevy_input::*;
 pub struct PlayerControllerPlugin;
 impl Plugin for PlayerControllerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_system(process_player_input.label(SWING_LABEL));
+        app.add_system_set(
+            SystemSet::on_update(GameState::Game)
+                .with_system(process_player_input.label(SWING_LABEL)),
+        );
     }
 }
 

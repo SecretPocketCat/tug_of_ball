@@ -22,6 +22,7 @@ use player::PlayerPlugin;
 use player_action::PlayerActionPlugin;
 use player_animation::PlayerAnimationPlugin;
 use player_controller::PlayerControllerPlugin;
+use reset::ResetPlugin;
 use score::ScorePlugin;
 use trail::TrailPlugin;
 use window::{WIN_HEIGHT, WIN_WIDTH};
@@ -43,11 +44,24 @@ mod player_action;
 mod player_animation;
 mod player_controller;
 mod render;
+mod reset;
 mod score;
 mod trail;
 mod window;
 
 const NAME: &str = "Tag of Ball";
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+enum GameState {
+    Game,
+    Reset,
+}
+
+#[derive(SystemLabel, Debug, Clone, Eq, PartialEq, Hash)]
+enum GameSetupPhase {
+    Ball,
+    Player,
+}
 
 fn main() {
     let mut region = CourtRegion::get_random();
@@ -92,8 +106,11 @@ fn main() {
         .add_plugin(PlayerControllerPlugin)
         .add_plugin(PlayerActionPlugin)
         .add_plugin(PlayerAnimationPlugin)
+        .add_plugin(ResetPlugin)
         .add_plugin(ScorePlugin)
-        .add_plugin(TrailPlugin);
+        .add_plugin(TrailPlugin)
+        // initial state
+        .add_state(GameState::Game);
 
     if cfg!(feature = "debug") {
         app.add_plugin(DebugPlugin);

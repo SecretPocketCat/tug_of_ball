@@ -14,10 +14,11 @@ fn set_img_sampler_filter(
     for ev in ev_asset.iter() {
         match ev {
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                // set sampler filtering to add some AA (quite fuzzy though)
-                let mut texture = assets.get_mut(handle).unwrap();
-                texture.sampler_descriptor.mag_filter = FilterMode::Linear;
-                texture.sampler_descriptor.min_filter = FilterMode::Linear;
+                if let Some(mut texture) = assets.get_mut(handle) {
+                    // set sampler filtering to add some AA (quite fuzzy though)
+                    texture.sampler_descriptor.mag_filter = FilterMode::Linear;
+                    texture.sampler_descriptor.min_filter = FilterMode::Linear;
+                }
             }
             _ => {}
         }

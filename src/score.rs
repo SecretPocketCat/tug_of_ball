@@ -1,4 +1,4 @@
-use crate::palette::PaletteColor;
+use crate::{palette::PaletteColor, reset::Persistent, GameState};
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
 
@@ -7,6 +7,7 @@ impl Plugin for ScorePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<Score>()
             .add_startup_system(setup)
+            .add_system_set(SystemSet::on_enter(GameState::Game).with_system(reset_score))
             .add_system(update_score_ui);
     }
 }
@@ -58,7 +59,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .insert(PaletteColor::Text)
         .insert(PointsText)
-        .insert(Name::new("ScoreText"));
+        .insert(Name::new("ScoreText"))
+        .insert(Persistent);
 }
 
 fn update_score_ui(score: Res<Score>, mut points_text_q: Query<&mut Text, With<PointsText>>) {
@@ -101,4 +103,9 @@ pub fn add_point_to_score(score: &mut Score, add_to_left_player: bool) -> bool {
     // }
 
     false
+}
+
+fn reset_score(mut score: ResMut<Score>) {
+    score.left_player = PlayerScore::default();
+    score.right_player = PlayerScore::default();
 }

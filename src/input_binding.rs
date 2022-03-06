@@ -1,8 +1,13 @@
-
 use bevy::prelude::*;
 use bevy_extensions::panic_on_error;
 use bevy_input::*;
 
+pub struct InputBindingPlugin;
+impl Plugin for InputBindingPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.add_startup_system(setup_bindings.chain(panic_on_error));
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InputAction {
@@ -10,6 +15,7 @@ pub enum InputAction {
     Dash,
     LockPosition,
     ChangePalette,
+    Reset,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -21,13 +27,6 @@ pub enum InputAxis {
 }
 
 pub type PlayerInput = ActionInput<InputAction, InputAxis>;
-
-pub struct InputBindingPlugin;
-impl Plugin for InputBindingPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_startup_system(setup_bindings.chain(panic_on_error));
-    }
-}
 
 fn setup_bindings(
     mut map: ResMut<ActionMap<InputAction, InputAxis>>,
@@ -44,6 +43,7 @@ fn setup_bindings(
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::North)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::LeftTrigger2)?
             .bind_button_action(id, InputAction::ChangePalette, GamepadButtonType::Select)?
+            .bind_button_action(id, InputAction::Reset, GamepadButtonType::Start)?
             .bind_button_action(
                 id,
                 InputAction::LockPosition,
@@ -91,6 +91,7 @@ fn setup_bindings(
 
     map.bind_button_action(1, InputAction::Dash, KeyCode::Space)?
         .bind_button_action(1, InputAction::Swing, KeyCode::J)?
+        .bind_button_action(1, InputAction::Reset, KeyCode::Escape)?
         .bind_axis(
             1,
             InputAxis::MoveX,

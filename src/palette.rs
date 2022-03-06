@@ -22,7 +22,7 @@ impl Plugin for PalettePlugin {
             .add_system(on_text_added)
             .add_system(on_trail_added)
             .add_system(on_court_added)
-            .add_system(handle_input)
+            .add_system(handle_palette_input)
             .insert_resource(if random::<bool>() {
                 CLAY_PALETTE
             } else {
@@ -205,7 +205,7 @@ fn on_court_added(palette: Res<Palette>, mut q: Query<&mut DrawMode, With<Court>
     }
 }
 
-fn handle_input(mut palette: ResMut<Palette>, input: Res<PlayerInput>) {
+fn handle_palette_input(mut palette: ResMut<Palette>, input: Res<PlayerInput>) {
     for id in 0..=4 {
         if input.just_pressed(id, InputAction::ChangePalette) {
             let is_grass = palette.background == GRASS_PALETTE.background;

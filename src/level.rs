@@ -1,25 +1,33 @@
-use std::{ops::RangeInclusive, time::Duration};
-
-use bevy::{
-    math::Vec2,
-    prelude::*,
-    sprite::{Sprite, SpriteBundle},
-};
-
-use bevy_inspector_egui::Inspectable;
-use bevy_prototype_lyon::prelude::*;
-use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningType};
-use heron::*;
-use rand::*;
-
 use crate::{
     extra::TransformBundle,
     palette::PaletteColor,
     physics::PhysLayer,
     render::{COURT_LINE_Z, COURT_Z, NET_Z, SHADOW_Z},
+    reset::Persistent,
     score::Score,
-    WIN_HEIGHT, WIN_WIDTH,
+    GameState, WIN_HEIGHT, WIN_WIDTH,
 };
+use bevy::{
+    math::Vec2,
+    prelude::*,
+    sprite::{Sprite, SpriteBundle},
+};
+use bevy_inspector_egui::Inspectable;
+use bevy_prototype_lyon::prelude::*;
+use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningType};
+use heron::*;
+use rand::*;
+use std::{ops::RangeInclusive, time::Duration};
+
+pub struct LevelPlugin;
+impl Plugin for LevelPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.insert_resource(NetOffset(0.))
+            .add_startup_system(setup)
+            .add_system(draw_court)
+            .add_system_set(SystemSet::on_update(GameState::Game).with_system(handle_net_offset));
+    }
+}
 
 #[derive(Component)]
 pub struct Net;
@@ -117,16 +125,6 @@ impl CourtRegion {
     }
 }
 
-pub struct LevelPlugin;
-impl Plugin for LevelPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.insert_resource(NetOffset(0.))
-            .add_startup_system(setup)
-            .add_system(draw_court)
-            .add_system(handle_net_offset);
-    }
-}
-
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let x = WIN_WIDTH / 2. - 300.;
     let height = WIN_HEIGHT - 250.;
@@ -162,7 +160,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..Default::default()
             })
             .insert(PaletteColor::CourtLines)
-            .insert(Name::new("LevelLine"));
+            .insert(Name::new("LevelLine"))
+            .insert(Persistent);
     }
 
     let colliders = [
@@ -190,6 +189,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(PaletteColor::CourtLines)
         .insert(Net)
         .insert(Name::new("Net"))
+        .insert(Persistent)
         .with_children(|b| {
             // shadow
             b.spawn_bundle(SpriteBundle {
@@ -244,7 +244,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             DrawMode::Fill(FillMode::color(Color::rgb_u8(32, 40, 61))),
             Transform::from_xyz(0., 0., COURT_Z),
         ))
-        .insert(Court);
+        .insert(Court)
+        .insert(Persistent);
 
     // dashed tug lines
     let dash_line_x = x / 2.;
@@ -258,7 +259,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 ..Default::default()
             })
-            .insert(PaletteColor::CourtPost);
+            .insert(PaletteColor::CourtPost)
+            .insert(Persistent);
     }
 
     // cheeky bg - maybe just set for camera?
@@ -270,7 +272,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..Default::default()
         })
-        .insert(PaletteColor::Background);
+        .insert(PaletteColor::Background)
+        .insert(Persistent);
 
     commands.insert_resource(settings);
 }
@@ -311,7 +314,8 @@ fn spawn_region(commands: &mut Commands, region: CourtRegion, x: f32, y: f32, re
         })
         .insert(CollisionLayers::all::<PhysLayer>())
         .insert(region)
-        .insert(Name::new("Region"));
+        .insert(Name::new("Region"))
+        .insert(Persistent);
 }
 
 fn handle_net_offset(

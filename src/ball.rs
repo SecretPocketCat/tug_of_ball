@@ -7,14 +7,6 @@ use bevy::{
 };
 use bevy_extensions::Vec2Conversion;
 
-use bevy_inspector_egui::Inspectable;
-use bevy_prototype_lyon::prelude::*;
-use bevy_time::{ScaledTime, ScaledTimeDelta};
-use bevy_tweening::lens::{SpriteColorLens, TransformScaleLens};
-use bevy_tweening::*;
-use heron::*;
-use rand::*;
-
 use crate::{
     animation::TweenDoneAction,
     extra::TransformBundle,
@@ -26,19 +18,32 @@ use crate::{
     player_action::PlayerActionStatus,
     render::{BALL_Z, PLAYER_Z, SHADOW_Z},
     trail::{FadeOutTrail, Trail},
+    GameSetupPhase, GameState,
 };
+use bevy_inspector_egui::Inspectable;
+use bevy_prototype_lyon::prelude::*;
+use bevy_time::{ScaledTime, ScaledTimeDelta};
+use bevy_tweening::lens::{SpriteColorLens, TransformScaleLens};
+use bevy_tweening::*;
+use heron::*;
+use rand::*;
 
 const BALL_SIZE: f32 = 35.;
 
 pub struct BallPlugin;
 impl Plugin for BallPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_startup_system_to_stage(StartupStage::PostStartup, setup)
-            .add_system(movement)
-            .add_system(bounce)
-            .add_system_to_stage(CoreStage::PostUpdate, handle_collisions)
-            .add_system_to_stage(CoreStage::PostUpdate, handle_regions)
-            .add_event::<BallBouncedEvt>();
+        app.add_system_set(
+            SystemSet::on_enter(GameState::Game).with_system(setup.label(GameSetupPhase::Ball)),
+        )
+        .add_system_to_stage(CoreStage::PostUpdate, handle_collisions)
+        .add_system_to_stage(CoreStage::PostUpdate, handle_regions)
+        .add_system_set(
+            SystemSet::on_update(GameState::Game)
+                .with_system(movement)
+                .with_system(bounce),
+        )
+        .add_event::<BallBouncedEvt>();
     }
 }
 

@@ -11,7 +11,7 @@ use crate::{
     render::{PLAYER_Z, SHADOW_Z},
     score::{add_point_to_score, PlayerScore, Score},
     trail::FadeOutTrail,
-    WIN_HEIGHT, WIN_WIDTH,
+    GameSetupPhase, GameState, WIN_HEIGHT, WIN_WIDTH,
 };
 use bevy::{
     math::Vec2,
@@ -34,11 +34,16 @@ pub const SWING_LABEL: &str = "swing";
 pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_startup_system_to_stage(StartupStage::PostStartup, setup)
-            .add_system(move_player.before(SWING_LABEL))
-            .add_system(aim)
-            .add_system(swing)
-            .add_system(on_ball_bounced);
+        app.add_system_set(
+            SystemSet::on_enter(GameState::Game).with_system(setup.label(GameSetupPhase::Player)),
+        )
+        .add_system_set(
+            SystemSet::on_update(GameState::Game)
+                .with_system(move_player.before(SWING_LABEL))
+                .with_system(aim)
+                .with_system(swing)
+                .with_system(on_ball_bounced),
+        );
     }
 }
 

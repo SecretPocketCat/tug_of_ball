@@ -1,4 +1,5 @@
 use crate::player::{get_swing_multiplier, Player, PlayerSwing};
+use crate::GameState;
 use crate::{
     animation::TransformRotation,
     player::{PlayerDash, SwingRangeSprite, SWING_LABEL},
@@ -17,8 +18,11 @@ impl Plugin for PlayerAnimationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_system(animate.after(SWING_LABEL))
             .add_system(unblock_animation)
-            .add_system(animate_dash_state_ui)
-            .add_system(animate_swing_charge_ui);
+            .add_system_set(
+                SystemSet::on_update(GameState::Game)
+                    .with_system(animate_dash_state_ui)
+                    .with_system(animate_swing_charge_ui),
+            );
     }
 }
 

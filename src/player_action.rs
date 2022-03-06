@@ -4,14 +4,16 @@ use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 
-use crate::player::{PlayerDash, PlayerSwing};
+use crate::{
+    player::{PlayerDash, PlayerSwing},
+    GameState,
+};
 
 pub struct PlayerActionPlugin;
 impl Plugin for PlayerActionPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_system_set_to_stage(
-            CoreStage::PostUpdate,
-            SystemSet::new()
+        app.add_system_set(
+            SystemSet::on_update(GameState::Game)
                 .with_system(handle_action_cooldown::<PlayerDash, Vec2>)
                 .with_system(handle_action_cooldown::<PlayerSwing, f32>),
         );
