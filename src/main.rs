@@ -14,7 +14,7 @@ use bevy_time::TimePlugin;
 use bevy_tweening::TweeningPlugin;
 use camera::CameraPlugin;
 use heron::*;
-use input::{InputAction, InputAxis, InputPlugin};
+use input_binding::{InputAction, InputAxis, InputBindingPlugin};
 use level::{CourtRegion, InitialRegion, LevelPlugin};
 use palette::PalettePlugin;
 use player::PlayerPlugin;
@@ -33,7 +33,7 @@ mod ball;
 mod camera;
 mod debug;
 mod extra;
-mod input;
+mod input_binding;
 mod level;
 mod palette;
 mod physics;
@@ -85,7 +85,7 @@ fn main() {
         .add_plugin(AssetPlugin)
         .add_plugin(BallPlugin)
         .add_plugin(CameraPlugin)
-        .add_plugin(InputPlugin)
+        .add_plugin(InputBindingPlugin)
         .add_plugin(LevelPlugin)
         .add_plugin(PalettePlugin)
         .add_plugin(PlayerPlugin)

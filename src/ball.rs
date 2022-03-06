@@ -18,7 +18,7 @@ use rand::*;
 use crate::{
     animation::TweenDoneAction,
     extra::TransformBundle,
-    input::PlayerInput,
+    input_binding::PlayerInput,
     level::{CourtRegion, CourtSettings, InitialRegion, NetOffset, ServingRegion},
     palette::{Palette, PaletteColor},
     physics::PhysLayer,

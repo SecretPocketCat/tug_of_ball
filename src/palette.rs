@@ -7,7 +7,7 @@ use bevy_tweening::{
 use rand::random;
 
 use crate::{
-    input::{InputAction, PlayerInput},
+    input_binding::{InputAction, PlayerInput},
     level::Court,
     trail::Trail,
 };

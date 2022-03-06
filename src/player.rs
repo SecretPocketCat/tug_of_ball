@@ -20,9 +20,10 @@ use crate::{
     ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
     extra::TransformBundle,
     impl_player_action_timer,
-    input::PlayerInput,
+    input_binding::PlayerInput,
     level::{CourtRegion, CourtSettings, InitialRegion, Net, NetOffset, ServingRegion},
     palette::PaletteColor,
+    physics::PhysLayer,
     player_action::{ActionStatus, ActionTimer},
     player_animation::{AgentAnimation, AgentAnimationData},
     render::{PLAYER_Z, SHADOW_Z},
@@ -41,6 +42,7 @@ impl Plugin for PlayerPlugin {
         app.add_startup_system_to_stage(StartupStage::PostStartup, setup)
             .add_system(move_player.before(SWING_LABEL))
             .add_system(aim)
+            .add_system(swing)
             .add_system(on_ball_bounced);
     }
 }
@@ -542,6 +544,29 @@ fn aim(
                 let axis = if p.is_left() { Vec2::X } else { -Vec2::X };
                 face_t.rotation =
                     Quat::from_axis_angle(-Vec3::Z, aim.direction.angle_between(axis) * 0.25);
+            }
+        }
+    }
+}
+
+fn swing(
+    mut query: Query<(
+        &PlayerSwing,
+        ChangeTrackers<PlayerSwing>,
+        &mut CollisionLayers,
+        &mut AgentAnimationData,
+    )>,
+) {
+    for (player_swing, player_swing_tracker, mut coll_layers, mut anim) in query.iter_mut() {
+        if player_swing_tracker.is_changed() {
+            match player_swing.status {
+                ActionStatus::Ready | ActionStatus::Cooldown => {
+                    *coll_layers = CollisionLayers::none();
+                }
+                ActionStatus::Active(_) => {
+                    *coll_layers = CollisionLayers::all::<PhysLayer>();
+                    anim.animation = AgentAnimation::Shooting;
+                }
             }
         }
     }
