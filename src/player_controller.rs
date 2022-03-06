@@ -7,7 +7,6 @@ use crate::{
     player_action::PlayerActionStatus,
 };
 use bevy::prelude::*;
-
 use bevy_input::*;
 
 pub struct PlayerControllerPlugin;

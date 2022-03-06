@@ -1,20 +1,3 @@
-use std::time::Duration;
-
-use bevy::{
-    math::Vec2,
-    prelude::*,
-    sprite::{collide_aabb::collide, Sprite, SpriteBundle},
-};
-use bevy_extensions::Vec2Conversion;
-
-use bevy_inspector_egui::Inspectable;
-
-use bevy_time::{ScaledTime, ScaledTimeDelta};
-use bevy_tweening::lens::TransformScaleLens;
-use bevy_tweening::*;
-use heron::*;
-use interpolation::EaseFunction;
-
 use crate::{
     animation::{inverse_lerp, TransformRotation, TweenDoneAction},
     ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
@@ -30,6 +13,19 @@ use crate::{
     trail::FadeOutTrail,
     WIN_HEIGHT, WIN_WIDTH,
 };
+use bevy::{
+    math::Vec2,
+    prelude::*,
+    sprite::{collide_aabb::collide, Sprite, SpriteBundle},
+};
+use bevy_extensions::Vec2Conversion;
+use bevy_inspector_egui::Inspectable;
+use bevy_time::{ScaledTime, ScaledTimeDelta};
+use bevy_tweening::lens::TransformScaleLens;
+use bevy_tweening::*;
+use heron::*;
+use interpolation::EaseFunction;
+use std::time::Duration;
 
 pub const AIM_RING_ROTATION_DEG: f32 = 50.;
 // todo: get rid of this by fixing the animation system order and sue an enum label for that

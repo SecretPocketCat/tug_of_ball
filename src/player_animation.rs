@@ -1,21 +1,16 @@
-use std::time::Duration;
-
-use bevy::{math::Vec2, prelude::*};
-
-use bevy_inspector_egui::Inspectable;
-
-use bevy_time::{ScaledTime, ScaledTimeDelta};
-use bevy_tweening::lens::{TransformPositionLens, TransformRotationLens, TransformScaleLens};
-use bevy_tweening::*;
-
-use interpolation::EaseFunction;
-
 use crate::player::{get_swing_multiplier, Player, PlayerSwing};
 use crate::{
     animation::TransformRotation,
     player::{PlayerDash, SwingRangeSprite, SWING_LABEL},
     player_action::PlayerActionStatus,
 };
+use bevy::{math::Vec2, prelude::*};
+use bevy_inspector_egui::Inspectable;
+use bevy_time::{ScaledTime, ScaledTimeDelta};
+use bevy_tweening::lens::{TransformPositionLens, TransformRotationLens, TransformScaleLens};
+use bevy_tweening::*;
+use interpolation::EaseFunction;
+use std::time::Duration;
 
 pub struct PlayerAnimationPlugin;
 impl Plugin for PlayerAnimationPlugin {
