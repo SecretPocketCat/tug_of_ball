@@ -6,7 +6,7 @@ use bevy::{
     sprite::{collide_aabb::collide, Sprite, SpriteBundle},
 };
 use bevy_extensions::Vec2Conversion;
-use bevy_input::ActionState;
+
 use bevy_inspector_egui::Inspectable;
 
 use bevy_time::{ScaledTime, ScaledTimeDelta};
@@ -28,8 +28,7 @@ use crate::{
     player_animation::{AgentAnimationData, PlayerAnimation},
     render::{PLAYER_Z, SHADOW_Z},
     score::{add_point_to_score, PlayerScore, Score},
-    trail::FadeOutTrail,
-    InputAction, InputAxis, WIN_HEIGHT, WIN_WIDTH,
+    trail::FadeOutTrail, InputAxis, WIN_HEIGHT, WIN_WIDTH,
 };
 
 pub const AIM_RING_ROTATION_DEG: f32 = 50.;
