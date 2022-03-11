@@ -18,6 +18,7 @@ bevy_prototype_lyon = "0.4.0"
 interpolation = "0.2.0"
 bevy-inspector-egui = { version = "0.8.2" }
 heron = { version = "2.0.1", features = ["2d"] }
+big-brain = "0.10.0"
 
 [features]
 debug = ["heron/debug-2d"]

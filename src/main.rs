@@ -4,6 +4,7 @@
 #![feature(drain_filter)]
 #![allow(clippy::type_complexity, clippy::too_many_arguments)]
 
+use ai_player_controller::AiPlayerControllerPlugin;
 use animation::AnimationPlugin;
 use asset::AssetPlugin;
 use ball::BallPlugin;
@@ -12,6 +13,7 @@ use bevy_input::ActionInputPlugin;
 use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_time::TimePlugin;
 use bevy_tweening::TweeningPlugin;
+use big_brain::BigBrainPlugin;
 use camera::CameraPlugin;
 use debug::DebugPlugin;
 use heron::*;
@@ -64,7 +66,8 @@ enum GameSetupPhase {
 }
 
 fn main() {
-    let mut region = CourtRegion::get_random();
+    // let mut region = CourtRegion::get_random();
+    let mut region = CourtRegion::BottomLeft;
     let mut scale_factor_override = None;
 
     if cfg!(feature = "debug") {
@@ -91,10 +94,12 @@ fn main() {
         // 3rd party crates
         .add_plugin(PhysicsPlugin::default())
         .add_plugin(TweeningPlugin)
+        .add_plugin(BigBrainPlugin)
         // game crates
         .add_plugin(TimePlugin)
         .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::default())
         // game plugins
+        .add_plugin(AiPlayerControllerPlugin)
         .add_plugin(AnimationPlugin)
         .add_plugin(AssetPlugin)
         .add_plugin(BallPlugin)

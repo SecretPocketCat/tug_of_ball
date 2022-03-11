@@ -1,4 +1,5 @@
 use crate::{
+    ai_player_controller::AiPlayer,
     animation::{inverse_lerp, TransformRotation, TweenDoneAction},
     ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
     extra::TransformBundle,
@@ -14,6 +15,7 @@ use crate::{
     GameSetupPhase, GameState, WIN_HEIGHT, WIN_WIDTH,
 };
 use bevy::{
+    ecs::system::EntityCommands,
     math::Vec2,
     prelude::*,
     sprite::{collide_aabb::collide, Sprite, SpriteBundle},
@@ -167,17 +169,19 @@ impl PlayerBundle {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<InitialRegion>) {
-    for id in 1..=2 {
-        let _e = spawn_player(id, &mut commands, &asset_server, &region);
-    }
+    // for id in 1..=2 {
+    //     spawn_player(id, &mut commands, &asset_server, &region);
+    // }
+
+    spawn_player(1, &mut commands, &asset_server, &region);
 }
 
-fn spawn_player(
+pub fn spawn_player<'a, 'b, 'c>(
     id: usize,
-    commands: &mut Commands,
+    commands: &'c mut Commands<'a, 'b>,
     asset_server: &Res<AssetServer>,
     region: &Res<InitialRegion>,
-) -> Entity {
+) -> EntityCommands<'a, 'b, 'c> {
     let x = WIN_WIDTH / 4.;
     let x = if id == 1 { -x } else { x };
     let is_left = x < 0.;
@@ -244,9 +248,8 @@ fn spawn_player(
         .insert(PaletteColor::PlayerCharge)
         .id();
 
-    commands
-        .spawn_bundle(TransformBundle::from_xyz(x, player_y, PLAYER_Z))
-        .insert_bundle(PlayerBundle::new(id, initial_dir, aim_e, aim_charge_e))
+    let mut p = commands.spawn_bundle(TransformBundle::from_xyz(x, player_y, PLAYER_Z));
+    p.insert_bundle(PlayerBundle::new(id, initial_dir, aim_e, aim_charge_e))
         .insert(RigidBody::KinematicPositionBased)
         .insert(CollisionShape::Sphere { radius: 100. })
         .insert(CollisionLayers::none())
@@ -310,8 +313,8 @@ fn spawn_player(
             face_e,
             body_e: body_e.unwrap(),
             body_root_e: body_root_e.unwrap(),
-        })
-        .id()
+        });
+    p
 }
 
 // nice2have: lerp dash

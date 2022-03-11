@@ -30,6 +30,7 @@ fn reset(
     mut state: ResMut<State<GameState>>,
     despawn_q: Query<Entity, (Without<Persistent>, Without<Parent>)>,
 ) {
+    // todo: tween out the removed entities first
     for e in despawn_q.iter() {
         commands.entity(e).despawn_recursive();
     }

@@ -1,4 +1,5 @@
 use crate::{
+    ai_player_controller::AiPlayer,
     input_binding::{InputAction, InputAxis, PlayerInput},
     player::{
         get_swing_multiplier_clamped, Player, PlayerAim, PlayerDash, PlayerMovement, PlayerSwing,
@@ -22,12 +23,15 @@ impl Plugin for PlayerControllerPlugin {
 
 fn process_player_input(
     input: Res<PlayerInput>,
-    mut q: Query<(
-        &Player,
-        &mut PlayerMovement,
-        &mut PlayerDash,
-        &mut PlayerSwing,
-    )>,
+    mut q: Query<
+        (
+            &Player,
+            &mut PlayerMovement,
+            &mut PlayerDash,
+            &mut PlayerSwing,
+        ),
+        Without<AiPlayer>,
+    >,
     mut aim_q: Query<&mut PlayerAim>,
 ) {
     for (player, mut player_movement, mut player_dash, mut player_swing) in q.iter_mut() {
