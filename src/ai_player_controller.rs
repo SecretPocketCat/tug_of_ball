@@ -20,17 +20,25 @@ impl Plugin for AiPlayerControllerPlugin {
         app.add_system_set(SystemSet::on_enter(GameState::Game).with_system(setup))
             .add_system_set(SystemSet::on_update(GameState::Game).with_system(collect_inputs))
             .add_system_to_stage(BigBrainStage::Actions, stand_still)
+            .add_system_to_stage(BigBrainStage::Scorers, score_move_to_ball)
             .add_system_to_stage(BigBrainStage::Actions, move_to_ball_action)
-            .add_system_to_stage(BigBrainStage::Scorers, score_move_to_ball);
+            .add_system_to_stage(BigBrainStage::Scorers, score_swing)
+            .add_system_to_stage(BigBrainStage::Actions, swing_action);
     }
 }
 
 #[derive(Debug, Clone, Component)]
 pub struct AiPlayer;
 
+#[derive(Debug, Clone, Inspectable)]
+pub struct BallData {
+    entity: Entity,
+    distance: f32,
+}
+
 #[derive(Component, Default, Inspectable)]
-pub struct AiPlayerMovementInputs {
-    closest_incoming_ball: Option<Entity>,
+pub struct AiPlayerInputs {
+    closest_incoming_ball: Option<BallData>,
 }
 
 #[derive(Debug, Clone, Component)]
@@ -87,7 +95,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<Ini
         .when(SwingScorer, SwingAction);
 
     spawn_player(2, &mut commands, &asset_server, &region)
-        .insert(AiPlayerMovementInputs::default())
+        .insert(AiPlayerInputs::default())
         .insert(AiPlayer)
         .insert(move_thinker)
         .with_children(|b| {
@@ -95,7 +103,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<Ini
         });
 }
 
-pub fn on_ball_hit(
+fn on_ball_hit(
     mut ball_hit_er: EventReader<BallHitEvt>,
     ball_q: Query<&Ball>,
     ai_q: Query<&Player, With<AiPlayer>>,
@@ -115,8 +123,8 @@ pub fn on_ball_hit(
     }
 }
 
-pub fn collect_inputs(
-    mut ai_q: Query<(&mut AiPlayerMovementInputs, &GlobalTransform, &Player), With<AiPlayer>>,
+fn collect_inputs(
+    mut ai_q: Query<(&mut AiPlayerInputs, &GlobalTransform, &Player), With<AiPlayer>>,
     ball_q: Query<(Entity, &Ball, &GlobalTransform), Without<AiPlayer>>,
 ) {
     for (mut inputs, ai_t, player) in ai_q.iter_mut() {
@@ -133,14 +141,17 @@ pub fn collect_inputs(
                 }
             })
         {
-            inputs.closest_incoming_ball = Some(e);
+            inputs.closest_incoming_ball = Some(BallData {
+                entity: e,
+                distance: (ball_t.translation - ai_t.translation).length(),
+            });
         } else {
             inputs.closest_incoming_ball = None;
         }
     }
 }
 
-pub fn stand_still(
+fn stand_still(
     mut action_q: Query<(&Actor, &mut ActionState), With<StandStillAction>>,
     mut move_q: Query<&mut PlayerMovement>,
 ) {
@@ -160,23 +171,24 @@ pub fn stand_still(
     }
 }
 
-pub fn score_move_to_ball(
+fn score_move_to_ball(
     mut score_q: Query<(&Actor, &mut Score), With<MoveToBallScorer>>,
-    inputs_q: Query<(&AiPlayerMovementInputs, &Player, &GlobalTransform)>,
+    inputs_q: Query<(&AiPlayerInputs, &Player, &GlobalTransform)>,
     ball_q: Query<(&Ball, &GlobalTransform), Without<Player>>,
     ball_bounce_q: Query<&BallBounce>,
     net: Res<NetOffset>,
 ) {
     for (Actor(actor), mut score) in score_q.iter_mut() {
         if let Ok((inputs, player, t)) = inputs_q.get(*actor) {
-            match inputs.closest_incoming_ball {
-                Some(ball_e) => {
-                    if let Ok((ball, ball_t)) = ball_q.get(ball_e) {
+            match &inputs.closest_incoming_ball {
+                Some(ball_data) => {
+                    if let Ok((ball, ball_t)) = ball_q.get(ball_data.entity) {
                         if let Ok(b_bounce) = ball_bounce_q.get(ball.bounce_e.unwrap()) {
-                            if b_bounce.count <= 1 && ball.speed >= BALL_MAX_SPEED * 0.8 {
-                                // ignore, if it hasn't bounced and is quite fast
-                                score.set(0.);
-                            } else if player.is_left() {
+                            // if b_bounce.count <= 1 && ball.speed >= BALL_MAX_SPEED * 0.8 {
+                            //     // ignore, if it hasn't bounced and is quite fast
+                            //     score.set(0.);
+                            // } else
+                            if player.is_left() {
                                 if ball_t.translation.x <= t.translation.x {
                                     score.set(1.);
                                 } else {
@@ -203,27 +215,24 @@ pub fn score_move_to_ball(
     }
 }
 
-pub fn move_to_ball_action(
+fn move_to_ball_action(
     mut action_q: Query<(&Actor, &mut ActionState), With<MoveToBallAction>>,
-    mut q: Query<(
-        &mut PlayerMovement,
-        &AiPlayerMovementInputs,
-        &GlobalTransform,
-    )>,
+    mut q: Query<(&mut PlayerMovement, &AiPlayerInputs, &GlobalTransform)>,
     ball_q: Query<&GlobalTransform, (With<Ball>, Without<Player>)>,
 ) {
     for (Actor(actor), mut state) in action_q.iter_mut() {
         if let Ok((mut movement, inputs, t)) = q.get_mut(*actor) {
             match *state {
                 ActionState::Requested | ActionState::Executing => {
-                    match inputs.closest_incoming_ball {
-                        Some(ball_e) => {
-                            if let Ok(ball_t) = ball_q.get(ball_e) {
-                                // todo: move to inputs
-                                let dist = (ball_t.translation - t.translation).length();
+                    match &inputs.closest_incoming_ball {
+                        Some(ball_data) => {
+                            if let Ok(ball_t) = ball_q.get(ball_data.entity) {
                                 let dist_clamp_max = 50.;
-                                let dist_mult =
-                                    inverse_lerp(0., dist_clamp_max, dist.min(dist_clamp_max));
+                                let dist_mult = inverse_lerp(
+                                    0.,
+                                    dist_clamp_max,
+                                    ball_data.distance.min(dist_clamp_max),
+                                );
                                 movement.raw_dir =
                                     (ball_t.translation - t.translation).truncate().normalize()
                                         * dist_mult;
@@ -237,6 +246,61 @@ pub fn move_to_ball_action(
                     *state = ActionState::Failure;
                 }
                 _ => {}
+            }
+        }
+    }
+}
+
+fn score_swing(
+    mut score_q: Query<(&Actor, &mut Score), With<SwingScorer>>,
+    parent_q: Query<&Parent>,
+    inputs_q: Query<&AiPlayerInputs>,
+) {
+    for (Actor(actor), mut score) in score_q.iter_mut() {
+        if let Ok(parent) = parent_q.get(*actor) {
+            if let Ok(inputs) = inputs_q.get(parent.0) {
+                match &inputs.closest_incoming_ball {
+                    Some(ball_data) => {
+                        // todo: get treshold value from swing or somewhere
+                        if ball_data.distance < 100. {
+                            score.set(1.);
+                        } else {
+                            score.set(0.);
+                        }
+                    }
+                    None => score.set(0.),
+                }
+            }
+        }
+    }
+}
+
+fn swing_action(
+    mut action_q: Query<(&Actor, &mut ActionState), With<SwingAction>>,
+    parent_q: Query<&Parent>,
+    mut swing_q: Query<&mut PlayerSwing>,
+) {
+    for (Actor(actor), mut state) in action_q.iter_mut() {
+        if let Ok(parent) = parent_q.get(*actor) {
+            if let Ok(mut swing) = swing_q.get_mut(parent.0) {
+                match *state {
+                    ActionState::Requested | ActionState::Executing => {
+                        match swing.status {
+                            PlayerActionStatus::Ready => {
+                                // todo: charge
+                                swing.status = PlayerActionStatus::Active(0.3);
+                                *state = ActionState::Success;
+                            }
+                            _ => {
+                                *state = ActionState::Failure;
+                            }
+                        }
+                    }
+                    ActionState::Cancelled => {
+                        *state = ActionState::Failure;
+                    }
+                    _ => {}
+                }
             }
         }
     }
