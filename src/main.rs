@@ -68,7 +68,8 @@ enum GameSetupPhase {
 fn main() {
     // let mut region = CourtRegion::get_random();
     let mut region = CourtRegion::BottomLeft;
-    let mut scale_factor_override = None;
+    let mut scale_factor_override = Some(1.);
+    // let mut scale_factor_override = None;
 
     if cfg!(feature = "debug") {
         region = CourtRegion::TopLeft;
