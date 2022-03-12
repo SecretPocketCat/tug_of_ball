@@ -1,22 +1,33 @@
-use std::{ops::RangeInclusive, time::Duration};
-
+use crate::{
+    extra::TransformBundle,
+    palette::PaletteColor,
+    physics::PhysLayer,
+    render::{COURT_LINE_Z, COURT_Z, NET_Z, SHADOW_Z},
+    reset::Persistent,
+    score::Score,
+    GameState, WIN_HEIGHT, WIN_WIDTH,
+};
 use bevy::{
     math::Vec2,
     prelude::*,
     sprite::{Sprite, SpriteBundle},
 };
-
-use bevy_extensions::Vec2Conversion;
 use bevy_inspector_egui::Inspectable;
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningType};
 use heron::*;
 use rand::*;
+use std::{ops::RangeInclusive, time::Duration};
 
-use crate::{
-    palette::PaletteColor, score::Score, PhysLayer, TransformBundle, COURT_LINE_Z, COURT_Z, NET_Z,
-    SHADOW_Z, WIN_HEIGHT, WIN_WIDTH,
-};
+pub struct LevelPlugin;
+impl Plugin for LevelPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.insert_resource(NetOffset(0.))
+            .add_startup_system(setup)
+            .add_system(draw_court)
+            .add_system_set(SystemSet::on_update(GameState::Game).with_system(handle_net_offset));
+    }
+}
 
 #[derive(Component)]
 pub struct Net;
@@ -29,14 +40,16 @@ pub struct Court;
 #[derive(Component)]
 pub struct InitialRegion(pub CourtRegion);
 
+pub struct ServingRegion(pub CourtRegion);
+
 pub struct CourtSettings {
     // nice2have: replace by proper bounds
-    pub(crate) left: f32,
-    pub(crate) right: f32,
-    pub(crate) top: f32,
-    pub(crate) bottom: f32,
-    pub(crate) base_region_size: Vec3,
-    pub(crate) region_x: f32,
+    pub left: f32,
+    pub right: f32,
+    pub top: f32,
+    pub bottom: f32,
+    pub base_region_size: Vec3,
+    pub region_x: f32,
 }
 
 #[derive(Default, Component, Inspectable, Clone, Copy, Debug, PartialEq)]
@@ -112,16 +125,6 @@ impl CourtRegion {
     }
 }
 
-pub struct LevelPlugin;
-impl Plugin for LevelPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.insert_resource(NetOffset(0.))
-            .add_startup_system(setup)
-            .add_system(draw_court)
-            .add_system(handle_net_offset);
-    }
-}
-
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let x = WIN_WIDTH / 2. - 300.;
     let height = WIN_HEIGHT - 250.;
@@ -157,28 +160,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..Default::default()
             })
             .insert(PaletteColor::CourtLines)
-            .insert(Name::new("LevelLine"));
+            .insert(Name::new("LevelLine"))
+            .insert(Persistent);
     }
 
     let colliders = [
-        (-region_x, region_y, CourtRegion::TopLeft, Color::ORANGE),
-        (
-            -region_x,
-            -region_y,
-            CourtRegion::BottomLeft,
-            Color::ALICE_BLUE,
-        ),
-        (region_x, region_y, CourtRegion::TopRight, Color::GREEN),
-        (
-            region_x,
-            -region_y,
-            CourtRegion::BottomRight,
-            Color::FUCHSIA,
-        ),
+        (-region_x, region_y, CourtRegion::TopLeft),
+        (-region_x, -region_y, CourtRegion::BottomLeft),
+        (region_x, region_y, CourtRegion::TopRight),
+        (region_x, -region_y, CourtRegion::BottomRight),
     ];
 
-    for (x, y, region, debug_col) in colliders.iter() {
-        spawn_region(&mut commands, *region, *x, *y, region_size, *debug_col);
+    for (x, y, region) in colliders.iter() {
+        spawn_region(&mut commands, *region, *x, *y, region_size);
     }
 
     // net
@@ -195,6 +189,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(PaletteColor::CourtLines)
         .insert(Net)
         .insert(Name::new("Net"))
+        .insert(Persistent)
         .with_children(|b| {
             // shadow
             b.spawn_bundle(SpriteBundle {
@@ -249,7 +244,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             DrawMode::Fill(FillMode::color(Color::rgb_u8(32, 40, 61))),
             Transform::from_xyz(0., 0., COURT_Z),
         ))
-        .insert(Court);
+        .insert(Court)
+        .insert(Persistent);
 
     // dashed tug lines
     let dash_line_x = x / 2.;
@@ -263,7 +259,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 ..Default::default()
             })
-            .insert(PaletteColor::CourtPost);
+            .insert(PaletteColor::CourtPost)
+            .insert(Persistent);
     }
 
     // cheeky bg - maybe just set for camera?
@@ -275,7 +272,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..Default::default()
         })
-        .insert(PaletteColor::Background);
+        .insert(PaletteColor::Background)
+        .insert(Persistent);
 
     commands.insert_resource(settings);
 }
@@ -306,14 +304,7 @@ fn draw_court(mut court_q: Query<&mut Path, With<Court>>, court: Res<CourtSettin
     }
 }
 
-fn spawn_region(
-    commands: &mut Commands,
-    region: CourtRegion,
-    x: f32,
-    y: f32,
-    region_size: Vec3,
-    debug_color: Color,
-) {
+fn spawn_region(commands: &mut Commands, region: CourtRegion, x: f32, y: f32, region_size: Vec3) {
     commands
         .spawn_bundle(TransformBundle::from_xyz(x, y, COURT_Z))
         .insert(RigidBody::KinematicPositionBased)
@@ -322,25 +313,9 @@ fn spawn_region(
             border_radius: None,
         })
         .insert(CollisionLayers::all::<PhysLayer>())
-        .insert(region.clone())
+        .insert(region)
         .insert(Name::new("Region"))
-        .with_children(|b| {
-            #[cfg(feature = "debug")]
-            {
-                let mut col = debug_color;
-                col.set_a(0.3);
-                b.spawn_bundle(SpriteBundle {
-                    // transform: Transform::from_xyz(*x, *y, COURT_Z + 0.5),
-                    sprite: Sprite {
-                        custom_size: Some(region_size.truncate() * 2.),
-                        color: col,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .insert(Name::new("RegionDebug"));
-            }
-        });
+        .insert(Persistent);
 }
 
 fn handle_net_offset(
@@ -355,8 +330,7 @@ fn handle_net_offset(
         let offset_mult = -50.;
         offset.0 = (score.right_player.games as f32 - score.left_player.games as f32) * offset_mult;
 
-        #[cfg(feature = "debug")]
-        {
+        if cfg!(feature = "debug") {
             offset.0 =
                 (score.right_player.points as f32 - score.left_player.points as f32) * offset_mult;
         }
@@ -375,7 +349,7 @@ fn handle_net_offset(
         }
 
         // resize regions
-        for (region_e, region, mut region_t, mut region_coll_shape) in region_q.iter_mut() {
+        for (region_e, region, region_t, _region_coll_shape) in region_q.iter_mut() {
             let x = if region.is_left() {
                 -settings.region_x + offset.0 / 2.
             } else {
@@ -384,14 +358,7 @@ fn handle_net_offset(
             let side_mult = if region.is_left() { 1. } else { -1. };
             let mut extends = settings.base_region_size;
             extends.x += (offset.0 / 2.) * side_mult;
-            spawn_region(
-                &mut commands,
-                *region,
-                x,
-                region_t.translation.y,
-                extends,
-                Color::NONE,
-            );
+            spawn_region(&mut commands, *region, x, region_t.translation.y, extends);
 
             commands.entity(region_e).despawn_recursive();
         }

@@ -1,0 +1,13 @@
+todos:
+AI branch:
+cleanup
+reset
+AI opponent
+
+sfx
+faces
+music
+resizable window
+dash 'body' trail?
+fix trails to work at all angles
+ball can't be fired before it's tweened in

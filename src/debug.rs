@@ -1,4 +1,5 @@
 use crate::{
+    ai_player_controller::AiPlayerInputs,
     ball::{Ball, BallBounce},
     level::CourtRegion,
     player::{Player, PlayerDash, PlayerMovement, PlayerSwing},
@@ -19,6 +20,7 @@ impl Plugin for DebugPlugin {
             .register_inspectable::<Ball>()
             .register_inspectable::<BallBounce>()
             .register_inspectable::<CourtRegion>()
+            .register_inspectable::<AiPlayerInputs>()
             .add_startup_system(test_setup)
             .add_system(test_system);
     }

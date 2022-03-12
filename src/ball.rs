@@ -7,6 +7,18 @@ use bevy::{
 };
 use bevy_extensions::Vec2Conversion;
 
+use crate::{
+    animation::TweenDoneAction,
+    extra::TransformBundle,
+    level::{CourtRegion, CourtSettings, InitialRegion, NetOffset, ServingRegion},
+    palette::{Palette, PaletteColor},
+    physics::PhysLayer,
+    player::{Player, PlayerAim, PlayerSwing},
+    player_action::PlayerActionStatus,
+    render::{BALL_Z, PLAYER_Z, SHADOW_Z},
+    trail::{FadeOutTrail, Trail},
+    GameSetupPhase, GameState,
+};
 use bevy_inspector_egui::Inspectable;
 use bevy_prototype_lyon::prelude::*;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
@@ -15,34 +27,45 @@ use bevy_tweening::*;
 use heron::*;
 use rand::*;
 
-use crate::{
-    level::{CourtRegion, CourtSettings, InitialRegion, NetOffset},
-    palette::{Palette, PaletteColor},
-    player::{ActionStatus, Player, PlayerAim, PlayerSwing, ServingRegion},
-    trail::{FadeOutTrail, Trail},
-    tween::TweenDoneAction,
-    PhysLayer, PlayerInput, TransformBundle, BALL_Z, PLAYER_Z, SHADOW_Z, WIN_WIDTH,
-};
-
+pub const BALL_MAX_SPEED: f32 = 1100.;
 const BALL_SIZE: f32 = 35.;
+
+pub struct BallPlugin;
+impl Plugin for BallPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.add_system_set(
+            SystemSet::on_enter(GameState::Game).with_system(setup.label(GameSetupPhase::Ball)),
+        )
+        .add_system_to_stage(CoreStage::PostUpdate, handle_collisions)
+        .add_system_to_stage(CoreStage::PostUpdate, handle_regions)
+        .add_system_set(
+            SystemSet::on_update(GameState::Game)
+                .with_system(movement)
+                .with_system(bounce),
+        )
+        .add_event::<BallBouncedEvt>()
+        .add_event::<BallHitEvt>();
+    }
+}
 
 #[derive(Default, Component, Inspectable)]
 pub struct Ball {
-    dir: Vec2,
-    size: f32,
-    speed: f32,
+    pub dir: Vec2,
+    pub max_speed: f32,
+    pub speed: f32,
+    pub region: CourtRegion,
+    pub bounce_e: Option<Entity>,
+    pub trail_e: Option<Entity>,
     prev_pos: Vec3,
-    pub(crate) region: CourtRegion,
-    bounce_e: Option<Entity>,
-    pub(crate) trail_e: Option<Entity>,
+    size: f32,
 }
 
 #[derive(Default, Component, Inspectable)]
 pub struct BallBounce {
+    pub count: usize,
     gravity: f32,
     velocity: f32,
     max_velocity: f32,
-    count: usize,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -55,21 +78,14 @@ pub enum BallStatus {
 }
 
 pub struct BallBouncedEvt {
-    pub(crate) ball_e: Entity,
-    pub(crate) bounce_count: usize,
-    pub(crate) side: f32,
+    pub ball_e: Entity,
+    pub bounce_count: usize,
+    pub side: f32,
 }
 
-pub struct BallPlugin;
-impl Plugin for BallPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_startup_system_to_stage(StartupStage::PostStartup, setup)
-            .add_system(movement)
-            .add_system(bounce)
-            .add_system_to_stage(CoreStage::PostUpdate, handle_collisions)
-            .add_system_to_stage(CoreStage::PostUpdate, handle_regions)
-            .add_event::<BallBouncedEvt>();
-    }
+pub struct BallHitEvt {
+    pub ball_e: Entity,
+    pub player_id: usize,
 }
 
 fn setup(
@@ -110,10 +126,13 @@ fn movement(
 
         // very simple drag
         let drag_mult = if speed < 0.25 { 1. } else { 0.35 };
+        // todo: figure out a stable drag curve fn
         ball.dir *= 1. - drag_mult * time.scaled_delta_seconds();
 
         // move
-        ball_t.translation += ball.dir.to_vec3() * ball.speed * time.scaled_delta_seconds();
+        let vel = ball.dir.to_vec3() * ball.max_speed;
+        ball_t.translation += vel * time.scaled_delta_seconds();
+        ball.speed = vel.length();
 
         let net_x = net.0;
         let ball_x = ball_t.translation.x;
@@ -146,7 +165,7 @@ fn bounce(
     time: ScaledTime,
     net: Res<NetOffset>,
 ) {
-    for (mut ball_bounce, mut t, bounce_global_t, p) in bounce_query.iter_mut() {
+    for (mut ball_bounce, mut t, _bounce_global_t, p) in bounce_query.iter_mut() {
         if let Ok((ball_e, ball, mut ball_status, ball_t)) = ball_q.get_mut(p.0) {
             if ball.dir == Vec2::ZERO {
                 continue;
@@ -234,50 +253,53 @@ fn spawn_bounce_track(
 
 // nice2have: 'auto dash swing'?
 fn handle_collisions(
-    mut coll_events: EventReader<CollisionEvent>,
-    _input: Res<PlayerInput>,
+    mut coll_er: EventReader<CollisionEvent>,
+    mut ball_hit_ew: EventWriter<BallHitEvt>,
     mut ball_q: Query<(&mut Ball, &mut BallStatus, &Children)>,
     mut ball_bounce_q: Query<&mut BallBounce>,
     player_aim_q: Query<&PlayerAim>,
     mut player_q: Query<(&Player, &mut PlayerSwing, &GlobalTransform)>,
 ) {
-    for ev in coll_events.iter() {
+    for ev in coll_er.iter() {
         if ev.is_started() {
             let mut ball;
             let mut status;
+            let ball_e;
             let other_e;
             let bounce_e;
             let (entity_1, entity_2) = ev.rigid_body_entities();
             if let Ok(b) = ball_q.get_mut(entity_1) {
                 ball = b.0;
                 status = b.1;
-                bounce_e = b.2.iter().nth(0).unwrap();
+                ball_e = entity_1;
+                bounce_e = b.2.iter().next().unwrap();
                 other_e = entity_2;
             } else if let Ok(b) = ball_q.get_mut(entity_2) {
                 ball = b.0;
                 status = b.1;
-                bounce_e = b.2.iter().nth(0).unwrap();
+                ball_e = entity_2;
+                bounce_e = b.2.iter().next().unwrap();
                 other_e = entity_1;
             } else {
                 continue;
             }
 
-            let mut ball_bounce = ball_bounce_q.get_mut(bounce_e.clone()).unwrap();
+            let mut ball_bounce = ball_bounce_q.get_mut(*bounce_e).unwrap();
 
-            if let Ok((player, mut swing, player_t)) = player_q.get_mut(other_e) {
-                if let ActionStatus::Active(ball_speed_multiplier) = swing.status {
+            if let Ok((player, mut swing, _player_t)) = player_q.get_mut(other_e) {
+                if let PlayerActionStatus::Active(ball_speed_multiplier) = swing.status {
                     if !swing.timer.finished() {
                         swing.start_cooldown();
 
                         if let Ok(aim) = player_aim_q.get(player.aim_e) {
-                            let mut dir = aim.direction;
+                            let mut dir = aim.dir;
 
                             let clamp_x = 1.;
                             let clamp_y = 0.8;
 
                             let player_sign = player.get_sign();
                             if dir == Vec2::new(player_sign, 0.) {
-                                // player aiming into their court/backwards - just aim straight
+                                // player aiming into their own court - just aim straight
                                 dir = Vec2::new(-player_sign, 0.);
                             } else if player.is_left() {
                                 dir = dir.clamp(
@@ -308,12 +330,17 @@ fn handle_collisions(
                                     trace!("Vollied serve");
                                 }
                                 BallStatus::Rally(..) => {
-                                    // set rally player on hit, also applies to
+                                    // set rally player on hit
                                     *status = BallStatus::Rally(player.id);
                                 }
                                 _ => {}
                             }
                         }
+
+                        ball_hit_ew.send(BallHitEvt {
+                            ball_e,
+                            player_id: player.id,
+                        });
                     }
                 }
             }
@@ -467,7 +494,7 @@ pub fn spawn_ball(
     let x = if serve_region.is_left() { -x } else { x };
     let y = rng.gen_range(120..=280) as f32;
     let y = if serve_region.is_bottom() { -y } else { y };
-    let _ball_e = commands
+    commands
         .spawn_bundle(TransformBundle {
             transform: Transform {
                 translation: Vec3::new(x, y, BALL_Z),
@@ -479,10 +506,10 @@ pub fn spawn_ball(
         .insert(GlobalTransform::default())
         .insert(Ball {
             size: BALL_SIZE,
-            speed: 1100.,
+            max_speed: BALL_MAX_SPEED,
             region: serve_region,
-            bounce_e: Some(bounce_e.clone()),
-            trail_e: Some(trail_e.clone()),
+            bounce_e: Some(bounce_e),
+            trail_e: Some(trail_e),
             ..Default::default()
         })
         .insert(BallStatus::Serve(serve_region, fault_count, player_id))
@@ -502,6 +529,5 @@ pub fn spawn_ball(
                     end: Vec3::ONE,
                 },
             ),
-        )))
-        .id();
+        )));
 }

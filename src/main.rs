@@ -1,267 +1,128 @@
-// nice2have: make this a feature
-// // disable console opening on windows
-
-// #![windows_subsystem = "windows"]
-
+#![cfg_attr(feature = "release", windows_subsystem = "windows")]
 #![feature(derive_default_enum)]
 #![feature(if_let_guard)]
 #![feature(drain_filter)]
+#![allow(clippy::type_complexity, clippy::too_many_arguments)]
 
-// todo list:
-// sfx
-// faces
-// reset
-
-// music
-// AI
-// fix WASM release (get rid of the serialiation/async load of binding)
-// resizable window
-
-// font
-// https://www.dafont.com/typo-round.font
-
-// nice2have dash 'body' trail?
-
+use ai_player_controller::AiPlayerControllerPlugin;
+use animation::AnimationPlugin;
+use asset::AssetPlugin;
 use ball::BallPlugin;
-use bevy::{prelude::*, render::render_resource::FilterMode};
-use bevy_extensions::panic_on_error;
-use bevy_input::{
-    ActionInput, ActionInputPlugin, ActionMap, AxisBinding, BindingError, GamepadMap,
-};
+use bevy::prelude::*;
+use bevy_input::ActionInputPlugin;
 use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_time::TimePlugin;
 use bevy_tweening::TweeningPlugin;
-
+use big_brain::BigBrainPlugin;
+use camera::CameraPlugin;
 use debug::DebugPlugin;
 use heron::*;
+use input_binding::{InputAction, InputAxis, InputBindingPlugin};
 use level::{CourtRegion, InitialRegion, LevelPlugin};
 use palette::PalettePlugin;
 use player::PlayerPlugin;
+use player_action::PlayerActionPlugin;
+use player_animation::PlayerAnimationPlugin;
+use player_controller::PlayerControllerPlugin;
+use reset::ResetPlugin;
 use score::ScorePlugin;
 use trail::TrailPlugin;
-use tween::TweenPlugin;
+use window::{WIN_HEIGHT, WIN_WIDTH};
 
+// todo: namespace modules (e.g. player)
+mod ai_player_controller;
+mod animation;
+mod asset;
 mod ball;
+mod camera;
 mod debug;
+mod extra;
+mod input_binding;
 mod level;
 mod palette;
+mod physics;
 mod player;
+mod player_action;
+mod player_animation;
+mod player_controller;
+mod render;
+mod reset;
 mod score;
 mod trail;
-mod tween;
+mod window;
 
-const NAME: &str = "Tennis Rounds";
-const WIN_WIDTH: f32 = 1700.;
-const WIN_HEIGHT: f32 = 900.;
+const NAME: &str = "Tag of Ball";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum InputAction {
-    Swing,
-    Dash,
-    LockPosition,
-    ChangePalette,
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+enum GameState {
+    Game,
+    Reset,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum InputAxis {
-    MoveX,
-    MoveY,
-    AimX,
-    AimY,
+#[derive(SystemLabel, Debug, Clone, Eq, PartialEq, Hash)]
+enum GameSetupPhase {
+    Ball,
+    Player,
 }
-
-type PlayerInput = ActionInput<InputAction, InputAxis>;
-
-#[derive(PhysicsLayer)]
-#[allow(dead_code)]
-enum PhysLayer {
-    All, // World,
-         // Player,
-         // Ball
-}
-
-#[derive(Bundle, Default)]
-pub struct TransformBundle {
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-}
-
-impl TransformBundle {
-    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
-        Self {
-            transform: Transform::from_xyz(x, y, z),
-            ..Default::default()
-        }
-    }
-}
-
-const BG_Z: f32 = 0.;
-const COURT_Z: f32 = BG_Z + 1.;
-const COURT_LINE_Z: f32 = COURT_Z + 1.;
-const SHADOW_Z: f32 = COURT_LINE_Z + 1.;
-const NET_Z: f32 = SHADOW_Z + 1.;
-const PLAYER_Z: f32 = NET_Z + 1.;
-const BALL_Z: f32 = PLAYER_Z + 1.;
 
 fn main() {
-    let mut region = CourtRegion::get_random();
-    #[cfg(feature = "debug")]
-    {
+    // let mut region = CourtRegion::get_random();
+    let mut region = CourtRegion::BottomLeft;
+    let mut scale_factor_override = None;
+
+    if cfg!(feature = "debug") {
         region = CourtRegion::TopLeft;
+        scale_factor_override = Some(1.);
     }
 
     let mut app = App::new();
     app.insert_resource(Msaa { samples: 4 })
+        // resources needed before default plugins to take effect
         .insert_resource(WindowDescriptor {
             title: NAME.to_string(),
             width: WIN_WIDTH,
             height: WIN_HEIGHT,
             resizable: false,
-            // scale_factor_override: Some(1.),
+            scale_factor_override,
             ..Default::default()
         })
         .insert_resource(ClearColor(Color::WHITE))
+        // game resources
         .insert_resource(InitialRegion(region))
+        // bevy plugins
         .add_plugins(DefaultPlugins)
+        // 3rd party crates
         .add_plugin(PhysicsPlugin::default())
         .add_plugin(TweeningPlugin)
+        .add_plugin(BigBrainPlugin)
+        // game crates
         .add_plugin(TimePlugin)
         .add_plugin(ActionInputPlugin::<InputAction, InputAxis>::default())
-        .add_plugin(PlayerPlugin)
+        // game plugins
+        .add_plugin(AiPlayerControllerPlugin)
+        .add_plugin(AnimationPlugin)
+        .add_plugin(AssetPlugin)
         .add_plugin(BallPlugin)
-        .add_plugin(ScorePlugin)
-        .add_plugin(TweenPlugin)
-        .add_plugin(TrailPlugin)
+        .add_plugin(CameraPlugin)
+        .add_plugin(InputBindingPlugin)
         .add_plugin(LevelPlugin)
         .add_plugin(PalettePlugin)
-        .add_startup_system(setup)
-        .add_startup_system(setup_bindings.chain(panic_on_error))
-        .add_system(set_img_sampler_filter);
+        .add_plugin(PlayerPlugin)
+        .add_plugin(PlayerControllerPlugin)
+        .add_plugin(PlayerActionPlugin)
+        .add_plugin(PlayerAnimationPlugin)
+        .add_plugin(ResetPlugin)
+        .add_plugin(ScorePlugin)
+        .add_plugin(TrailPlugin)
+        // initial state
+        .add_state(GameState::Game);
 
-    #[cfg(not(feature = "debug"))]
-    {
+    if cfg!(feature = "debug") {
+        app.add_plugin(DebugPlugin);
+    } else {
+        // heron 2d-debug adds lyon plugin as well, which would cause a panic
         app.add_plugin(ShapePlugin);
     }
 
-    #[cfg(feature = "debug")]
-    {
-        app.add_plugin(DebugPlugin);
-    }
-
     app.run();
-}
-
-fn setup(mut commands: Commands) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(UiCameraBundle::default());
-}
-
-fn setup_bindings(
-    mut map: ResMut<ActionMap<InputAction, InputAxis>>,
-    mut gamepad_map: ResMut<GamepadMap>,
-) -> Result<(), BindingError> {
-    let deadzone = 0.15;
-
-    for id in 1..=2 {
-        map.bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger)?
-            .bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger2)?
-            .bind_button_action(id, InputAction::Swing, GamepadButtonType::South)?
-            .bind_button_action(id, InputAction::Swing, GamepadButtonType::West)?
-            .bind_button_action(id, InputAction::Swing, GamepadButtonType::East)?
-            .bind_button_action(id, InputAction::Swing, GamepadButtonType::North)?
-            .bind_button_action(id, InputAction::Swing, GamepadButtonType::LeftTrigger2)?
-            .bind_button_action(id, InputAction::ChangePalette, GamepadButtonType::Select)?
-            .bind_button_action(
-                id,
-                InputAction::LockPosition,
-                GamepadButtonType::LeftTrigger,
-            )?
-            .bind_axis_with_deadzone(
-                id,
-                InputAxis::MoveX,
-                AxisBinding::GamepadAxis(GamepadAxisType::LeftStickX),
-                deadzone,
-            )
-            .bind_axis_with_deadzone(
-                id,
-                InputAxis::MoveX,
-                AxisBinding::GamepadAxis(GamepadAxisType::DPadX),
-                deadzone,
-            )
-            .bind_axis_with_deadzone(
-                id,
-                InputAxis::MoveY,
-                AxisBinding::GamepadAxis(GamepadAxisType::LeftStickY),
-                deadzone,
-            )
-            .bind_axis_with_deadzone(
-                id,
-                InputAxis::MoveY,
-                AxisBinding::GamepadAxis(GamepadAxisType::DPadY),
-                deadzone,
-            )
-            .bind_axis_with_deadzone(
-                id,
-                InputAxis::AimX,
-                AxisBinding::GamepadAxis(GamepadAxisType::RightStickX),
-                deadzone,
-            )
-            .bind_axis_with_deadzone(
-                id,
-                InputAxis::AimY,
-                AxisBinding::GamepadAxis(GamepadAxisType::RightStickY),
-                deadzone,
-            );
-
-        gamepad_map.map_gamepad(id - 1, id);
-    }
-
-    map.bind_button_action(1, InputAction::Dash, KeyCode::Space)?
-        .bind_button_action(1, InputAction::Swing, KeyCode::J)?
-        .bind_axis(
-            1,
-            InputAxis::MoveX,
-            AxisBinding::Buttons(KeyCode::A.into(), KeyCode::D.into()),
-        )
-        .bind_axis(
-            1,
-            InputAxis::MoveY,
-            AxisBinding::Buttons(KeyCode::S.into(), KeyCode::W.into()),
-        );
-
-    map.bind_button_action(2, InputAction::Dash, KeyCode::Numpad0)?
-        .bind_button_action(2, InputAction::Swing, KeyCode::NumpadAdd)?
-        .bind_button_action(2, InputAction::ChangePalette, KeyCode::P)?
-        .bind_axis(
-            2,
-            InputAxis::MoveX,
-            AxisBinding::Buttons(KeyCode::Left.into(), KeyCode::Right.into()),
-        )
-        .bind_axis(
-            2,
-            InputAxis::MoveY,
-            AxisBinding::Buttons(KeyCode::Down.into(), KeyCode::Up.into()),
-        );
-    Ok(())
-}
-
-fn set_img_sampler_filter(
-    mut ev_asset: EventReader<AssetEvent<Image>>,
-    mut assets: ResMut<Assets<Image>>,
-) {
-    for ev in ev_asset.iter() {
-        match ev {
-            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                // set sampler filtering to add some AA (quite fuzzy though)
-                let mut texture = assets.get_mut(handle).unwrap();
-                texture.sampler_descriptor.mag_filter = FilterMode::Linear;
-                texture.sampler_descriptor.min_filter = FilterMode::Linear;
-            }
-            _ => {}
-        }
-    }
-}
-
-fn inverse_lerp(a: f32, b: f32, t: f32) -> f32 {
-    (t - a) / (b - a)
 }

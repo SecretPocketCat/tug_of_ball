@@ -2,22 +2,6 @@ use bevy::{math::Vec2, prelude::*};
 use bevy_prototype_lyon::prelude::*;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 
-pub struct TrailPoint(Vec2, f64);
-
-#[derive(Component)]
-pub struct Trail {
-    pub(crate) points: Vec<TrailPoint>,
-    pub(crate) transform_e: Entity,
-    pub(crate) duration_sec: f32,
-    pub(crate) max_width: f32,
-}
-
-#[derive(Component, Default)]
-pub struct FadeOutTrail {
-    pub(crate) decrease_duration_by: f32,
-    pub(crate) stop_trail: bool,
-}
-
 pub struct TrailPlugin;
 impl Plugin for TrailPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
@@ -25,6 +9,25 @@ impl Plugin for TrailPlugin {
             .add_system_to_stage(CoreStage::Last, draw_trail)
             .add_system(fadeout_trail);
     }
+}
+
+pub struct TrailPoint {
+    position: Vec2,
+    time: f64,
+}
+
+#[derive(Component)]
+pub struct Trail {
+    pub points: Vec<TrailPoint>,
+    pub transform_e: Entity,
+    pub duration_sec: f32,
+    pub max_width: f32,
+}
+
+#[derive(Component, Default)]
+pub struct FadeOutTrail {
+    pub decrease_duration_by: f32,
+    pub stop_trail: bool,
 }
 
 fn store_path_points(
@@ -47,22 +50,25 @@ fn store_path_points(
                 let mut add_point = true;
 
                 if let Some(mut last_point) = trail.points.last_mut() {
-                    if last_point.0 == new_pos {
-                        last_point.1 = curr_time;
+                    if last_point.position == new_pos {
+                        last_point.time = curr_time;
                         add_point = false;
                     }
                 }
 
                 if add_point {
-                    trail.points.push(TrailPoint(new_pos, curr_time));
+                    trail.points.push(TrailPoint {
+                        position: new_pos,
+                        time: curr_time,
+                    });
                 }
             }
         }
 
         let duration = trail.duration_sec as f64;
-        trail.points.drain_filter(|p| p.1 + duration < curr_time);
+        trail.points.drain_filter(|p| p.time + duration < curr_time);
 
-        if trail.points.len() == 0 {
+        if trail.points.is_empty() {
             commands.entity(e).despawn_recursive();
         }
     }
@@ -73,15 +79,15 @@ fn draw_trail(mut path_q: Query<(&mut Path, &mut Trail)>, time: Res<Time>) {
         if trail.points.len() > 1 {
             let mut path_builder = PathBuilder::new();
             let last = trail.points.last().unwrap();
-            let trail_dur = last.1 - trail.points[0].1;
+            let trail_dur = last.time - trail.points[0].time;
             let mut points_back = Vec::with_capacity(trail.points.len());
 
             // nice2have: the offset points should be angled (vertical movement breaks this right now, but that doesn't matter for the ball)
             for (i, p) in trail.points.iter().rev().enumerate() {
-                let time_delta = time.seconds_since_startup() - p.1;
+                let time_delta = time.seconds_since_startup() - p.time;
                 let w = (1. - (time_delta / trail_dur as f64)).clamp(0., 1.)
                     * (trail.max_width as f64 / 2.);
-                let pos = p.0 + Vec2::Y * w as f32;
+                let pos = p.position + Vec2::Y * w as f32;
 
                 if i == 0 {
                     path_builder.move_to(pos);
@@ -93,7 +99,7 @@ fn draw_trail(mut path_q: Query<(&mut Path, &mut Trail)>, time: Res<Time>) {
                     break;
                 }
 
-                points_back.push(p.0 - Vec2::Y * w as f32);
+                points_back.push(p.position - Vec2::Y * w as f32);
             }
 
             for p in points_back.iter().rev() {

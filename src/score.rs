@@ -1,17 +1,19 @@
+use crate::{palette::PaletteColor, reset::Persistent, GameState};
 use bevy::prelude::*;
-
 use bevy_inspector_egui::Inspectable;
 
-use crate::palette::PaletteColor;
+pub struct ScorePlugin;
+impl Plugin for ScorePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.init_resource::<Score>()
+            .add_startup_system(setup)
+            .add_system_set(SystemSet::on_enter(GameState::Game).with_system(reset_score))
+            .add_system(update_score_ui);
+    }
+}
 
 #[derive(Component, Inspectable)]
 struct PointsText;
-
-#[derive(Default)]
-pub struct PlayerScore {
-    pub points: u8,
-    pub games: u8,
-}
 
 #[derive(Default)]
 pub struct Score {
@@ -19,13 +21,11 @@ pub struct Score {
     pub right_player: PlayerScore,
 }
 
-pub struct ScorePlugin;
-impl Plugin for ScorePlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.init_resource::<Score>()
-            .add_startup_system(setup)
-            .add_system(update_score_ui);
-    }
+#[derive(Default, Component, Inspectable)]
+pub struct PlayerScore {
+    pub points: u8,
+    pub games: u8,
+    // pub sets: u8,
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -39,7 +39,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     bottom: Val::Px(10.0),
                     right: Val::Auto,
                     left: Val::Auto,
-                    ..Default::default()
                 },
                 ..Default::default()
             },
@@ -60,7 +59,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .insert(PaletteColor::Text)
         .insert(PointsText)
-        .insert(Name::new("ScoreText"));
+        .insert(Name::new("ScoreText"))
+        .insert(Persistent);
 }
 
 fn update_score_ui(score: Res<Score>, mut points_text_q: Query<&mut Text, With<PointsText>>) {
@@ -82,8 +82,7 @@ pub fn add_point_to_score(score: &mut Score, add_to_left_player: bool) -> bool {
     scoring.points += 1;
 
     let mut required_points = (other.points + 2).max(4);
-    #[cfg(feature = "debug")]
-    {
+    if cfg!(feature = "debug") {
         required_points = 100;
     }
 
@@ -104,4 +103,9 @@ pub fn add_point_to_score(score: &mut Score, add_to_left_player: bool) -> bool {
     // }
 
     false
+}
+
+fn reset_score(mut score: ResMut<Score>) {
+    score.left_player = PlayerScore::default();
+    score.right_player = PlayerScore::default();
 }
