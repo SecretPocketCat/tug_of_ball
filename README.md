@@ -1,3 +1,3 @@
-# Tennis Rounds
+# Tug of Ball
 
-nice2have: desc
+![Gameplay](./gifs/tug_of_ball.gif)
