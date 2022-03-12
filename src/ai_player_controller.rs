@@ -81,26 +81,28 @@ pub struct SwingAction;
 // dodge thinker
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<InitialRegion>) {
-    let move_thinker = Thinker::build()
-        .picker(FirstToScore::new(0.2))
-        .when(MoveToBallScorer, MoveToBallAction)
-        // .when(MoveDiagonallyToPlayerScorer, MoveDiagonallyToPlayerAction)
-        // .when(MoveToOuterLineScorer, MoveToOuterLineAction)
-        // .when(MoveToCenterLineScorer, MoveToCenterLineAction)
-        // .otherwise(MoveToBallAction);
-        .otherwise(StandStillAction);
+    if cfg!(feature = "debug") {
+        let move_thinker = Thinker::build()
+            .picker(FirstToScore::new(0.2))
+            .when(MoveToBallScorer, MoveToBallAction)
+            // .when(MoveDiagonallyToPlayerScorer, MoveDiagonallyToPlayerAction)
+            // .when(MoveToOuterLineScorer, MoveToOuterLineAction)
+            // .when(MoveToCenterLineScorer, MoveToCenterLineAction)
+            // .otherwise(MoveToBallAction);
+            .otherwise(StandStillAction);
 
-    let swing_thinker = Thinker::build()
-        .picker(FirstToScore::new(0.2))
-        .when(SwingScorer, SwingAction);
+        let swing_thinker = Thinker::build()
+            .picker(FirstToScore::new(0.2))
+            .when(SwingScorer, SwingAction);
 
-    spawn_player(2, &mut commands, &asset_server, &region)
-        .insert(AiPlayerInputs::default())
-        .insert(AiPlayer)
-        .insert(move_thinker)
-        .with_children(|b| {
-            b.spawn().insert(swing_thinker);
-        });
+        spawn_player(2, &mut commands, &asset_server, &region)
+            .insert(AiPlayerInputs::default())
+            .insert(AiPlayer)
+            .insert(move_thinker)
+            .with_children(|b| {
+                b.spawn().insert(swing_thinker);
+            });
+    }
 }
 
 fn on_ball_hit(
