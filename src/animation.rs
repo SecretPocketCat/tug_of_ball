@@ -64,5 +64,5 @@ fn rotate(mut q: Query<(&TransformRotation, &mut Transform)>, time: ScaledTime) 
 }
 
 pub fn inverse_lerp(a: f32, b: f32, t: f32) -> f32 {
-    (t - a) / (b - a)
+    ((t - a) / (b - a)).clamp(0., 1.)
 }
