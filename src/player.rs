@@ -30,6 +30,7 @@ use interpolation::EaseFunction;
 use std::time::Duration;
 
 pub const AIM_RING_ROTATION_DEG: f32 = 50.;
+pub const AIM_RING_RADIUS: f32 = 150.;
 // todo: get rid of this by fixing the animation system order and sue an enum label for that
 pub const SWING_LABEL: &str = "swing";
 
@@ -253,7 +254,9 @@ pub fn spawn_player<'a, 'b, 'c>(
     let mut p = commands.spawn_bundle(TransformBundle::from_xyz(x, player_y, PLAYER_Z));
     p.insert_bundle(PlayerBundle::new(id, initial_dir, aim_e, aim_charge_e))
         .insert(RigidBody::KinematicPositionBased)
-        .insert(CollisionShape::Sphere { radius: 100. })
+        .insert(CollisionShape::Sphere {
+            radius: AIM_RING_RADIUS,
+        })
         .insert(CollisionLayers::none())
         .insert(Name::new("Player"))
         .add_child(aim_e)
@@ -268,6 +271,10 @@ pub fn spawn_player<'a, 'b, 'c>(
             b.spawn_bundle(SpriteBundle {
                 texture: asset_server.load("art-ish/player_circle.png"),
                 transform: Transform::from_xyz(0., 0., -0.1),
+                sprite: Sprite {
+                    custom_size: Some(Vec2::splat(AIM_RING_RADIUS * 2.)),
+                    ..Default::default()
+                },
                 ..Default::default()
             })
             .insert(PaletteColor::PlayerAim)
