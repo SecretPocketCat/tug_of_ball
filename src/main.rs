@@ -91,9 +91,17 @@ fn main() {
         // game resources
         .insert_resource(InitialRegion(region))
         // bevy plugins
-        .add_plugins(DefaultPlugins)
-        // 3rd party crates
-        .add_plugin(PhysicsPlugin::default())
+        .add_plugins(DefaultPlugins);
+
+    if cfg!(feature = "debug") {
+        app.add_plugin(DebugPlugin);
+    } else {
+        // heron 2d-debug adds lyon plugin as well, which would cause a panic
+        app.add_plugin(ShapePlugin);
+    }
+
+    // 3rd party crates
+    app.add_plugin(PhysicsPlugin::default())
         .add_plugin(TweeningPlugin)
         .add_plugin(BigBrainPlugin)
         // game crates
@@ -117,13 +125,6 @@ fn main() {
         .add_plugin(TrailPlugin)
         // initial state
         .add_state(GameState::Game);
-
-    if cfg!(feature = "debug") {
-        app.add_plugin(DebugPlugin);
-    } else {
-        // heron 2d-debug adds lyon plugin as well, which would cause a panic
-        app.add_plugin(ShapePlugin);
-    }
 
     app.run();
 }

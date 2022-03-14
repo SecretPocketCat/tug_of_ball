@@ -1,5 +1,4 @@
 use crate::{
-    ai_player_controller::AiPlayer,
     animation::{inverse_lerp, TransformRotation, TweenDoneAction},
     ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
     extra::TransformBundle,
@@ -30,6 +29,7 @@ use interpolation::EaseFunction;
 use std::time::Duration;
 
 pub const AIM_RING_ROTATION_DEG: f32 = 50.;
+// pub const AIM_RING_RADIUS: f32 = 350.;
 pub const AIM_RING_RADIUS: f32 = 150.;
 // todo: get rid of this by fixing the animation system order and sue an enum label for that
 pub const SWING_LABEL: &str = "swing";
@@ -530,14 +530,6 @@ fn swing(
             }
         }
     }
-}
-
-pub fn get_swing_multiplier_clamped(duration: f32) -> f32 {
-    get_swing_multiplier(duration).clamp(0.4, 1.)
-}
-
-pub fn get_swing_multiplier(duration: f32) -> f32 {
-    ((duration * 1.8).sin().abs() * 1.15).min(1.)
 }
 
 fn on_ball_bounced(

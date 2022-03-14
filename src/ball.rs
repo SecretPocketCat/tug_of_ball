@@ -27,7 +27,11 @@ use bevy_tweening::*;
 use heron::*;
 use rand::*;
 
-pub const BALL_MAX_SPEED: f32 = 1100.;
+pub const BALL_MIN_SPEED: f32 = 600.;
+pub const BALL_MAX_SPEED: f32 = 2100.;
+pub const BALL_GRAVITY: f32 = -650.;
+pub const BALL_MIN_HEIGHT: f32 = 300.;
+pub const TARGET_X_OFFSET: f32 = 100.;
 const BALL_SIZE: f32 = 35.;
 
 pub struct BallPlugin;
@@ -38,11 +42,7 @@ impl Plugin for BallPlugin {
         )
         .add_system_to_stage(CoreStage::PostUpdate, handle_collisions)
         .add_system_to_stage(CoreStage::PostUpdate, handle_regions)
-        .add_system_set(
-            SystemSet::on_update(GameState::Game)
-                .with_system(movement)
-                .with_system(bounce),
-        )
+        .add_system_set(SystemSet::on_update(GameState::Game).with_system(move_ball))
         .add_event::<BallBouncedEvt>()
         .add_event::<BallHitEvt>();
     }
@@ -51,11 +51,11 @@ impl Plugin for BallPlugin {
 #[derive(Default, Component, Inspectable)]
 pub struct Ball {
     pub dir: Vec2,
-    pub max_speed: f32,
     pub speed: f32,
     pub region: CourtRegion,
     pub bounce_e: Option<Entity>,
     pub trail_e: Option<Entity>,
+    pub predicted_bounce_pos: Vec2,
     prev_pos: Vec3,
     size: f32,
 }
@@ -63,9 +63,8 @@ pub struct Ball {
 #[derive(Default, Component, Inspectable)]
 pub struct BallBounce {
     pub count: usize,
-    gravity: f32,
-    velocity: f32,
-    max_velocity: f32,
+    height: f32,
+    initial_height: f32,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -105,14 +104,17 @@ fn setup(
     commands.insert_resource(ServingRegion(region.0));
 }
 
-// nice2have: try - slowly speedup during rally?
-fn movement(
-    mut ball_q: Query<(&mut Ball, &mut Transform)>,
-    mut bounce_q: Query<&mut BallBounce>,
+fn move_ball(
+    mut ball_q: Query<(Entity, &mut Ball, &mut Transform, &mut BallStatus)>,
+    mut bounce_q: Query<(&mut BallBounce, &mut Transform), Without<Ball>>,
+    mut ev_w_bounce: EventWriter<BallBouncedEvt>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    palette: Res<Palette>,
     time: ScaledTime,
     net: Res<NetOffset>,
 ) {
-    for (mut ball, mut ball_t) in ball_q.iter_mut() {
+    for (ball_e, mut ball, mut ball_t, mut ball_status) in ball_q.iter_mut() {
         if ball.dir == Vec2::ZERO {
             continue;
         }
@@ -124,61 +126,36 @@ fn movement(
             return;
         }
 
-        // very simple drag
-        let drag_mult = if speed < 0.25 { 1. } else { 0.35 };
-        // todo: figure out a stable drag curve fn
-        ball.dir *= 1. - drag_mult * time.scaled_delta_seconds();
-
         // move
-        let vel = ball.dir.to_vec3() * ball.max_speed;
-        ball_t.translation += vel * time.scaled_delta_seconds();
-        ball.speed = vel.length();
+        ball_t.translation += (ball.dir * ball.speed).to_vec3() * time.scaled_delta_seconds();
 
         let net_x = net.0;
         let ball_x = ball_t.translation.x;
         let ball_prev_x = ball.prev_pos.x;
-        if (ball_prev_x < net_x && ball_x > net_x) || (ball_prev_x > net_x && ball_x < net_x) {
-            if let Ok(mut bounce) = bounce_q.get_mut(ball.bounce_e.unwrap()) {
-                bounce.count = 0;
-                info!("crossed net extra check");
-            }
-        }
 
         ball.prev_pos = ball_t.translation;
-    }
-}
 
-fn get_bounce_velocity(dir_len: f32, max_velocity: f32) -> f32 {
-    dir_len.sqrt().min(1.) * max_velocity
-}
+        // bounce
+        if let Ok((mut ball_bounce, mut bounce_t)) = bounce_q.get_mut(ball.bounce_e.unwrap()) {
+            if (ball_prev_x < net_x && ball_x > net_x) || (ball_prev_x > net_x && ball_x < net_x) {
+                ball_bounce.count = 0;
+                info!("crossed net extra check");
+            }
 
-fn bounce(
-    mut bounce_query: Query<
-        (&mut BallBounce, &mut Transform, &GlobalTransform, &Parent),
-        Without<Ball>,
-    >,
-    mut ball_q: Query<(Entity, &mut Ball, &mut BallStatus, &Transform)>,
-    mut ev_w_bounce: EventWriter<BallBouncedEvt>,
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    palette: Res<Palette>,
-    time: ScaledTime,
-    net: Res<NetOffset>,
-) {
-    for (mut ball_bounce, mut t, _bounce_global_t, p) in bounce_query.iter_mut() {
-        if let Ok((ball_e, ball, mut ball_status, ball_t)) = ball_q.get_mut(p.0) {
             if ball.dir == Vec2::ZERO {
                 continue;
             }
 
-            ball_bounce.velocity += ball_bounce.gravity * time.scaled_delta_seconds();
-            t.translation.y += ball_bounce.velocity * time.scaled_delta_seconds();
+            bounce_t.translation.y += ball_bounce.height * time.scaled_delta_seconds();
+            ball_bounce.height += BALL_GRAVITY * time.scaled_delta_seconds();
 
-            if t.translation.y <= 0. {
-                t.translation.y = 0.01;
-                ball_bounce.velocity =
-                    get_bounce_velocity(ball.dir.length(), ball_bounce.max_velocity);
+            if bounce_t.translation.y <= 0. {
+                bounce_t.translation.y = 0.01;
                 ball_bounce.count += 1;
+                ball.speed *= 0.8;
+                ball_bounce.height =
+                    ball_bounce.initial_height * (0.75f32).powf(ball_bounce.count as f32);
+
                 trace!("Bounce {}", ball_bounce.count);
 
                 // eval serve on bounce
@@ -216,131 +193,101 @@ fn bounce(
     }
 }
 
-fn spawn_bounce_track(
-    commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
-    palette: &Res<Palette>,
-    pos: Vec3,
-) {
-    let end_col = palette.get_color(&PaletteColor::Shadow);
-    let tween = Tween::new(
-        EaseFunction::QuadraticOut,
-        TweeningType::Once,
-        Duration::from_millis(1500),
-        SpriteColorLens {
-            start: end_col,
-            end: Color::NONE,
-        },
-    )
-    .with_completed_event(true, TweenDoneAction::DespawnRecursive.into());
-
-    commands
-        .spawn_bundle(SpriteBundle {
-            texture: asset_server.load("art-ish/ball.png"),
-            sprite: Sprite {
-                custom_size: Some(Vec2::new(1.0, 0.5) * BALL_SIZE),
-                color: Color::NONE,
-                ..Default::default()
-            },
-            transform: Transform {
-                translation: pos + Vec3::new(-3., -14., 0.),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(Animator::new(tween));
-}
-
 // nice2have: 'auto dash swing'?
 fn handle_collisions(
     mut coll_er: EventReader<CollisionEvent>,
     mut ball_hit_ew: EventWriter<BallHitEvt>,
-    mut ball_q: Query<(&mut Ball, &mut BallStatus, &Children)>,
+    mut ball_q: Query<(&mut Ball, &mut BallStatus, &Transform)>,
     mut ball_bounce_q: Query<&mut BallBounce>,
     player_aim_q: Query<&PlayerAim>,
     mut player_q: Query<(&Player, &mut PlayerSwing, &GlobalTransform)>,
+    net: Res<NetOffset>,
 ) {
     for ev in coll_er.iter() {
         if ev.is_started() {
             let mut ball;
+            let mut ball_t;
             let mut status;
             let ball_e;
             let other_e;
-            let bounce_e;
             let (entity_1, entity_2) = ev.rigid_body_entities();
             if let Ok(b) = ball_q.get_mut(entity_1) {
                 ball = b.0;
+                ball_t = b.2;
                 status = b.1;
                 ball_e = entity_1;
-                bounce_e = b.2.iter().next().unwrap();
                 other_e = entity_2;
             } else if let Ok(b) = ball_q.get_mut(entity_2) {
                 ball = b.0;
                 status = b.1;
+                ball_t = b.2;
                 ball_e = entity_2;
-                bounce_e = b.2.iter().next().unwrap();
                 other_e = entity_1;
             } else {
                 continue;
             }
 
-            let mut ball_bounce = ball_bounce_q.get_mut(*bounce_e).unwrap();
-
             if let Ok((player, mut swing, _player_t)) = player_q.get_mut(other_e) {
-                if let PlayerActionStatus::Active(ball_speed_multiplier) = swing.status {
-                    if !swing.timer.finished() {
-                        swing.start_cooldown();
+                if let Ok(mut b_bounce) = ball_bounce_q.get_mut(ball.bounce_e.unwrap()) {
+                    if let PlayerActionStatus::Active(swing_strength) = swing.status {
+                        if !swing.timer.finished() {
+                            swing.start_cooldown();
 
-                        if let Ok(aim) = player_aim_q.get(player.aim_e) {
-                            let mut dir = aim.dir;
+                            if let Ok(aim) = player_aim_q.get(player.aim_e) {
+                                ball.dir = aim.dir.normalize_or_zero();
+                                ball.speed =
+                                    BALL_MIN_SPEED.lerp(&BALL_MAX_SPEED, &swing_strength.min(1.5));
+                                ball.predicted_bounce_pos =
+                                    ball_t.translation.truncate() + (ball.dir * ball.speed);
 
-                            let clamp_x = 1.;
-                            let clamp_y = 0.8;
-
-                            let player_sign = player.get_sign();
-                            if dir == Vec2::new(player_sign, 0.) {
-                                // player aiming into their own court - just aim straight
-                                dir = Vec2::new(-player_sign, 0.);
-                            } else if player.is_left() {
-                                dir = dir.clamp(
-                                    Vec2::new(clamp_x, -clamp_y),
-                                    Vec2::new(clamp_x, clamp_y),
-                                );
-                            } else {
-                                dir = dir.clamp(
-                                    Vec2::new(-clamp_x, -clamp_y),
-                                    Vec2::new(-clamp_x, clamp_y),
-                                );
-                            }
-
-                            ball.dir = dir * ball_speed_multiplier;
-                            ball_bounce.velocity =
-                                get_bounce_velocity(dir.length(), ball_bounce.max_velocity);
-
-                            let rot = Quat::from_rotation_arc_2d(Vec2::Y, dir)
+                                let target_x = if player.is_left() {
+                                    net.0 + TARGET_X_OFFSET
+                                } else {
+                                    net.0 - TARGET_X_OFFSET
+                                };
+                                let a = (target_x - ball_t.translation.x).abs();
+                                let angle = Quat::from_rotation_arc_2d(
+                                    -Vec2::X * player.get_sign(),
+                                    ball.dir,
+                                )
                                 .to_euler(EulerRot::XYZ)
-                                .2
-                                .to_degrees();
-                            trace!("Hit rot {:?}", rot);
+                                .2;
+                                let dist = a / angle.cos();
+                                let time = dist / ball.speed;
+                                let time_apex = time / 2.;
+                                b_bounce.height = (-BALL_GRAVITY * time_apex).max(BALL_MIN_HEIGHT);
+                                b_bounce.initial_height = b_bounce.height;
 
-                            match *status {
-                                BallStatus::Serve(_, _, player_id) if player_id != player.id => {
-                                    // vollied serve
-                                    *status = BallStatus::Rally(player.id);
-                                    trace!("Vollied serve");
+                                // let a = ball_t.translation.x
+                                // let dist =
+                                // let dur =
+
+                                info!(
+                                    "angle {}, vel_x {}, dist {:?}, time: {}, vel_y {}",
+                                    angle, ball.speed, dist, time, b_bounce.height
+                                );
+
+                                match *status {
+                                    BallStatus::Serve(_, _, player_id)
+                                        if player_id != player.id =>
+                                    {
+                                        // vollied serve
+                                        *status = BallStatus::Rally(player.id);
+                                        trace!("Vollied serve");
+                                    }
+                                    BallStatus::Rally(..) => {
+                                        // set rally player on hit
+                                        *status = BallStatus::Rally(player.id);
+                                    }
+                                    _ => {}
                                 }
-                                BallStatus::Rally(..) => {
-                                    // set rally player on hit
-                                    *status = BallStatus::Rally(player.id);
-                                }
-                                _ => {}
                             }
-                        }
 
-                        ball_hit_ew.send(BallHitEvt {
-                            ball_e,
-                            player_id: player.id,
-                        });
+                            ball_hit_ew.send(BallHitEvt {
+                                ball_e,
+                                player_id: player.id,
+                            });
+                        }
                     }
                 }
             }
@@ -410,19 +357,21 @@ fn handle_regions(
                         trace!("Crossed net");
                         trace!("height over net {}", bounce_t.translation.y);
 
-                        if bounce_t.translation.y < 20. {
-                            debug!("hit net");
-                            let hit_vel_mult = 0.25;
-                            ball.dir *= Vec2::new(-hit_vel_mult, hit_vel_mult);
-                            bounce.velocity *= 0.5;
+                        // todo: is this at all needed?
+                        // if bounce_t.translation.y < 20. {
+                        //     debug!("hit net");
+                        //     let hit_vel_mult = 0.25;
+                        //     ball.dir *= Vec2::new(-hit_vel_mult, hit_vel_mult);
+                        //     // todo: cut ball speed/vel
+                        //     // bounce.height *= 0.5;
 
-                            if let Ok(e) = entity_q.get(ball.trail_e.unwrap()) {
-                                commands.entity(e).insert(FadeOutTrail {
-                                    stop_trail: true,
-                                    ..Default::default()
-                                });
-                            }
-                        }
+                        //     if let Ok(e) = entity_q.get(ball.trail_e.unwrap()) {
+                        //         commands.entity(e).insert(FadeOutTrail {
+                        //             stop_trail: true,
+                        //             ..Default::default()
+                        //         });
+                        //     }
+                        // }
                     }
                 }
 
@@ -451,8 +400,6 @@ pub fn spawn_ball(
             ..Default::default()
         })
         .insert(BallBounce {
-            gravity: -420.,
-            max_velocity: 200.,
             ..Default::default()
         })
         .insert(PaletteColor::Ball)
@@ -490,7 +437,8 @@ pub fn spawn_ball(
         .id();
 
     let mut rng = rand::thread_rng();
-    let x = rng.gen_range((court_set.right / 2.)..=court_set.right) as f32;
+    // let x = rng.gen_range((court_set.right / 2.)..=court_set.right) as f32;
+    let x = court_set.right - 20.;
     let x = if serve_region.is_left() { -x } else { x };
     let y = rng.gen_range(120..=280) as f32;
     let y = if serve_region.is_bottom() { -y } else { y };
@@ -506,7 +454,6 @@ pub fn spawn_ball(
         .insert(GlobalTransform::default())
         .insert(Ball {
             size: BALL_SIZE,
-            max_speed: BALL_MAX_SPEED,
             region: serve_region,
             bounce_e: Some(bounce_e),
             trail_e: Some(trail_e),
@@ -530,4 +477,39 @@ pub fn spawn_ball(
                 },
             ),
         )));
+}
+
+fn spawn_bounce_track(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    palette: &Res<Palette>,
+    pos: Vec3,
+) {
+    let end_col = palette.get_color(&PaletteColor::Shadow);
+    let tween = Tween::new(
+        EaseFunction::QuadraticOut,
+        TweeningType::Once,
+        Duration::from_millis(1500),
+        SpriteColorLens {
+            start: end_col,
+            end: Color::NONE,
+        },
+    )
+    .with_completed_event(true, TweenDoneAction::DespawnRecursive.into());
+
+    commands
+        .spawn_bundle(SpriteBundle {
+            texture: asset_server.load("art-ish/ball.png"),
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(1.0, 0.5) * BALL_SIZE),
+                color: Color::NONE,
+                ..Default::default()
+            },
+            transform: Transform {
+                translation: pos + Vec3::new(-3., -14., 0.),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(Animator::new(tween));
 }

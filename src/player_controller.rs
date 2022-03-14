@@ -1,15 +1,14 @@
 use crate::{
     ai_player_controller::AiPlayer,
     input_binding::{InputAction, InputAxis, PlayerInput},
-    player::{
-        get_swing_multiplier_clamped, Player, PlayerAim, PlayerDash, PlayerMovement, PlayerSwing,
-        SWING_LABEL,
-    },
+    player::{Player, PlayerAim, PlayerDash, PlayerMovement, PlayerSwing, SWING_LABEL},
     player_action::PlayerActionStatus,
     GameState,
 };
 use bevy::prelude::*;
 use bevy_input::*;
+
+pub const SWING_STRENGTH_MULTIPLIER: f32 = 0.75;
 
 pub struct PlayerControllerPlugin;
 impl Plugin for PlayerControllerPlugin {
@@ -84,7 +83,7 @@ fn process_player_input(
                         player_swing.status
                     {
                         player_swing.status = PlayerActionStatus::Active(
-                            get_swing_multiplier_clamped(key_data.duration),
+                            key_data.duration * SWING_STRENGTH_MULTIPLIER,
                         );
                         player_swing.timer = Timer::from_seconds(player_swing.duration_sec, false);
                     }
