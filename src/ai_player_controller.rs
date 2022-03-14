@@ -2,7 +2,7 @@ use crate::{
     animation::inverse_lerp,
     ball::{Ball, BallBounce, BallHitEvt, BALL_MAX_SPEED},
     input_binding::{InputAction, InputAxis, PlayerInput},
-    level::{InitialRegion, NetOffset},
+    level::{CourtSettings, InitialRegion, NetOffset},
     player::{
         spawn_player, Player, PlayerAim, PlayerDash, PlayerMovement, PlayerSwing, SWING_LABEL,
     },
@@ -21,6 +21,8 @@ impl Plugin for AiPlayerControllerPlugin {
             .add_system_to_stage(BigBrainStage::Actions, stand_still)
             .add_system_to_stage(BigBrainStage::Scorers, score_move_to_ball)
             .add_system_to_stage(BigBrainStage::Actions, move_to_ball_action)
+            .add_system_to_stage(BigBrainStage::Scorers, score_move_to_center)
+            .add_system_to_stage(BigBrainStage::Actions, move_to_center_action)
             .add_system_to_stage(BigBrainStage::Scorers, score_swing)
             .add_system_to_stage(BigBrainStage::Actions, swing_action);
     }
@@ -56,10 +58,10 @@ pub struct MoveDiagonallyToPlayerAction;
 pub struct MoveDiagonallyToPlayerScorer;
 
 #[derive(Debug, Clone, Component)]
-pub struct MoveToCenterLineAction;
+pub struct MoveToCenterAction;
 
 #[derive(Debug, Clone, Component)]
-pub struct MoveToCenterLineScorer;
+pub struct MoveToCenterScorer;
 
 #[derive(Debug, Clone, Component)]
 pub struct MoveToOuterLineAction;
@@ -80,28 +82,28 @@ pub struct SwingAction;
 // dodge thinker
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<InitialRegion>) {
-    if cfg!(feature = "debug") {
-        let move_thinker = Thinker::build()
-            .picker(FirstToScore::new(0.2))
-            .when(MoveToBallScorer, MoveToBallAction)
-            // .when(MoveDiagonallyToPlayerScorer, MoveDiagonallyToPlayerAction)
-            // .when(MoveToOuterLineScorer, MoveToOuterLineAction)
-            // .when(MoveToCenterLineScorer, MoveToCenterLineAction)
-            // .otherwise(MoveToBallAction);
-            .otherwise(StandStillAction);
+    // if cfg!(feature = "debug") {
+    let move_thinker = Thinker::build()
+        .picker(FirstToScore::new(0.2))
+        .when(MoveToBallScorer, MoveToBallAction)
+        // .when(MoveDiagonallyToPlayerScorer, MoveDiagonallyToPlayerAction)
+        // .when(MoveToOuterLineScorer, MoveToOuterLineAction)
+        .when(MoveToCenterScorer, MoveToCenterAction)
+        // .otherwise(MoveToBallAction);
+        .otherwise(StandStillAction);
 
-        let swing_thinker = Thinker::build()
-            .picker(FirstToScore::new(0.2))
-            .when(SwingScorer, SwingAction);
+    let swing_thinker = Thinker::build()
+        .picker(FirstToScore::new(0.2))
+        .when(SwingScorer, SwingAction);
 
-        spawn_player(2, &mut commands, &asset_server, &region)
-            .insert(AiPlayerInputs::default())
-            .insert(AiPlayer)
-            .insert(move_thinker)
-            .with_children(|b| {
-                b.spawn().insert(swing_thinker);
-            });
-    }
+    spawn_player(2, &mut commands, &asset_server, &region)
+        .insert(AiPlayerInputs::default())
+        .insert(AiPlayer)
+        .insert(move_thinker)
+        .with_children(|b| {
+            b.spawn().insert(swing_thinker);
+        });
+    // }
 }
 
 fn on_ball_hit(
@@ -242,6 +244,55 @@ fn move_to_ball_action(
                         }
                         None => movement.raw_dir = Vec2::ZERO,
                     }
+                    *state = ActionState::Executing;
+                }
+                ActionState::Cancelled => {
+                    *state = ActionState::Failure;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+fn score_move_to_center(
+    mut score_q: Query<(&Actor, &mut Score), With<MoveToCenterScorer>>,
+    inputs_q: Query<(&AiPlayerInputs, &Player, &GlobalTransform)>,
+    ball_q: Query<(&Ball, &GlobalTransform), Without<Player>>,
+    ball_bounce_q: Query<&BallBounce>,
+    net: Res<NetOffset>,
+) {
+    for (Actor(actor), mut score) in score_q.iter_mut() {
+        if let Ok((inputs, player, t)) = inputs_q.get(*actor) {
+            match &inputs.closest_incoming_ball {
+                Some(ball_data) => {
+                    score.set(0.);
+                }
+                None => score.set(1.),
+            }
+        }
+    }
+}
+
+fn move_to_center_action(
+    mut action_q: Query<(&Actor, &mut ActionState), With<MoveToCenterAction>>,
+    mut q: Query<(&mut PlayerMovement, &AiPlayerInputs, &GlobalTransform)>,
+    court_set: Res<CourtSettings>,
+    net: Res<NetOffset>,
+) {
+    for (Actor(actor), mut state) in action_q.iter_mut() {
+        if let Ok((mut movement, inputs, t)) = q.get_mut(*actor) {
+            match *state {
+                ActionState::Requested | ActionState::Executing => {
+                    let dist =
+                        Vec2::new((court_set.right - net.0) / 2., 0.) - t.translation.truncate();
+
+                    if dist.length() > 10. {
+                        movement.raw_dir = dist.normalize();
+                    } else {
+                        movement.raw_dir = Vec2::ZERO;
+                    }
+
                     *state = ActionState::Executing;
                 }
                 ActionState::Cancelled => {
