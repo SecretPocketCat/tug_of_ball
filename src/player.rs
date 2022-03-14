@@ -146,7 +146,7 @@ impl PlayerBundle {
                 aim_charge_e,
             },
             movement: PlayerMovement {
-                speed: 550.,
+                speed: 700.,
                 charging_speed: 125.,
                 time_to_max_speed: 0.11,
                 ..Default::default()
@@ -170,13 +170,15 @@ impl PlayerBundle {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<InitialRegion>) {
-    if cfg!(feature = "debug") {
-        spawn_player(1, &mut commands, &asset_server, &region);
-    } else {
-        for id in 1..=2 {
-            spawn_player(id, &mut commands, &asset_server, &region);
-        }
-    }
+    spawn_player(1, &mut commands, &asset_server, &region);
+
+    // if cfg!(feature = "debug") {
+    //     spawn_player(1, &mut commands, &asset_server, &region);
+    // } else {
+    //     for id in 1..=2 {
+    //         spawn_player(id, &mut commands, &asset_server, &region);
+    //     }
+    // }
 }
 
 pub fn spawn_player<'a, 'b, 'c>(
