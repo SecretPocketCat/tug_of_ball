@@ -241,6 +241,10 @@ fn move_to_ball_action(
                                     - t.translation.truncate())
                                 .normalize()
                                     * dist_mult;
+
+                                if t.translation.x < 250. {
+                                    movement.raw_dir.x = 0.0;
+                                }
                             }
                         }
                         None => movement.raw_dir = Vec2::ZERO,

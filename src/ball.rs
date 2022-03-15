@@ -27,10 +27,9 @@ use bevy_tweening::*;
 use heron::*;
 use rand::*;
 
-pub const BALL_MIN_SPEED: f32 = 600.;
-pub const BALL_MAX_SPEED: f32 = 2500.;
-pub const BALL_GRAVITY: f32 = -1500.;
-pub const BALL_MIN_HEIGHT: f32 = 150.;
+pub const BALL_MIN_SPEED: f32 = 400.;
+pub const BALL_MAX_SPEED: f32 = 2000.;
+pub const BALL_GRAVITY: f32 = -1100.;
 pub const TARGET_X_OFFSET: f32 = 100.;
 const BALL_SIZE: f32 = 35.;
 
@@ -65,6 +64,7 @@ pub struct BallBounce {
     pub count: usize,
     height: f32,
     target_height: f32,
+    gravity_mult: f32,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -147,21 +147,16 @@ fn move_ball(
             }
 
             bounce_t.translation.y += ball_bounce.height * time.scaled_delta_seconds();
-            ball_bounce.height += BALL_GRAVITY * time.scaled_delta_seconds();
+            ball_bounce.height +=
+                BALL_GRAVITY * ball_bounce.gravity_mult * time.scaled_delta_seconds();
 
             if bounce_t.translation.y <= 0. {
                 bounce_t.translation.y = 0.;
                 ball_bounce.count += 1;
-                info!(
-                    "Height mult: {}, bounce_count: {}",
-                    1. - (0.3
-                        * inverse_lerp(BALL_MAX_SPEED * 0.5, BALL_MIN_SPEED * 1.5, ball.speed)),
-                    ball_bounce.count,
-                );
-                ball_bounce.target_height *=
-                    1. - (0.3 * inverse_lerp(BALL_MAX_SPEED, BALL_MIN_SPEED, ball.speed));
+                // ball_bounce.target_height *=
+                //     1. - (0.3 * inverse_lerp(BALL_MAX_SPEED, BALL_MIN_SPEED, ball.speed));
                 ball_bounce.height = ball_bounce.target_height;
-                ball.speed *= 0.8;
+                // ball.speed *= 0.8;
 
                 trace!("Bounce {}", ball_bounce.count);
 
@@ -188,12 +183,15 @@ fn move_ball(
                     },
                 });
 
-                spawn_bounce_track(
-                    &mut commands,
-                    &asset_server,
-                    &palette,
-                    ball_t.translation.truncate().extend(SHADOW_Z),
-                );
+                if ball_bounce.count <= 4 {
+                    spawn_bounce_track(
+                        &mut commands,
+                        &asset_server,
+                        &palette,
+                        ball_t.translation.truncate().extend(SHADOW_Z),
+                    );
+                }
+
                 debug!("Bounced {} times", ball_bounce.count);
             }
         }
@@ -205,48 +203,44 @@ fn handle_collisions(
     mut coll_er: EventReader<CollisionEvent>,
     mut ball_hit_ew: EventWriter<BallHitEvt>,
     mut ball_q: Query<(&mut Ball, &mut BallStatus, &Transform)>,
-    mut ball_bounce_q: Query<&mut BallBounce>,
+    mut ball_bounce_q: Query<(&mut BallBounce, &Parent)>,
     player_aim_q: Query<&PlayerAim>,
     mut player_q: Query<(&Player, &mut PlayerSwing, &GlobalTransform)>,
     net: Res<NetOffset>,
 ) {
     for ev in coll_er.iter() {
         if ev.is_started() {
-            let mut ball;
-            let mut ball_t;
-            let mut status;
+            let mut b_bounce;
             let ball_e;
             let other_e;
             let (entity_1, entity_2) = ev.rigid_body_entities();
-            if let Ok(b) = ball_q.get_mut(entity_1) {
-                ball = b.0;
-                ball_t = b.2;
-                status = b.1;
-                ball_e = entity_1;
+            if let Ok((bounce, parent)) = ball_bounce_q.get_mut(entity_1) {
+                b_bounce = bounce;
+                ball_e = parent.0;
                 other_e = entity_2;
-            } else if let Ok(b) = ball_q.get_mut(entity_2) {
-                ball = b.0;
-                status = b.1;
-                ball_t = b.2;
-                ball_e = entity_2;
+            } else if let Ok((bounce, parent)) = ball_bounce_q.get_mut(entity_2) {
+                b_bounce = bounce;
+                ball_e = parent.0;
                 other_e = entity_1;
             } else {
                 continue;
             }
 
             if let Ok((player, mut swing, _player_t)) = player_q.get_mut(other_e) {
-                if let Ok(mut b_bounce) = ball_bounce_q.get_mut(ball.bounce_e.unwrap()) {
+                if let Ok((mut ball, mut status, ball_t)) = ball_q.get_mut(ball_e) {
                     if let PlayerActionStatus::Active(swing_strength) = swing.status {
                         if !swing.timer.finished() {
                             swing.start_cooldown();
 
                             if let Ok(aim) = player_aim_q.get(player.aim_e) {
-                                ball.dir = aim.dir.normalize_or_zero();
-                                ball.speed =
-                                    BALL_MIN_SPEED.lerp(&BALL_MAX_SPEED, &swing_strength.min(1.5));
-                                ball.predicted_bounce_pos =
-                                    ball_t.translation.truncate() + (ball.dir * ball.speed);
+                                ball.dir = aim.dir.normalize();
+                                ball.speed = BALL_MIN_SPEED
+                                    .lerp(&BALL_MAX_SPEED, &swing_strength.min(1.5))
+                                    + ball.speed * 0.25;
 
+                                // todo: better calc distance/target
+                                // should be based on strength, distance to net (the closer the shorter-ish the distance?), the current height!
+                                // let dist =
                                 let target_x = if player.is_left() {
                                     net.0 + TARGET_X_OFFSET
                                 } else {
@@ -262,15 +256,16 @@ fn handle_collisions(
                                 let dist = (a / angle.cos()).max(300.);
                                 let time = dist / ball.speed;
                                 let time_apex = time / 2.;
-                                // todo: take current height into consideration
-                                // todo: carry over some of prev velocity
-                                b_bounce.height = (-BALL_GRAVITY * time_apex).max(BALL_MIN_HEIGHT);
-                                b_bounce.target_height = b_bounce.height;
+                                b_bounce.gravity_mult =
+                                    inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed) * 2.0
+                                        + 1.;
+                                b_bounce.target_height =
+                                    -BALL_GRAVITY * time_apex * b_bounce.gravity_mult;
+                                b_bounce.height = b_bounce.target_height;
 
-                                // info!(
-                                //     "angle {}, vel_x {}, dist {:?}, time: {}, vel_y {}",
-                                //     angle, ball.speed, dist, time, b_bounce.height
-                                // );
+                                // todo: fix
+                                ball.predicted_bounce_pos =
+                                    ball_t.translation.truncate() + (ball.dir * ball.speed);
 
                                 match *status {
                                     BallStatus::Serve(_, _, player_id)
@@ -300,69 +295,69 @@ fn handle_collisions(
     }
 }
 
+// todo: fix out of bounds
 fn handle_regions(
     mut commands: Commands,
     mut coll_events: EventReader<CollisionEvent>,
-    ball_q: Query<(Entity, &GlobalTransform), With<Ball>>,
+    ball_q: Query<&GlobalTransform, With<Ball>>,
     mut ball_mut_q: Query<&mut Ball>,
-    mut ball_bounce_q: Query<(&mut BallBounce, &Transform)>,
+    mut ball_bounce_q: Query<(Entity, &mut BallBounce, &Transform, &Parent)>,
     region_q: Query<&CourtRegion>,
     court_set: Res<CourtSettings>,
     entity_q: Query<Entity, Without<Ball>>,
 ) {
     let all_events: Vec<CollisionEvent> = coll_events.iter().cloned().collect();
-    for (ball_e, ball_t) in ball_q.iter() {
+    for (bounce_e, mut bounce, bounce_t, ball_e) in ball_bounce_q.iter_mut() {
         let mut region = None;
 
-        for (i, ev) in all_events.iter().enumerate() {
-            let other_e;
-            let (entity_1, entity_2) = ev.rigid_body_entities();
-            if ball_e == entity_1 {
-                other_e = entity_2;
-            } else if ball_e == entity_2 {
-                other_e = entity_1;
-            } else {
-                continue;
-            }
-
-            if let Ok(r) = region_q.get(other_e) {
-                if ev.is_started() {
-                    trace!("[{}] Entered {:?}", i, r);
-
-                    // entered region
-                    region = Some(r);
+        if let Ok(ball_t) = ball_q.get(ball_e.0) {
+            for (i, ev) in all_events.iter().enumerate() {
+                let other_e;
+                let (entity_1, entity_2) = ev.rigid_body_entities();
+                if bounce_e == entity_1 {
+                    other_e = entity_2;
+                } else if bounce_e == entity_2 {
+                    other_e = entity_1;
                 } else {
-                    trace!("[{}] Exited {:?}", i, r);
+                    continue;
+                }
 
-                    // exited region
-                    if region.is_none()
-                        && *r != CourtRegion::OutOfBounds
-                        && (ball_t.translation.x < court_set.left
-                            || ball_t.translation.x > court_set.right
-                            || ball_t.translation.y < court_set.bottom
-                            || ball_t.translation.y > court_set.top)
-                    {
-                        region = Some(&CourtRegion::OutOfBounds);
+                if let Ok(r) = region_q.get(other_e) {
+                    if ev.is_started() {
+                        trace!("[{}] Entered {:?}", i, r);
+
+                        // entered region
+                        region = Some(r);
+                    } else {
+                        trace!("[{}] Exited {:?}", i, r);
+
+                        // exited region
+                        if region.is_none()
+                            && *r != CourtRegion::OutOfBounds
+                            && (ball_t.translation.x < court_set.left
+                                || ball_t.translation.x > court_set.right
+                                || ball_t.translation.y < court_set.bottom
+                                || ball_t.translation.y > court_set.top)
+                        {
+                            region = Some(&CourtRegion::OutOfBounds);
+                        }
                     }
                 }
             }
-        }
 
-        if let Some(r) = region {
-            if let Ok(mut ball) = ball_mut_q.get_mut(ball_e) {
-                trace!("{:?} => {:?}", ball.region, r);
+            if let Some(r) = region {
+                if let Ok(mut ball) = ball_mut_q.get_mut(ball_e.0) {
+                    trace!("{:?} => {:?}", ball.region, r);
 
-                if (ball.region.is_left() && r.is_right())
-                    || (ball.region.is_right() && r.is_left())
-                {
-                    if let Ok((mut bounce, bounce_t)) =
-                        ball_bounce_q.get_mut(ball.bounce_e.unwrap())
+                    if (ball.region.is_left() && r.is_right())
+                        || (ball.region.is_right() && r.is_left())
                     {
                         bounce.count = 0;
                         trace!("Crossed net");
                         trace!("height over net {}", bounce_t.translation.y);
 
                         // todo: is this at all needed?
+                        // 'net detection'
                         // if bounce_t.translation.y < 20. {
                         //     debug!("hit net");
                         //     let hit_vel_mult = 0.25;
@@ -378,9 +373,9 @@ fn handle_regions(
                         //     }
                         // }
                     }
-                }
 
-                ball.region = *r;
+                    ball.region = *r;
+                }
             }
         }
     }
@@ -408,6 +403,7 @@ pub fn spawn_ball(
             ..Default::default()
         })
         .insert(PaletteColor::Ball)
+        .insert(RigidBody::KinematicPositionBased)
         .insert(CollisionShape::Sphere { radius: 15. })
         .insert(CollisionLayers::all::<PhysLayer>())
         .id();
@@ -467,7 +463,6 @@ pub fn spawn_ball(
             ..Default::default()
         })
         .insert(BallStatus::Serve(serve_region, fault_count, player_id))
-        .insert(RigidBody::KinematicPositionBased)
         .insert(Name::new("Ball"))
         .add_child(bounce_e)
         .add_child(shadow)

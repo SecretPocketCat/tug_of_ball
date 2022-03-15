@@ -467,7 +467,7 @@ fn aim(
             }
 
             let clamp_x = 1.;
-            let clamp_y = 0.8;
+            let clamp_y = 0.75;
             let player_x_sign = p.get_sign();
 
             if dir == Vec2::new(player_x_sign, 0.) {
