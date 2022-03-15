@@ -220,6 +220,7 @@ fn score_move_to_ball(
     }
 }
 
+// todo: split into move_to_ball and move_to_predicted_bounce_pos
 fn move_to_ball_action(
     mut action_q: Query<(&Actor, &mut ActionState), With<MoveToBallAction>>,
     mut q: Query<(&mut PlayerMovement, &AiPlayerInputs, &GlobalTransform)>,
@@ -341,7 +342,7 @@ fn swing_action(
                         match swing.status {
                             PlayerActionStatus::Ready => {
                                 // todo: charge
-                                swing.status = PlayerActionStatus::Active(0.0);
+                                swing.status = PlayerActionStatus::Active(0.3);
                                 *state = ActionState::Success;
                             }
                             _ => {

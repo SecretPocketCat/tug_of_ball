@@ -8,7 +8,7 @@ use bevy::{
 use bevy_extensions::Vec2Conversion;
 
 use crate::{
-    animation::TweenDoneAction,
+    animation::{inverse_lerp, TweenDoneAction},
     extra::TransformBundle,
     level::{CourtRegion, CourtSettings, InitialRegion, NetOffset, ServingRegion},
     palette::{Palette, PaletteColor},
@@ -28,9 +28,9 @@ use heron::*;
 use rand::*;
 
 pub const BALL_MIN_SPEED: f32 = 600.;
-pub const BALL_MAX_SPEED: f32 = 2100.;
-pub const BALL_GRAVITY: f32 = -650.;
-pub const BALL_MIN_HEIGHT: f32 = 300.;
+pub const BALL_MAX_SPEED: f32 = 2500.;
+pub const BALL_GRAVITY: f32 = -1500.;
+pub const BALL_MIN_HEIGHT: f32 = 150.;
 pub const TARGET_X_OFFSET: f32 = 100.;
 const BALL_SIZE: f32 = 35.;
 
@@ -64,7 +64,7 @@ pub struct Ball {
 pub struct BallBounce {
     pub count: usize,
     height: f32,
-    initial_height: f32,
+    target_height: f32,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -139,7 +139,7 @@ fn move_ball(
         if let Ok((mut ball_bounce, mut bounce_t)) = bounce_q.get_mut(ball.bounce_e.unwrap()) {
             if (ball_prev_x < net_x && ball_x > net_x) || (ball_prev_x > net_x && ball_x < net_x) {
                 ball_bounce.count = 0;
-                info!("crossed net extra check");
+                trace!("crossed net extra check");
             }
 
             if ball.dir == Vec2::ZERO {
@@ -150,11 +150,18 @@ fn move_ball(
             ball_bounce.height += BALL_GRAVITY * time.scaled_delta_seconds();
 
             if bounce_t.translation.y <= 0. {
-                bounce_t.translation.y = 0.01;
+                bounce_t.translation.y = 0.;
                 ball_bounce.count += 1;
+                info!(
+                    "Height mult: {}, bounce_count: {}",
+                    1. - (0.3
+                        * inverse_lerp(BALL_MAX_SPEED * 0.5, BALL_MIN_SPEED * 1.5, ball.speed)),
+                    ball_bounce.count,
+                );
+                ball_bounce.target_height *=
+                    1. - (0.3 * inverse_lerp(BALL_MAX_SPEED, BALL_MIN_SPEED, ball.speed));
+                ball_bounce.height = ball_bounce.target_height;
                 ball.speed *= 0.8;
-                ball_bounce.height =
-                    ball_bounce.initial_height * (0.75f32).powf(ball_bounce.count as f32);
 
                 trace!("Bounce {}", ball_bounce.count);
 
@@ -252,20 +259,18 @@ fn handle_collisions(
                                 )
                                 .to_euler(EulerRot::XYZ)
                                 .2;
-                                let dist = a / angle.cos();
+                                let dist = (a / angle.cos()).max(300.);
                                 let time = dist / ball.speed;
                                 let time_apex = time / 2.;
+                                // todo: take current height into consideration
+                                // todo: carry over some of prev velocity
                                 b_bounce.height = (-BALL_GRAVITY * time_apex).max(BALL_MIN_HEIGHT);
-                                b_bounce.initial_height = b_bounce.height;
+                                b_bounce.target_height = b_bounce.height;
 
-                                // let a = ball_t.translation.x
-                                // let dist =
-                                // let dur =
-
-                                info!(
-                                    "angle {}, vel_x {}, dist {:?}, time: {}, vel_y {}",
-                                    angle, ball.speed, dist, time, b_bounce.height
-                                );
+                                // info!(
+                                //     "angle {}, vel_x {}, dist {:?}, time: {}, vel_y {}",
+                                //     angle, ball.speed, dist, time, b_bounce.height
+                                // );
 
                                 match *status {
                                     BallStatus::Serve(_, _, player_id)
@@ -403,6 +408,8 @@ pub fn spawn_ball(
             ..Default::default()
         })
         .insert(PaletteColor::Ball)
+        .insert(CollisionShape::Sphere { radius: 15. })
+        .insert(CollisionLayers::all::<PhysLayer>())
         .id();
 
     let shadow = commands
@@ -461,8 +468,6 @@ pub fn spawn_ball(
         })
         .insert(BallStatus::Serve(serve_region, fault_count, player_id))
         .insert(RigidBody::KinematicPositionBased)
-        .insert(CollisionShape::Sphere { radius: 15. })
-        .insert(CollisionLayers::all::<PhysLayer>())
         .insert(Name::new("Ball"))
         .add_child(bounce_e)
         .add_child(shadow)
