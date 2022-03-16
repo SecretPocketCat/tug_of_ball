@@ -5,7 +5,7 @@ use crate::{
     render::{COURT_LINE_Z, COURT_Z, NET_Z, SHADOW_Z},
     reset::Persistent,
     score::Score,
-    GameState, WIN_HEIGHT, WIN_WIDTH,
+    GameState, BASE_VIEW_HEIGHT, BASE_VIEW_WIDTH,
 };
 use bevy::{
     math::Vec2,
@@ -126,8 +126,8 @@ impl CourtRegion {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let x = WIN_WIDTH / 2. - 300.;
-    let height = WIN_HEIGHT - 250.;
+    let x = BASE_VIEW_WIDTH / 2. - 300.;
+    let height = BASE_VIEW_HEIGHT - 250.;
     let y = height / 2.;
     let thickness = 12.;
     let width = x * 2. + thickness;
@@ -246,22 +246,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .insert(Court)
         .insert(Persistent);
-
-    // dashed tug lines
-    let dash_line_x = x / 2.;
-    for x in [-dash_line_x, dash_line_x].iter() {
-        commands
-            .spawn_bundle(SpriteBundle {
-                texture: asset_server.load("art-ish/stroke.png"),
-                transform: Transform::from_xyz(*x, 0., COURT_LINE_Z),
-                sprite: Sprite {
-                    ..Default::default()
-                },
-                ..Default::default()
-            })
-            .insert(PaletteColor::CourtPost)
-            .insert(Persistent);
-    }
 
     // cheeky bg - maybe just set for camera?
     commands
