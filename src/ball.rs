@@ -13,7 +13,7 @@ use crate::{
     level::{CourtRegion, CourtSettings, InitialRegion, NetOffset, ServingRegion},
     palette::{Palette, PaletteColor},
     physics::PhysLayer,
-    player::{Player, PlayerAim, PlayerSwing},
+    player::{Player, PlayerAim, PlayerSwing, AIM_RING_RADIUS},
     player_action::PlayerActionStatus,
     render::{BALL_Z, PLAYER_Z, SHADOW_Z},
     trail::{FadeOutTrail, Trail},
@@ -208,33 +208,25 @@ fn move_ball(
 fn handle_collisions(
     mut coll_er: EventReader<CollisionEvent>,
     mut ball_hit_ew: EventWriter<BallHitEvt>,
-    mut ball_q: Query<(&mut Ball, &mut BallStatus, &Transform)>,
-    mut ball_bounce_q: Query<&mut BallBounce>,
+    mut ball_q: Query<(Entity, &mut Ball, &mut BallStatus, &Transform)>,
+    mut ball_bounce_q: Query<(&mut BallBounce, &GlobalTransform)>,
     player_aim_q: Query<&PlayerAim>,
-    mut player_q: Query<(&Player, &mut PlayerSwing)>,
+    mut player_q: Query<(&Player, &mut PlayerSwing, &Transform)>,
     net: Res<NetOffset>,
     court: Res<CourtSettings>,
 ) {
-    for ev in coll_er.iter() {
-        if ev.is_started() {
-            let ball_e;
-            let other_e;
-            let (entity_1, entity_2) = ev.rigid_body_entities();
-            if ball_q.get(entity_1).is_ok() {
-                ball_e = entity_1;
-                other_e = entity_2;
-            } else if ball_q.get(entity_2).is_ok() {
-                ball_e = entity_2;
-                other_e = entity_1;
-            } else {
-                continue;
-            }
+    for (ball_e, mut ball, mut status, ball_t) in ball_q.iter_mut() {
+        if let Ok((mut b_bounce, bounce_t)) = ball_bounce_q.get_mut(ball.bounce_e.unwrap()) {
+            for (player, mut swing, player_t) in player_q.iter_mut() {
+                if let PlayerActionStatus::Active(strength) = swing.status {
+                    let ball_dist = (ball_t.translation - player_t.translation)
+                        .truncate()
+                        .length();
+                    let ball_bounce_dist = (bounce_t.translation - player_t.translation)
+                        .truncate()
+                        .length();
 
-            let (mut ball, mut status, ball_t) = ball_q.get_mut(ball_e).unwrap();
-
-            if let Ok((player, mut swing)) = player_q.get_mut(other_e) {
-                if let Ok(mut b_bounce) = ball_bounce_q.get_mut(ball.bounce_e.unwrap()) {
-                    if let PlayerActionStatus::Active(strength) = swing.status {
+                    if ball_dist.min(ball_bounce_dist) < AIM_RING_RADIUS {
                         if !swing.timer.finished() {
                             swing.start_cooldown();
 
