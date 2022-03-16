@@ -126,6 +126,7 @@ fn collect_inputs(
     }
 
     for (mut inputs, p_t, p) in ai_q.iter_mut() {
+        // todo: fix for leftie
         let diff = Vec2::new((court.right - net.0) / 2., 0.) - p_t.translation.truncate();
         inputs.dir_to_center = diff.normalize();
         inputs.distance_to_center = diff.length();
@@ -232,7 +233,6 @@ fn score_move_to_center(
 ) {
     for (Actor(actor), mut score) in score_q.iter_mut() {
         if let Ok(inputs) = inputs_q.get(*actor) {
-            info!("{}", inputs.distance_to_center);
             if !inputs.ball_is_approaching && inputs.distance_to_center > 250. {
                 score.set(1.);
             } else {
@@ -281,7 +281,7 @@ fn score_swing(
                 if inputs.ball_is_approaching {
                     if let Ok(ball_t) = ball_q.get_single() {
                         if (ball_t.translation - player_t.translation).length()
-                            < AIM_RING_RADIUS * 0.35
+                            < AIM_RING_RADIUS * 0.75
                         {
                             score.set(1.);
                         } else {
