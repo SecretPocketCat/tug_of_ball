@@ -1,10 +1,11 @@
 use crate::{
     animation::inverse_lerp,
-    ball::{Ball, BallBounce, BallHitEvt, BALL_MAX_SPEED},
+    ball::{Ball, BallBounce, BallHitEvt, BALL_MAX_SPEED, BALL_MIN_SPEED},
     input_binding::{InputAction, InputAxis, PlayerInput},
     level::{CourtSettings, InitialRegion, NetOffset},
     player::{
-        spawn_player, Player, PlayerAim, PlayerDash, PlayerMovement, PlayerSwing, SWING_LABEL,
+        spawn_player, Player, PlayerAim, PlayerDash, PlayerMovement, PlayerSwing, AIM_RING_RADIUS,
+        SWING_LABEL,
     },
     player_action::PlayerActionStatus,
     GameState,
@@ -31,15 +32,12 @@ impl Plugin for AiPlayerControllerPlugin {
 #[derive(Debug, Clone, Component)]
 pub struct AiPlayer;
 
-#[derive(Debug, Clone, Inspectable)]
-pub struct BallData {
-    entity: Entity,
-    distance: f32,
-}
-
 #[derive(Component, Default, Inspectable)]
 pub struct AiPlayerInputs {
-    closest_incoming_ball: Option<BallData>,
+    ball_is_approaching: bool,
+    predicted_swing_pos: Vec2,
+    dir_to_center: Vec2,
+    distance_to_center: f32,
 }
 
 #[derive(Debug, Clone, Component)]
@@ -106,52 +104,31 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<Ini
     // }
 }
 
-fn on_ball_hit(
+fn collect_inputs(
     mut ball_hit_er: EventReader<BallHitEvt>,
-    ball_q: Query<&Ball>,
-    ai_q: Query<&Player, With<AiPlayer>>,
+    mut ai_q: Query<(&mut AiPlayerInputs, &GlobalTransform, &Player), With<AiPlayer>>,
+    ball_q: Query<(Entity, &Ball, &GlobalTransform), Without<AiPlayer>>,
+    court: Res<CourtSettings>,
+    net: Res<NetOffset>,
 ) {
     for ev in ball_hit_er.iter() {
-        if let Ok(ball) = ball_q.get(ev.ball_e) {
-            // ball.dir
-
-            for p in ai_q.iter() {
-                if p.id != ev.player_id {
-
-                    // todo: calc an intersection
-                    // pick a point on the trajectory of the ball and calc how long it would take the player to get there
-                    // pick one of the closest points taking the ball travel time into consideration
-                }
+        for (mut inputs, p_t, p) in ai_q.iter_mut() {
+            if let Ok((ball_e, ball, ball_t)) = ball_q.get(ev.ball_e) {
+                inputs.ball_is_approaching =
+                    (p.is_left() && ball.dir.x < 0.) || (!p.is_left() && ball.dir.x > 0.);
+                inputs.predicted_swing_pos = ball.predicted_bounce_pos
+                    + ball.dir
+                        * (inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed) * 600. + 200.);
+            } else {
+                inputs.ball_is_approaching = false;
             }
         }
     }
-}
 
-fn collect_inputs(
-    mut ai_q: Query<(&mut AiPlayerInputs, &GlobalTransform, &Player), With<AiPlayer>>,
-    ball_q: Query<(Entity, &Ball, &GlobalTransform), Without<AiPlayer>>,
-) {
-    for (mut inputs, ai_t, player) in ai_q.iter_mut() {
-        if let Some((e, ball, ball_t)) = ball_q
-            .iter()
-            .filter(|(_, b, _)| {
-                (player.is_left() && b.dir.x < 0.) || (!player.is_left() && b.dir.x > 0.)
-            })
-            .max_by(|(_, _, t1), (_, _, t2)| {
-                if player.is_left() {
-                    t1.translation.x.partial_cmp(&t2.translation.x).unwrap()
-                } else {
-                    t2.translation.x.partial_cmp(&t1.translation.x).unwrap()
-                }
-            })
-        {
-            inputs.closest_incoming_ball = Some(BallData {
-                entity: e,
-                distance: (ball_t.translation - ai_t.translation).length(),
-            });
-        } else {
-            inputs.closest_incoming_ball = None;
-        }
+    for (mut inputs, p_t, p) in ai_q.iter_mut() {
+        let diff = Vec2::new((court.right - net.0) / 2., 0.) - p_t.translation.truncate();
+        inputs.dir_to_center = diff.normalize();
+        inputs.distance_to_center = diff.length();
     }
 }
 
@@ -178,44 +155,40 @@ fn stand_still(
 fn score_move_to_ball(
     mut score_q: Query<(&Actor, &mut Score), With<MoveToBallScorer>>,
     inputs_q: Query<(&AiPlayerInputs, &Player, &GlobalTransform)>,
-    ball_q: Query<(&Ball, &GlobalTransform), Without<Player>>,
-    ball_bounce_q: Query<&BallBounce>,
-    net: Res<NetOffset>,
 ) {
     for (Actor(actor), mut score) in score_q.iter_mut() {
         if let Ok((inputs, player, t)) = inputs_q.get(*actor) {
-            match &inputs.closest_incoming_ball {
-                Some(ball_data) => {
-                    if let Ok((ball, ball_t)) = ball_q.get(ball_data.entity) {
-                        if let Ok(b_bounce) = ball_bounce_q.get(ball.bounce_e.unwrap()) {
-                            // if b_bounce.count <= 1 && ball.speed >= BALL_MAX_SPEED * 0.8 {
-                            //     // ignore, if it hasn't bounced and is quite fast
-                            //     score.set(0.);
-                            // } else
-
-                            // if player.is_left() {
-                            //     if ball_t.translation.x <= t.translation.x {
-                            //         score.set(1.);
-                            //     } else {
-                            //         score.set(inverse_lerp(BALL_MAX_SPEED, 0., ball.speed));
-                            //     }
-                            // } else {
-                            //     if ball_t.translation.x >= t.translation.x {
-                            //         score.set(1.);
-                            //     } else {
-                            //         score.set(inverse_lerp(BALL_MAX_SPEED, 0., ball.speed));
-                            //         if score.get() > 0. {
-                            //             trace!("score: {}, speed: {}", score.get(), ball.speed);
-                            //         }
-                            //     }
-                            // }
-
-                            score.set(1.);
-                        }
-                    }
-                }
-                None => score.set(0.),
+            if inputs.ball_is_approaching {
+                score.set(1.);
+            } else {
+                score.set(0.);
             }
+
+            // if let Ok((ball, ball_t)) = ball_q.get(ball_data.entity) {
+            //     if let Ok(b_bounce) = ball_bounce_q.get(ball.bounce_e.unwrap()) {
+            //         // if b_bounce.count <= 1 && ball.speed >= BALL_MAX_SPEED * 0.8 {
+            //         //     // ignore, if it hasn't bounced and is quite fast
+            //         //     score.set(0.);
+            //         // } else
+
+            //         // if player.is_left() {
+            //         //     if ball_t.translation.x <= t.translation.x {
+            //         //         score.set(1.);
+            //         //     } else {
+            //         //         score.set(inverse_lerp(BALL_MAX_SPEED, 0., ball.speed));
+            //         //     }
+            //         // } else {
+            //         //     if ball_t.translation.x >= t.translation.x {
+            //         //         score.set(1.);
+            //         //     } else {
+            //         //         score.set(inverse_lerp(BALL_MAX_SPEED, 0., ball.speed));
+            //         //         if score.get() > 0. {
+            //         //             trace!("score: {}, speed: {}", score.get(), ball.speed);
+            //         //         }
+            //         //     }
+            //         // }
+            //     }
+            // }
         }
     }
 }
@@ -230,24 +203,16 @@ fn move_to_ball_action(
         if let Ok((mut movement, inputs, t)) = q.get_mut(*actor) {
             match *state {
                 ActionState::Requested | ActionState::Executing => {
-                    match &inputs.closest_incoming_ball {
-                        Some(ball_data) => {
-                            if let Ok((ball, ball_t)) = ball_q.get(ball_data.entity) {
-                                let dist_clamp_max = 50.;
-                                let dist = ball.predicted_bounce_pos - t.translation.truncate();
-                                let dist_mult = inverse_lerp(0., dist_clamp_max, dist.length());
+                    if inputs.ball_is_approaching {
+                        if let Ok((ball, ball_t)) = ball_q.get_single() {
+                            let dist_clamp_max = 50.;
+                            let dist = inputs.predicted_swing_pos - t.translation.truncate();
+                            let dist_mult = inverse_lerp(0., dist_clamp_max, dist.length());
 
-                                movement.raw_dir = (ball.predicted_bounce_pos
-                                    - t.translation.truncate())
-                                .normalize()
-                                    * dist_mult;
-
-                                if t.translation.x < 100. {
-                                    movement.raw_dir.x = 0.0;
-                                }
-                            }
+                            movement.raw_dir = dist.normalize() * dist_mult;
                         }
-                        None => movement.raw_dir = Vec2::ZERO,
+                    } else {
+                        movement.raw_dir = Vec2::ZERO;
                     }
                     *state = ActionState::Executing;
                 }
@@ -260,20 +225,18 @@ fn move_to_ball_action(
     }
 }
 
+// todo: better positioning prediction
 fn score_move_to_center(
     mut score_q: Query<(&Actor, &mut Score), With<MoveToCenterScorer>>,
-    inputs_q: Query<(&AiPlayerInputs, &Player, &GlobalTransform)>,
-    ball_q: Query<(&Ball, &GlobalTransform), Without<Player>>,
-    ball_bounce_q: Query<&BallBounce>,
-    net: Res<NetOffset>,
+    inputs_q: Query<&AiPlayerInputs>,
 ) {
     for (Actor(actor), mut score) in score_q.iter_mut() {
-        if let Ok((inputs, player, t)) = inputs_q.get(*actor) {
-            match &inputs.closest_incoming_ball {
-                Some(ball_data) => {
-                    score.set(0.);
-                }
-                None => score.set(1.),
+        if let Ok(inputs) = inputs_q.get(*actor) {
+            info!("{}", inputs.distance_to_center);
+            if !inputs.ball_is_approaching && inputs.distance_to_center > 250. {
+                score.set(1.);
+            } else {
+                score.set(0.);
             }
         }
     }
@@ -289,11 +252,8 @@ fn move_to_center_action(
         if let Ok((mut movement, inputs, t)) = q.get_mut(*actor) {
             match *state {
                 ActionState::Requested | ActionState::Executing => {
-                    let dist =
-                        Vec2::new((court_set.right - net.0) / 2., 0.) - t.translation.truncate();
-
-                    if dist.length() > 10. {
-                        movement.raw_dir = dist.normalize();
+                    if inputs.distance_to_center > 10. {
+                        movement.raw_dir = inputs.dir_to_center;
                     } else {
                         movement.raw_dir = Vec2::ZERO;
                     }
@@ -312,21 +272,24 @@ fn move_to_center_action(
 fn score_swing(
     mut score_q: Query<(&Actor, &mut Score), With<SwingScorer>>,
     parent_q: Query<&Parent>,
-    inputs_q: Query<&AiPlayerInputs>,
+    player_q: Query<(&AiPlayerInputs, &Transform)>,
+    ball_q: Query<&GlobalTransform, With<Ball>>,
 ) {
     for (Actor(actor), mut score) in score_q.iter_mut() {
         if let Ok(parent) = parent_q.get(*actor) {
-            if let Ok(inputs) = inputs_q.get(parent.0) {
-                match &inputs.closest_incoming_ball {
-                    Some(ball_data) => {
-                        // todo: get treshold value from swing or somewhere
-                        if ball_data.distance < 100. {
+            if let Ok((inputs, player_t)) = player_q.get(parent.0) {
+                if inputs.ball_is_approaching {
+                    if let Ok(ball_t) = ball_q.get_single() {
+                        if (ball_t.translation - player_t.translation).length()
+                            < AIM_RING_RADIUS * 0.35
+                        {
                             score.set(1.);
                         } else {
                             score.set(0.);
                         }
                     }
-                    None => score.set(0.),
+                } else {
+                    score.set(0.);
                 }
             }
         }
@@ -346,7 +309,7 @@ fn swing_action(
                         match swing.status {
                             PlayerActionStatus::Ready => {
                                 // todo: charge
-                                swing.status = PlayerActionStatus::Active(0.0);
+                                swing.status = PlayerActionStatus::Active(0.125);
                                 *state = ActionState::Success;
                             }
                             _ => {
