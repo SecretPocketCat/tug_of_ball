@@ -209,35 +209,31 @@ fn handle_collisions(
     mut coll_er: EventReader<CollisionEvent>,
     mut ball_hit_ew: EventWriter<BallHitEvt>,
     mut ball_q: Query<(&mut Ball, &mut BallStatus, &Transform)>,
-    mut ball_bounce_q: Query<(&mut BallBounce, &Transform, &Parent), Without<Ball>>,
+    mut ball_bounce_q: Query<&mut BallBounce>,
     player_aim_q: Query<&PlayerAim>,
-    mut player_q: Query<(&Player, &mut PlayerSwing, &GlobalTransform)>,
+    mut player_q: Query<(&Player, &mut PlayerSwing)>,
     net: Res<NetOffset>,
     court: Res<CourtSettings>,
 ) {
     for ev in coll_er.iter() {
         if ev.is_started() {
-            let mut b_bounce;
-            let b_bounce_t;
             let ball_e;
             let other_e;
             let (entity_1, entity_2) = ev.rigid_body_entities();
-            if let Ok((bounce, bounce_t, parent)) = ball_bounce_q.get_mut(entity_1) {
-                b_bounce = bounce;
-                b_bounce_t = bounce_t;
-                ball_e = parent.0;
+            if ball_q.get(entity_1).is_ok() {
+                ball_e = entity_1;
                 other_e = entity_2;
-            } else if let Ok((bounce, bounce_t, parent)) = ball_bounce_q.get_mut(entity_2) {
-                b_bounce = bounce;
-                b_bounce_t = bounce_t;
-                ball_e = parent.0;
+            } else if ball_q.get(entity_2).is_ok() {
+                ball_e = entity_2;
                 other_e = entity_1;
             } else {
                 continue;
             }
 
-            if let Ok((player, mut swing, _player_t)) = player_q.get_mut(other_e) {
-                if let Ok((mut ball, mut status, ball_t)) = ball_q.get_mut(ball_e) {
+            let (mut ball, mut status, ball_t) = ball_q.get_mut(ball_e).unwrap();
+
+            if let Ok((player, mut swing)) = player_q.get_mut(other_e) {
+                if let Ok(mut b_bounce) = ball_bounce_q.get_mut(ball.bounce_e.unwrap()) {
                     if let PlayerActionStatus::Active(strength) = swing.status {
                         if !swing.timer.finished() {
                             swing.start_cooldown();
@@ -346,9 +342,9 @@ fn handle_regions(
             for (i, ev) in all_events.iter().enumerate() {
                 let other_e;
                 let (entity_1, entity_2) = ev.rigid_body_entities();
-                if bounce_e == entity_1 {
+                if ball_e.0 == entity_1 {
                     other_e = entity_2;
-                } else if bounce_e == entity_2 {
+                } else if ball_e.0 == entity_2 {
                     other_e = entity_1;
                 } else {
                     continue;
@@ -435,9 +431,6 @@ pub fn spawn_ball(
             ..Default::default()
         })
         .insert(PaletteColor::Ball)
-        .insert(RigidBody::KinematicPositionBased)
-        .insert(CollisionShape::Sphere { radius: 15. })
-        .insert(CollisionLayers::all::<PhysLayer>())
         .id();
 
     let shadow = commands
@@ -494,6 +487,9 @@ pub fn spawn_ball(
             trail_e: Some(trail_e),
             ..Default::default()
         })
+        .insert(RigidBody::KinematicPositionBased)
+        .insert(CollisionShape::Sphere { radius: 15. })
+        .insert(CollisionLayers::all::<PhysLayer>())
         .insert(BallStatus::Serve(serve_region, fault_count, player_id))
         .insert(Name::new("Ball"))
         .add_child(bounce_e)
