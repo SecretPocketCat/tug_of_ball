@@ -1,11 +1,9 @@
 use crate::{
     animation::inverse_lerp,
-    ball::{Ball, BallBounce, BallHitEvt, BALL_MAX_SPEED, BALL_MIN_SPEED},
-    input_binding::{InputAction, InputAxis, PlayerInput},
+    ball::{Ball, BallHitEvt, BALL_MAX_SPEED, BALL_MIN_SPEED},
     level::{CourtSettings, InitialRegion, NetOffset},
     player::{
-        spawn_player, Player, PlayerAim, PlayerDash, PlayerMovement, PlayerSwing, AIM_RING_RADIUS,
-        SWING_LABEL,
+        spawn_player, Player, PlayerMovement, PlayerSwing, AIM_RING_RADIUS,
     },
     player_action::PlayerActionStatus,
     GameState,
@@ -112,8 +110,8 @@ fn collect_inputs(
     net: Res<NetOffset>,
 ) {
     for ev in ball_hit_er.iter() {
-        for (mut inputs, p_t, p) in ai_q.iter_mut() {
-            if let Ok((ball_e, ball, ball_t)) = ball_q.get(ev.ball_e) {
+        for (mut inputs, _p_t, p) in ai_q.iter_mut() {
+            if let Ok((_ball_e, ball, _ball_t)) = ball_q.get(ev.ball_e) {
                 inputs.ball_is_approaching =
                     (p.is_left() && ball.dir.x < 0.) || (!p.is_left() && ball.dir.x > 0.);
                 inputs.predicted_swing_pos = ball.predicted_bounce_pos
@@ -125,7 +123,7 @@ fn collect_inputs(
         }
     }
 
-    for (mut inputs, p_t, p) in ai_q.iter_mut() {
+    for (mut inputs, p_t, _p) in ai_q.iter_mut() {
         // todo: fix for leftie
         let diff = Vec2::new((court.right - net.0) / 2., 0.) - p_t.translation.truncate();
         inputs.dir_to_center = diff.normalize();
@@ -158,7 +156,7 @@ fn score_move_to_ball(
     inputs_q: Query<(&AiPlayerInputs, &Player, &GlobalTransform)>,
 ) {
     for (Actor(actor), mut score) in score_q.iter_mut() {
-        if let Ok((inputs, player, t)) = inputs_q.get(*actor) {
+        if let Ok((inputs, _player, _t)) = inputs_q.get(*actor) {
             if inputs.ball_is_approaching {
                 score.set(1.);
             } else {
@@ -205,7 +203,7 @@ fn move_to_ball_action(
             match *state {
                 ActionState::Requested | ActionState::Executing => {
                     if inputs.ball_is_approaching {
-                        if let Ok((ball, ball_t)) = ball_q.get_single() {
+                        if let Ok((_ball, _ball_t)) = ball_q.get_single() {
                             let dist_clamp_max = 50.;
                             let dist = inputs.predicted_swing_pos - t.translation.truncate();
                             let dist_mult = inverse_lerp(0., dist_clamp_max, dist.length());
@@ -245,11 +243,11 @@ fn score_move_to_center(
 fn move_to_center_action(
     mut action_q: Query<(&Actor, &mut ActionState), With<MoveToCenterAction>>,
     mut q: Query<(&mut PlayerMovement, &AiPlayerInputs, &GlobalTransform)>,
-    court_set: Res<CourtSettings>,
-    net: Res<NetOffset>,
+    _court_set: Res<CourtSettings>,
+    _net: Res<NetOffset>,
 ) {
     for (Actor(actor), mut state) in action_q.iter_mut() {
-        if let Ok((mut movement, inputs, t)) = q.get_mut(*actor) {
+        if let Ok((mut movement, inputs, _t)) = q.get_mut(*actor) {
             match *state {
                 ActionState::Requested | ActionState::Executing => {
                     if inputs.distance_to_center > 10. {

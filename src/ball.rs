@@ -16,7 +16,7 @@ use crate::{
     player::{Player, PlayerAim, PlayerSwing, AIM_RING_RADIUS},
     player_action::PlayerActionStatus,
     render::{BALL_Z, PLAYER_Z, SHADOW_Z},
-    trail::{FadeOutTrail, Trail},
+    trail::{Trail},
     GameSetupPhase, GameState,
 };
 use bevy_inspector_egui::Inspectable;
@@ -206,7 +206,7 @@ fn move_ball(
 
 // nice2have: 'auto dash swing'?
 fn handle_collisions(
-    mut coll_er: EventReader<CollisionEvent>,
+    _coll_er: EventReader<CollisionEvent>,
     mut ball_hit_ew: EventWriter<BallHitEvt>,
     mut ball_q: Query<(Entity, &mut Ball, &mut BallStatus, &Transform)>,
     mut ball_bounce_q: Query<(&mut BallBounce, &GlobalTransform)>,
@@ -226,88 +226,86 @@ fn handle_collisions(
                         .truncate()
                         .length();
 
-                    if ball_dist.min(ball_bounce_dist) < AIM_RING_RADIUS {
-                        if !swing.timer.finished() {
-                            swing.start_cooldown();
+                    if ball_dist.min(ball_bounce_dist) < AIM_RING_RADIUS && !swing.timer.finished() {
+                        swing.start_cooldown();
 
-                            if let Ok(aim) = player_aim_q.get(player.aim_e) {
-                                ball.dir = aim.dir.normalize();
-                                // todo: possibly base min speed on distance from net? Closer to net means possible lower speed
-                                ball.speed = (BALL_MIN_SPEED.lerp(&BALL_MAX_SPEED, &strength)
-                                    + ball.speed * 0.25)
-                                    .min(BALL_MAX_SPEED); // carry over some of the previous velocity
-                                let overall_strength =
-                                    inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed);
+                        if let Ok(aim) = player_aim_q.get(player.aim_e) {
+                            ball.dir = aim.dir.normalize();
+                            // todo: possibly base min speed on distance from net? Closer to net means possible lower speed
+                            ball.speed = (BALL_MIN_SPEED.lerp(&BALL_MAX_SPEED, &strength)
+                                + ball.speed * 0.25)
+                                .min(BALL_MAX_SPEED); // carry over some of the previous velocity
+                            let overall_strength =
+                                inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed);
 
-                                let angle = Quat::from_rotation_arc_2d(
-                                    -Vec2::X * player.get_sign(),
-                                    ball.dir,
-                                )
-                                .to_euler(EulerRot::XYZ)
-                                .2;
+                            let angle = Quat::from_rotation_arc_2d(
+                                -Vec2::X * player.get_sign(),
+                                ball.dir,
+                            )
+                            .to_euler(EulerRot::XYZ)
+                            .2;
 
-                                // todo: better calc distance/target
-                                // should be based on strength, distance to net (the closer the shorter-ish the distance?), the current height!
-                                let height_mult =
-                                    inverse_lerp(0., BALL_MAX_HEIGHT, b_bounce.height).min(1.);
+                            // todo: better calc distance/target
+                            // should be based on strength, distance to net (the closer the shorter-ish the distance?), the current height!
+                            let height_mult =
+                                inverse_lerp(0., BALL_MAX_HEIGHT, b_bounce.height).min(1.);
 
-                                // should be further from net the lower the ball is (angle required)
-                                let net_offset =
-                                    TARGET_X_OFFSET.lerp(&(TARGET_X_OFFSET / 2.), &height_mult);
-                                let min_x = if player.is_left() {
-                                    net.0 + net_offset
-                                } else {
-                                    net.0 - net_offset
-                                };
+                            // should be further from net the lower the ball is (angle required)
+                            let net_offset =
+                                TARGET_X_OFFSET.lerp(&(TARGET_X_OFFSET / 2.), &height_mult);
+                            let min_x = if player.is_left() {
+                                net.0 + net_offset
+                            } else {
+                                net.0 - net_offset
+                            };
 
-                                let min_a = (min_x - ball_t.translation.x).abs();
-                                let min_dist = (min_a / angle.cos()).max(BALL_MIN_DISTANCE);
+                            let min_a = (min_x - ball_t.translation.x).abs();
+                            let min_dist = (min_a / angle.cos()).max(BALL_MIN_DISTANCE);
 
-                                let net_t = inverse_lerp(
-                                    court.right,
-                                    0.,
-                                    (ball_t.translation.x - net.0).abs(),
-                                );
-                                let dist_t = (overall_strength - height_mult * 0.25 - net_t * 0.25).clamp(0., 1.) /* * height_mult*/;
-                                let dist = min_dist.lerp(&(court.right * 2.25), &dist_t);
+                            let net_t = inverse_lerp(
+                                court.right,
+                                0.,
+                                (ball_t.translation.x - net.0).abs(),
+                            );
+                            let dist_t = (overall_strength - height_mult * 0.25 - net_t * 0.25).clamp(0., 1.) /* * height_mult*/;
+                            let dist = min_dist.lerp(&(court.right * 2.25), &dist_t);
 
-                                let time = dist / ball.speed;
-                                let time_apex = time / 2.;
-                                b_bounce.gravity_mult =
-                                    inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed) * 1.0
-                                        + 1.;
-                                let final_grav = BALL_GRAVITY * b_bounce.gravity_mult;
+                            let time = dist / ball.speed;
+                            let time_apex = time / 2.;
+                            b_bounce.gravity_mult =
+                                inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed) * 1.0
+                                    + 1.;
+                            let final_grav = BALL_GRAVITY * b_bounce.gravity_mult;
 
-                                b_bounce.height = (-final_grav * time_apex)
-                                    .clamp(BALL_MIN_HEIGHT, BALL_MAX_HEIGHT);
-                                b_bounce.target_height = b_bounce.height;
+                            b_bounce.height = (-final_grav * time_apex)
+                                .clamp(BALL_MIN_HEIGHT, BALL_MAX_HEIGHT);
+                            b_bounce.target_height = b_bounce.height;
 
-                                let final_time = b_bounce.height / -final_grav;
-                                let final_dist = final_time * ball.speed * 2.;
-                                ball.predicted_bounce_pos =
-                                    ball_t.translation.truncate() + (ball.dir * final_dist);
+                            let final_time = b_bounce.height / -final_grav;
+                            let final_dist = final_time * ball.speed * 2.;
+                            ball.predicted_bounce_pos =
+                                ball_t.translation.truncate() + (ball.dir * final_dist);
 
-                                match *status {
-                                    BallStatus::Serve(_, _, player_id)
-                                        if player_id != player.id =>
-                                    {
-                                        // vollied serve
-                                        *status = BallStatus::Rally(player.id);
-                                        trace!("Vollied serve");
-                                    }
-                                    BallStatus::Rally(..) => {
-                                        // set rally player on hit
-                                        *status = BallStatus::Rally(player.id);
-                                    }
-                                    _ => {}
+                            match *status {
+                                BallStatus::Serve(_, _, player_id)
+                                    if player_id != player.id =>
+                                {
+                                    // vollied serve
+                                    *status = BallStatus::Rally(player.id);
+                                    trace!("Vollied serve");
                                 }
+                                BallStatus::Rally(..) => {
+                                    // set rally player on hit
+                                    *status = BallStatus::Rally(player.id);
+                                }
+                                _ => {}
                             }
-
-                            ball_hit_ew.send(BallHitEvt {
-                                ball_e,
-                                player_id: player.id,
-                            });
                         }
+
+                        ball_hit_ew.send(BallHitEvt {
+                            ball_e,
+                            player_id: player.id,
+                        });
                     }
                 }
             }
@@ -317,17 +315,17 @@ fn handle_collisions(
 
 // todo: fix out of bounds
 fn handle_regions(
-    mut commands: Commands,
+    _commands: Commands,
     mut coll_events: EventReader<CollisionEvent>,
     ball_q: Query<&GlobalTransform, With<Ball>>,
     mut ball_mut_q: Query<&mut Ball>,
     mut ball_bounce_q: Query<(Entity, &mut BallBounce, &Transform, &Parent)>,
     region_q: Query<&CourtRegion>,
     court_set: Res<CourtSettings>,
-    entity_q: Query<Entity, Without<Ball>>,
+    _entity_q: Query<Entity, Without<Ball>>,
 ) {
     let all_events: Vec<CollisionEvent> = coll_events.iter().cloned().collect();
-    for (bounce_e, mut bounce, bounce_t, ball_e) in ball_bounce_q.iter_mut() {
+    for (_bounce_e, mut bounce, bounce_t, ball_e) in ball_bounce_q.iter_mut() {
         let mut region = None;
 
         if let Ok(ball_t) = ball_q.get(ball_e.0) {
