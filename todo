@@ -1,13 +1,13 @@
 todos:
-AI branch:
-cleanup
-reset
-AI opponent
+fix out of bounds check
+move player to ball on swing
+ball sfx
+dynamic zoom
+resizable window
+music?
 
 sfx
 faces
-music
-resizable window
 dash 'body' trail?
 fix trails to work at all angles
 ball can't be fired before it's tweened in

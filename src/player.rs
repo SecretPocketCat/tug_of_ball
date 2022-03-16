@@ -534,6 +534,7 @@ fn swing(
     }
 }
 
+// todo: move to ball.rs/split
 fn on_ball_bounced(
     mut commands: Commands,
     mut ev_r_ball_bounced: EventReader<BallBouncedEvt>,

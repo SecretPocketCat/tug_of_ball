@@ -83,7 +83,7 @@ fn process_player_input(
                         player_swing.status
                     {
                         player_swing.status = PlayerActionStatus::Active(
-                            key_data.duration * SWING_STRENGTH_MULTIPLIER,
+                            (key_data.duration * SWING_STRENGTH_MULTIPLIER).min(1.),
                         );
                         player_swing.timer = Timer::from_seconds(player_swing.duration_sec, false);
                     }

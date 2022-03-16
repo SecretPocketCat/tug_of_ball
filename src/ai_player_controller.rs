@@ -242,7 +242,7 @@ fn move_to_ball_action(
                                 .normalize()
                                     * dist_mult;
 
-                                if t.translation.x < 250. {
+                                if t.translation.x < 100. {
                                     movement.raw_dir.x = 0.0;
                                 }
                             }
@@ -346,7 +346,7 @@ fn swing_action(
                         match swing.status {
                             PlayerActionStatus::Ready => {
                                 // todo: charge
-                                swing.status = PlayerActionStatus::Active(0.3);
+                                swing.status = PlayerActionStatus::Active(0.0);
                                 *state = ActionState::Success;
                             }
                             _ => {
