@@ -312,7 +312,7 @@ fn spawn_region(commands: &mut Commands, region: CourtRegion, x: f32, y: f32, re
 fn handle_net_offset(
     mut commands: Commands,
     score: Res<Score>,
-    mut offset: ResMut<NetOffset>,
+    mut net: ResMut<NetOffset>,
     net_q: Query<(Entity, &Transform), With<Net>>,
     mut region_q: Query<(Entity, &CourtRegion, &mut Transform, &mut CollisionShape), Without<Net>>,
     settings: Res<CourtSettings>,
@@ -320,12 +320,11 @@ fn handle_net_offset(
     if let Ok((net_e, net_t)) = net_q.get_single() {
         if score.is_changed() {
             let offset_mult = -50.;
-            offset.target =
+            net.target =
                 (score.right_player.games as f32 - score.left_player.games as f32) * offset_mult;
 
             if cfg!(feature = "debug") {
-                offset.target = (score.right_player.points as f32
-                    - score.left_player.points as f32)
+                net.target = (score.right_player.points as f32 - score.left_player.points as f32)
                     * offset_mult;
             }
 
@@ -336,26 +335,26 @@ fn handle_net_offset(
                 Duration::from_millis(400),
                 TransformPositionLens {
                     start: net_t.translation,
-                    end: Vec3::new(offset.target, net_t.translation.y, net_t.translation.z),
+                    end: Vec3::new(net.target, net_t.translation.y, net_t.translation.z),
                 },
             )));
+
+            // resize regions
+            for (region_e, region, region_t, _region_coll_shape) in region_q.iter_mut() {
+                let x = if region.is_left() {
+                    -settings.region_x + net.target / 2.
+                } else {
+                    settings.region_x + net.target / 2.
+                };
+                let side_mult = if region.is_left() { 1. } else { -1. };
+                let mut extends = settings.base_region_size;
+                extends.x += (net.target / 2.) * side_mult;
+                spawn_region(&mut commands, *region, x, region_t.translation.y, extends);
+
+                commands.entity(region_e).despawn_recursive();
+            }
         }
 
-        // resize regions
-        for (region_e, region, region_t, _region_coll_shape) in region_q.iter_mut() {
-            let x = if region.is_left() {
-                -settings.region_x + offset.target / 2.
-            } else {
-                settings.region_x + offset.target / 2.
-            };
-            let side_mult = if region.is_left() { 1. } else { -1. };
-            let mut extends = settings.base_region_size;
-            extends.x += (offset.target / 2.) * side_mult;
-            spawn_region(&mut commands, *region, x, region_t.translation.y, extends);
-
-            commands.entity(region_e).despawn_recursive();
-        }
-
-        offset.current_offset = net_t.translation.x;
+        net.current_offset = net_t.translation.x;
     }
 }
