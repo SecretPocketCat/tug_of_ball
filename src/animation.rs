@@ -1,3 +1,4 @@
+use std::ops::{Add, Mul};
 use std::time::Duration;
 
 use bevy::prelude::*;
@@ -119,4 +120,26 @@ pub fn get_scale_tween(
     }
 
     Animator::new(tween)
+}
+
+pub fn asymptotic_smoothing_with_delta_time<
+    T: Mul<f32> + From<<T as Mul<f32>>::Output> + Add<T> + From<<T as Add<T>>::Output>,
+>(
+    val: T,
+    target: T,
+    t: f32,
+    delta_time: f32,
+) -> T {
+    let t = t * 60. * delta_time;
+    asymptotic_smoothing(val, target, t)
+}
+
+pub fn asymptotic_smoothing<
+    T: Mul<f32> + From<<T as Mul<f32>>::Output> + Add<T> + From<<T as Add<T>>::Output>,
+>(
+    val: T,
+    target: T,
+    t: f32,
+) -> T {
+    T::from(T::from(val * (1.0 - t)) + T::from(target * t))
 }

@@ -13,7 +13,7 @@ use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
 
 pub const GAME_SCORE_TARGET: u8 = 5;
-pub const NET_OFFSET_POINT: f32 = 3000.;
+pub const NET_OFFSET_POINT: f32 = 350.;
 pub const NET_OFFSET_GAME: f32 = 90.;
 
 pub struct ScorePlugin;

@@ -1,13 +1,14 @@
-use std::ops::{Add, Mul};
-
 use crate::{
+    animation::asymptotic_smoothing_with_delta_time,
     ball::Ball,
     level::CourtSettings,
     player::{Player, PLAYER_SIZE},
     reset::Persistent,
+    score::Score,
 };
 use bevy::{prelude::*, window::WindowResized};
 use bevy_time::{ScaledTime, ScaledTimeDelta};
+use std::ops::{Add, Mul};
 
 pub const BASE_VIEW_WIDTH: f32 = 1920.;
 pub const BASE_VIEW_HEIGHT: f32 = 1080.;
@@ -26,7 +27,7 @@ impl Plugin for CameraPlugin {
         .add_system(on_window_resize)
         .add_system(update_focus_scale)
         .add_system(scale_projection)
-        .add_system(follow_ball);
+        .add_system(follow_focus_point);
     }
 }
 
@@ -49,26 +50,39 @@ fn setup(mut commands: Commands) {
         .insert(Persistent);
 }
 
-fn follow_ball(
+fn follow_focus_point(
     mut cam_q: Query<&mut Transform, With<MainCam>>,
-    ball_q: Query<&Transform, (With<Ball>, Without<MainCam>)>,
+    ball_q: Query<&Transform, (With<Ball>, Without<MainCam>, Without<Player>)>,
+    player_q: Query<(&Player, &Transform), (Without<Ball>, Without<MainCam>)>,
     time: ScaledTime,
+    score: Res<Score>,
 ) {
     if let Ok(mut cam_t) = cam_q.get_single_mut() {
-        if let Ok(ball_t) = ball_q.get_single() {
-            let target_pos = Vec3::new(
-                ball_t.translation.x / 10.,
-                ball_t.translation.y / 125.,
-                cam_t.translation.z,
-            );
+        let mut focus = Vec2::ZERO;
+        let mut focus_mult = Vec2::new(0.1, 0.05);
 
-            cam_t.translation = asymptotic_smoothing_with_delta_time(
-                cam_t.translation,
-                target_pos,
-                0.05,
-                time.scaled_delta_seconds(),
-            );
+        if let Some(is_left) = score.left_has_won {
+            if let Some((_, player_t)) = player_q.iter().find(|(p, ..)| p.is_left() == is_left) {
+                focus = player_t.translation.truncate();
+                focus_mult = Vec2::splat(0.5);
+            }
+        } else {
+            if let Ok(ball_t) = ball_q.get_single() {
+                focus = ball_t.translation.truncate();
+            }
         }
+
+        let target_pos = Vec3::new(
+            focus.x * focus_mult.x,
+            focus.y * focus_mult.y,
+            cam_t.translation.z,
+        );
+        cam_t.translation = asymptotic_smoothing_with_delta_time(
+            cam_t.translation,
+            target_pos,
+            0.05,
+            time.scaled_delta_seconds(),
+        );
     }
 }
 
@@ -124,26 +138,4 @@ fn on_window_resize(
             cam_scale.view = Vec2::new(ev.width, ev.height);
         }
     }
-}
-
-fn asymptotic_smoothing_with_delta_time<
-    T: Mul<f32> + From<<T as Mul<f32>>::Output> + Add<T> + From<<T as Add<T>>::Output>,
->(
-    val: T,
-    target: T,
-    t: f32,
-    delta_time: f32,
-) -> T {
-    let t = t * 60. * delta_time;
-    asymptotic_smoothing(val, target, t)
-}
-
-fn asymptotic_smoothing<
-    T: Mul<f32> + From<<T as Mul<f32>>::Output> + Add<T> + From<<T as Add<T>>::Output>,
->(
-    val: T,
-    target: T,
-    t: f32,
-) -> T {
-    T::from(T::from(val * (1.0 - t)) + T::from(target * t))
 }
