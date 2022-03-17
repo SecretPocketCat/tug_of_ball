@@ -1,4 +1,4 @@
-#![cfg_attr(feature = "release", windows_subsystem = "windows")]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![feature(derive_default_enum)]
 #![feature(if_let_guard)]
 #![feature(drain_filter)]
@@ -10,7 +10,7 @@ use asset::AssetPlugin;
 use ball::BallPlugin;
 use bevy::{
     prelude::*,
-    window::{WindowResizeConstraints},
+    window::{WindowMode, WindowResizeConstraints},
 };
 use bevy_input::ActionInputPlugin;
 use bevy_prototype_lyon::plugin::ShapePlugin;
@@ -89,8 +89,8 @@ fn main() {
                 min_width: BASE_VIEW_WIDTH * MIN_SIZE_MULT,
                 ..Default::default()
             },
-            // mode: WindowMode::BorderlessFullscreen,
-            scale_factor_override,
+            // mode: WindowMode::Fullscreen,
+            // scale_factor_override,
             ..Default::default()
         })
         .insert_resource(ClearColor(Color::WHITE))

@@ -2,7 +2,7 @@ use crate::{
     animation::inverse_lerp,
     ball::{Ball, BallHitEvt, BALL_MAX_SPEED, BALL_MIN_SPEED},
     level::{CourtSettings, InitialRegion, NetOffset},
-    player::{Player, PlayerMovement, PlayerSwing, AIM_RING_RADIUS},
+    player::{spawn_player, Player, PlayerMovement, PlayerSwing, AIM_RING_RADIUS},
     player_action::PlayerActionStatus,
     GameState,
 };
@@ -75,29 +75,29 @@ pub struct SwingAction;
 // swing thinker
 // dodge thinker
 
-fn setup(_commands: Commands, _asset_server: Res<AssetServer>, _region: Res<InitialRegion>) {
-    // if cfg!(feature = "debug") {
-    let _move_thinker = Thinker::build()
-        .picker(FirstToScore::new(0.2))
-        .when(MoveToBallScorer, MoveToBallAction)
-        // .when(MoveDiagonallyToPlayerScorer, MoveDiagonallyToPlayerAction)
-        // .when(MoveToOuterLineScorer, MoveToOuterLineAction)
-        .when(MoveToCenterScorer, MoveToCenterAction)
-        // .otherwise(MoveToBallAction);
-        .otherwise(StandStillAction);
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<InitialRegion>) {
+    if cfg!(feature = "debug") {
+        let move_thinker = Thinker::build()
+            .picker(FirstToScore::new(0.2))
+            .when(MoveToBallScorer, MoveToBallAction)
+            // .when(MoveDiagonallyToPlayerScorer, MoveDiagonallyToPlayerAction)
+            // .when(MoveToOuterLineScorer, MoveToOuterLineAction)
+            .when(MoveToCenterScorer, MoveToCenterAction)
+            // .otherwise(MoveToBallAction);
+            .otherwise(StandStillAction);
 
-    let _swing_thinker = Thinker::build()
-        .picker(FirstToScore::new(0.2))
-        .when(SwingScorer, SwingAction);
+        let swing_thinker = Thinker::build()
+            .picker(FirstToScore::new(0.2))
+            .when(SwingScorer, SwingAction);
 
-    // spawn_player(2, &mut commands, &asset_server, &region)
-    //     .insert(AiPlayerInputs::default())
-    //     .insert(AiPlayer)
-    //     .insert(move_thinker)
-    //     .with_children(|b| {
-    //         b.spawn().insert(swing_thinker);
-    //     });
-    // }
+        spawn_player(2, &mut commands, &asset_server, &region)
+            .insert(AiPlayerInputs::default())
+            .insert(AiPlayer)
+            .insert(move_thinker)
+            .with_children(|b| {
+                b.spawn().insert(swing_thinker);
+            });
+    }
 }
 
 fn collect_inputs(

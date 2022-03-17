@@ -47,7 +47,8 @@ impl Plugin for PlayerPlugin {
                 .with_system(aim)
                 .with_system(swing)
                 .with_system(on_ball_bounced),
-        );
+        )
+        .add_system_to_stage(CoreStage::Last, follow_scale);
     }
 }
 
@@ -83,6 +84,12 @@ pub struct Inactive;
 
 #[derive(Component, Inspectable)]
 pub struct PlayerGui;
+
+#[derive(Component, Inspectable)]
+pub struct FollowScale {
+    followed_e: Entity,
+    scale_multiplier: Vec3,
+}
 
 #[derive(Default, Component, Inspectable)]
 pub struct PlayerMovement {
@@ -320,30 +327,32 @@ pub fn spawn_player<'a, 'b, 'c>(
                             .insert(PaletteColor::Player)
                             .insert(Animator::<Transform>::default())
                             .insert(Name::new("player_body"))
-                            .with_children(|b| {
-                                // shadow
-                                b.spawn_bundle(SpriteBundle {
-                                    texture: asset_server.load("art-ish/player_body.png"),
-                                    transform: Transform {
-                                        scale: Vec3::new(1.0, 0.5, 1.),
-                                        translation: Vec3::new(-5., -15., -PLAYER_Z + SHADOW_Z),
-                                        ..Default::default()
-                                    },
-                                    sprite: Sprite {
-                                        custom_size: Some(player_size),
-                                        ..Default::default()
-                                    },
-                                    ..Default::default()
-                                })
-                                .insert(PaletteColor::Shadow)
-                                .insert(Name::new("player_shadow"));
-                            })
                             .id(),
                         );
                     })
                     .insert(Animator::<Transform>::default())
                     .id(),
             );
+
+            // shadow
+            b.spawn_bundle(SpriteBundle {
+                texture: asset_server.load("art-ish/player_body.png"),
+                transform: Transform {
+                    translation: Vec3::new(-6., -22., -PLAYER_Z + SHADOW_Z),
+                    ..Default::default()
+                },
+                sprite: Sprite {
+                    custom_size: Some(player_size),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .insert(PaletteColor::Shadow)
+            .insert(FollowScale {
+                followed_e: body_e.unwrap(),
+                scale_multiplier: Vec3::new(1.0, 0.5, 1.),
+            })
+            .insert(Name::new("player_shadow"));
         })
         .insert(PlayerAnimationData {
             animation: PlayerAnimation::Idle,
@@ -638,6 +647,16 @@ fn on_ball_bounced(
                     serving_region.0.get_player_id(),
                     &court_set,
                 );
+            }
+        }
+    }
+}
+
+fn follow_scale(follow_q: Query<(Entity, &FollowScale)>, mut transform_q: Query<&mut Transform>) {
+    for (following_e, follow) in follow_q.iter() {
+        if let Ok(followed_t) = transform_q.get(follow.followed_e) {
+            if let Ok(mut following_t) = transform_q.get_mut(following_e) {
+                following_t.scale = followed_t.scale * follow.scale_multiplier;
             }
         }
     }
