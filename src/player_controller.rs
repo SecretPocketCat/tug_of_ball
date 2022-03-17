@@ -8,7 +8,7 @@ use crate::{
 use bevy::prelude::*;
 use bevy_input::*;
 
-pub const SWING_STRENGTH_MULTIPLIER: f32 = 0.75;
+pub const SWING_STRENGTH_MULTIPLIER: f32 = 0.65;
 
 pub struct PlayerControllerPlugin;
 impl Plugin for PlayerControllerPlugin {

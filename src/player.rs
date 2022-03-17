@@ -11,7 +11,7 @@ use crate::{
     render::{PLAYER_Z, SHADOW_Z},
     score::{add_point_to_score, PlayerScore, Score},
     trail::FadeOutTrail,
-    GameSetupPhase, GameState, WIN_HEIGHT, WIN_WIDTH,
+    GameSetupPhase, GameState, BASE_VIEW_HEIGHT, BASE_VIEW_WIDTH,
 };
 use bevy::{
     ecs::system::EntityCommands,
@@ -28,9 +28,10 @@ use heron::*;
 use interpolation::EaseFunction;
 use std::time::Duration;
 
+pub const PLAYER_SIZE: f32 = 56.;
 pub const AIM_RING_ROTATION_DEG: f32 = 50.;
 // pub const AIM_RING_RADIUS: f32 = 350.;
-pub const AIM_RING_RADIUS: f32 = 150.;
+pub const AIM_RING_RADIUS: f32 = 100.;
 // todo: get rid of this by fixing the animation system order and sue an enum label for that
 pub const SWING_LABEL: &str = "swing";
 
@@ -146,7 +147,7 @@ impl PlayerBundle {
                 aim_charge_e,
             },
             movement: PlayerMovement {
-                speed: 700.,
+                speed: 550.,
                 charging_speed: 125.,
                 time_to_max_speed: 0.11,
                 ..Default::default()
@@ -158,7 +159,7 @@ impl PlayerBundle {
                 ..Default::default()
             },
             swing: PlayerSwing {
-                duration_sec: 0.35,
+                duration_sec: 0.15,
                 cooldown_sec: 0.35,
                 ..Default::default()
             },
@@ -187,10 +188,11 @@ pub fn spawn_player<'a, 'b, 'c>(
     asset_server: &Res<AssetServer>,
     region: &Res<InitialRegion>,
 ) -> EntityCommands<'a, 'b, 'c> {
-    let x = WIN_WIDTH / 4.;
+    let x = BASE_VIEW_WIDTH / 4.;
     let x = if id == 1 { -x } else { x };
     let is_left = x < 0.;
     let mut player_y = 150.;
+    let player_size = Vec2::splat(PLAYER_SIZE);
     let is_serving = region.0.is_left() == is_left;
     if (is_serving && region.0.is_bottom()) || (!is_serving && region.0.is_top()) {
         player_y *= -1.;
@@ -207,6 +209,7 @@ pub fn spawn_player<'a, 'b, 'c>(
             texture: asset_server.load("art-ish/face_happy.png"),
             sprite: Sprite {
                 flip_x: !is_left,
+                custom_size: Some(player_size),
                 ..Default::default()
             },
             ..Default::default()
@@ -233,7 +236,7 @@ pub fn spawn_player<'a, 'b, 'c>(
             // aim arrow
             b.spawn_bundle(SpriteBundle {
                 texture: asset_server.load("art-ish/aim_arrow.png"),
-                transform: Transform::from_xyz(0., 135., -0.4),
+                transform: Transform::from_xyz(0., AIM_RING_RADIUS, -0.4),
                 ..Default::default()
             })
             .insert(PaletteColor::PlayerAim);
@@ -293,6 +296,10 @@ pub fn spawn_player<'a, 'b, 'c>(
                         body_e = Some(
                             b.spawn_bundle(SpriteBundle {
                                 texture: asset_server.load("art-ish/player_body.png"),
+                                sprite: Sprite {
+                                    custom_size: Some(player_size),
+                                    ..Default::default()
+                                },
                                 ..Default::default()
                             })
                             .insert(PaletteColor::Player)
@@ -304,7 +311,11 @@ pub fn spawn_player<'a, 'b, 'c>(
                                     texture: asset_server.load("art-ish/player_body.png"),
                                     transform: Transform {
                                         scale: Vec3::new(1.0, 0.5, 1.),
-                                        translation: Vec3::new(-5., -30., -PLAYER_Z + SHADOW_Z),
+                                        translation: Vec3::new(-5., -15., -PLAYER_Z + SHADOW_Z),
+                                        ..Default::default()
+                                    },
+                                    sprite: Sprite {
+                                        custom_size: Some(player_size),
                                         ..Default::default()
                                     },
                                     ..Default::default()
@@ -394,9 +405,9 @@ fn move_player(
         let is_left = player.is_left();
         // nice2have: get (from resource or component)
         let player_area_size = if is_left {
-            Vec2::new(WIN_WIDTH / 2. + net_offset.0, WIN_HEIGHT)
+            Vec2::new(BASE_VIEW_WIDTH * 3. + net_offset.0, BASE_VIEW_HEIGHT)
         } else {
-            Vec2::new(WIN_WIDTH / 2. - net_offset.0, WIN_HEIGHT)
+            Vec2::new(BASE_VIEW_WIDTH * 3. - net_offset.0, BASE_VIEW_HEIGHT)
         };
         let pos_offset = Vec3::new(player_area_size.x / 2., 0., 0.);
         let player_area_pos = if is_left {

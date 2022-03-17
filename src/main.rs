@@ -8,13 +8,16 @@ use ai_player_controller::AiPlayerControllerPlugin;
 use animation::AnimationPlugin;
 use asset::AssetPlugin;
 use ball::BallPlugin;
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    window::{WindowMode, WindowResizeConstraints},
+};
 use bevy_input::ActionInputPlugin;
 use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_time::TimePlugin;
 use bevy_tweening::TweeningPlugin;
 use big_brain::BigBrainPlugin;
-use camera::CameraPlugin;
+use camera::{CameraPlugin, BASE_VIEW_HEIGHT, BASE_VIEW_WIDTH, MIN_SIZE_MULT, START_MULT};
 use debug::DebugPlugin;
 use heron::*;
 use input_binding::{InputAction, InputAxis, InputBindingPlugin};
@@ -27,7 +30,6 @@ use player_controller::PlayerControllerPlugin;
 use reset::ResetPlugin;
 use score::ScorePlugin;
 use trail::TrailPlugin;
-use window::{WIN_HEIGHT, WIN_WIDTH};
 
 // todo: namespace modules (e.g. player)
 mod ai_player_controller;
@@ -49,7 +51,6 @@ mod render;
 mod reset;
 mod score;
 mod trail;
-mod window;
 
 const NAME: &str = "Tag of Ball";
 
@@ -68,8 +69,8 @@ enum GameSetupPhase {
 fn main() {
     // let mut region = CourtRegion::get_random();
     let mut region = CourtRegion::BottomLeft;
-    let mut scale_factor_override = Some(1.);
-    // let mut scale_factor_override = None;
+    let mut scale_factor_override = None;
+    scale_factor_override = Some(1.);
 
     if cfg!(feature = "debug") {
         region = CourtRegion::TopLeft;
@@ -81,9 +82,14 @@ fn main() {
         // resources needed before default plugins to take effect
         .insert_resource(WindowDescriptor {
             title: NAME.to_string(),
-            width: WIN_WIDTH,
-            height: WIN_HEIGHT,
-            resizable: false,
+            width: BASE_VIEW_WIDTH * START_MULT,
+            height: BASE_VIEW_HEIGHT * START_MULT,
+            resize_constraints: WindowResizeConstraints {
+                min_height: BASE_VIEW_HEIGHT * MIN_SIZE_MULT,
+                min_width: BASE_VIEW_WIDTH * MIN_SIZE_MULT,
+                ..Default::default()
+            },
+            mode: WindowMode::BorderlessFullscreen,
             scale_factor_override,
             ..Default::default()
         })

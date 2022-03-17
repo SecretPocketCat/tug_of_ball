@@ -126,8 +126,8 @@ impl CourtRegion {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let x = BASE_VIEW_WIDTH / 2. - 300.;
-    let height = BASE_VIEW_HEIGHT - 250.;
+    let x = BASE_VIEW_WIDTH / 2. - 400.;
+    let height = BASE_VIEW_HEIGHT - 420.;
     let y = height / 2.;
     let thickness = 12.;
     let width = x * 2. + thickness;
@@ -251,7 +251,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn_bundle(SpriteBundle {
             sprite: Sprite {
-                custom_size: Some(Vec2::splat(5000.)),
+                custom_size: Some(Vec2::splat(8000.)),
                 ..Default::default()
             },
             ..Default::default()
