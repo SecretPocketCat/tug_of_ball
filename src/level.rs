@@ -4,7 +4,7 @@ use crate::{
     physics::PhysLayer,
     render::{COURT_LINE_Z, COURT_Z, NET_Z, SHADOW_Z},
     reset::Persistent,
-    score::{GameOverEvt, Score, ScoreChangeType, ScoreChangedEvt},
+    score::{GameOverEvt, ScoreChangeType, ScoreChangedEvt, NET_OFFSET_GAME, NET_OFFSET_POINT},
     GameState, BASE_VIEW_HEIGHT, BASE_VIEW_WIDTH,
 };
 use bevy::{
@@ -18,9 +18,6 @@ use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, 
 use heron::*;
 use rand::*;
 use std::{ops::RangeInclusive, time::Duration};
-
-pub const NET_OFFSET_POINT: f32 = 30.;
-pub const NET_OFFSET_GAME: f32 = 90.;
 
 pub struct LevelPlugin;
 impl Plugin for LevelPlugin {
@@ -39,6 +36,15 @@ pub struct Net;
 pub struct NetOffset {
     pub target: f32,
     pub current_offset: f32,
+    pub reset_queued: bool,
+}
+
+impl NetOffset {
+    pub fn reset(&mut self) {
+        self.current_offset = 0.;
+        self.target = 0.;
+        self.reset_queued = false;
+    }
 }
 
 #[derive(Component)]
@@ -330,7 +336,6 @@ fn spawn_region(commands: &mut Commands, region: CourtRegion, x: f32, y: f32, re
         .insert(Persistent);
 }
 
-// todo: reset net pos on start
 fn handle_net_offset(
     mut score_ev_r: EventReader<ScoreChangedEvt>,
     mut game_over_ev_w: EventWriter<GameOverEvt>,
@@ -357,8 +362,12 @@ fn handle_net_offset(
             target_offset += offset;
         }
 
-        if target_offset != 0. {
-            net.target += target_offset;
+        if target_offset != 0. || net.reset_queued {
+            if net.reset_queued {
+                net.reset();
+            } else {
+                net.target += target_offset;
+            }
 
             // tween net
             commands.entity(net_e).insert(Animator::new(Tween::new(

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::{
     level::{Net, NetOffset},
     palette::PaletteColor,
@@ -8,8 +10,12 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
+use bevy_tweening::lens::TransformPositionLens;
+use bevy_tweening::*;
 
 pub const GAME_SCORE_TARGET: u8 = 5;
+pub const NET_OFFSET_POINT: f32 = 30.;
+pub const NET_OFFSET_GAME: f32 = 90.;
 
 pub struct ScorePlugin;
 impl Plugin for ScorePlugin {
@@ -19,7 +25,7 @@ impl Plugin for ScorePlugin {
             .add_event::<GameOverEvt>()
             .add_startup_system(setup)
             .add_system_set(SystemSet::on_enter(GameState::Game).with_system(reset_score))
-            .add_system(on_game_over)
+            .add_system_to_stage(CoreStage::Last, on_game_over)
             .add_system(update_score_ui);
     }
 }
@@ -115,7 +121,6 @@ fn points_to_str(points: u8) -> String {
     }
 }
 
-// todo: run last - after movement so that the final animation is kept
 fn on_game_over(
     mut game_over_ev_r: EventReader<GameOverEvt>,
     mut score: ResMut<Score>,
@@ -199,10 +204,9 @@ pub fn add_point_to_score(
     false
 }
 
-fn reset_score(mut score: ResMut<Score>, mut net: ResMut<NetOffset>) {
+fn reset_score(mut commands: Commands, mut score: ResMut<Score>, mut net: ResMut<NetOffset>) {
     score.left_player = PlayerScore::default();
     score.right_player = PlayerScore::default();
     score.left_has_won = None;
-    net.current_offset = 0.;
-    net.target = 0.;
+    net.reset_queued = true;
 }
