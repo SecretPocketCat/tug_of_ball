@@ -17,7 +17,7 @@ use bevy::{
     ecs::system::EntityCommands,
     math::Vec2,
     prelude::*,
-    sprite::{collide_aabb::collide, Sprite, SpriteBundle},
+    sprite::{Sprite, SpriteBundle},
 };
 use bevy_extensions::Vec2Conversion;
 use bevy_inspector_egui::Inspectable;
@@ -377,7 +377,29 @@ fn move_player(
             dashing = true;
         }
 
+        // nice2have: get/store properly
+        let player_size = Vec2::splat(PLAYER_SIZE);
+        let court_w_half = court.view.x / 2. + player_size.x;
+        let player_area_size = if player.is_left() {
+            Vec2::new(court_w_half + net_offset.0, court.view.y)
+        } else {
+            Vec2::new(court_w_half - net_offset.0, court.view.y)
+        };
+        let pos_offset = Vec2::new(player_area_size.x / 2., 0.);
+        let player_area_pos = if player.is_left() {
+            Vec2::X * net_offset.0 - pos_offset
+        } else {
+            Vec2::X * net_offset.0 + pos_offset
+        };
+
+        let half_bounds = player_area_size / 2. - player_size / 2.;
+        let area_btm_left = player_area_pos - half_bounds;
+        let area_top_right = player_area_pos + half_bounds;
         let mut final_pos = player_t.translation + move_by * time.scaled_delta_seconds();
+        final_pos = final_pos
+            .truncate()
+            .clamp(area_btm_left, area_top_right)
+            .extend(final_pos.z);
 
         if !dashing {
             // easing
@@ -402,64 +424,22 @@ fn move_player(
             player_movement.easing_time = player_movement.time_to_max_speed;
         }
 
-        // nice2have: get/store properly
-        let player_size = Vec2::splat(PLAYER_SIZE);
-        let is_left = player.is_left();
-        let court_w_half = court.view.x / 2. + player_size.x;
-        let player_area_size = if is_left {
-            Vec2::new(court_w_half + net_offset.0, court.view.y)
-        } else {
-            Vec2::new(court.view.x - net_offset.0, court.view.y)
-        };
-        let pos_offset = Vec3::new(player_area_size.x / 2., 0., 0.);
-        let player_area_pos = if is_left {
-            Vec3::X * net_offset.0 - pos_offset
-        } else {
-            Vec3::X * net_offset.0 + pos_offset
-        };
-
-        // nice2have: using colliders would probably make more sense
-        let coll = collide(final_pos, player_size, player_area_pos, player_area_size);
-        if coll.is_some() {
-            // need to handle side coll in case the player gets pushed by a moving net
-            player_movement.last_non_zero_raw_dir = Vec2::ZERO;
-
-            if let Ok(net_t) = net_q.get_single() {
-                player_movement.easing_time = 0.;
-                let player_x = player_t.translation.x;
-                let player_half_w = player_size.x / 2.;
-                let net_x = net_t.translation.x;
-
-                if is_left && (player_x + player_half_w) > net_x {
-                    player_t.translation.x = net_x - player_half_w;
-                } else if !is_left && (player_x - player_half_w) < net_x {
-                    player_t.translation.x = net_x + player_half_w;
+        if (final_pos - player_t.translation).length().abs() > 0.1 {
+            if !dashing {
+                if charging && p_anim.animation != PlayerAnimation::Walking {
+                    p_anim.animation = PlayerAnimation::Walking;
+                } else if !charging && p_anim.animation != PlayerAnimation::Running {
+                    p_anim.animation = PlayerAnimation::Running;
                 }
             }
+        } else if p_anim.animation != PlayerAnimation::Idle {
+            p_anim.animation = PlayerAnimation::Idle;
+        }
 
-            if p_anim.animation != PlayerAnimation::Idle {
-                p_anim.animation = PlayerAnimation::Idle;
-            }
+        player_t.translation = final_pos;
 
-            trace!("{}: {:?}", if is_left { "LeftP" } else { "RightP" }, coll);
-        } else {
-            if (final_pos - player_t.translation).length().abs() > 0.1 {
-                if !dashing {
-                    if charging && p_anim.animation != PlayerAnimation::Walking {
-                        p_anim.animation = PlayerAnimation::Walking;
-                    } else if !charging && p_anim.animation != PlayerAnimation::Running {
-                        p_anim.animation = PlayerAnimation::Running;
-                    }
-                }
-            } else if p_anim.animation != PlayerAnimation::Idle {
-                p_anim.animation = PlayerAnimation::Idle;
-            }
-
-            player_t.translation = final_pos;
-
-            if player_movement.raw_dir != Vec2::ZERO {
-                player_movement.last_non_zero_raw_dir = player_movement.raw_dir;
-            }
+        if player_movement.raw_dir != Vec2::ZERO {
+            player_movement.last_non_zero_raw_dir = player_movement.raw_dir;
         }
     }
 }
