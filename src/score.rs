@@ -1,8 +1,6 @@
-use std::time::Duration;
-
 use crate::{
     animation::{get_scale_out_anim, TweenDoneAction},
-    level::{Net, NetOffset},
+    level::NetOffset,
     palette::PaletteColor,
     player::{Inactive, Player, PlayerGui},
     player_animation::{PlayerAnimation, PlayerAnimationData},
@@ -127,7 +125,7 @@ fn on_game_over(
     mut player_q: Query<(Entity, &Player, &mut PlayerAnimationData)>,
     player_gui_q: Query<(Entity, &Transform), With<PlayerGui>>,
 ) {
-    for ev in game_over_ev_r.iter() {
+    if let Some(ev) = game_over_ev_r.iter().next() {
         for (player_e, player, mut player_anim) in player_q.iter_mut() {
             let mut e_cmds = commands.entity(player_e);
 
@@ -149,8 +147,6 @@ fn on_game_over(
         }
 
         score.left_has_won = Some(ev.left_has_won);
-
-        break;
     }
 }
 
@@ -211,7 +207,7 @@ pub fn add_point_to_score(
     false
 }
 
-fn reset_score(mut commands: Commands, mut score: ResMut<Score>, mut net: ResMut<NetOffset>) {
+fn reset_score(_commands: Commands, mut score: ResMut<Score>, mut net: ResMut<NetOffset>) {
     score.left_player = PlayerScore::default();
     score.right_player = PlayerScore::default();
     score.left_has_won = None;

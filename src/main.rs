@@ -10,7 +10,7 @@ use asset::AssetPlugin;
 use ball::BallPlugin;
 use bevy::{
     prelude::*,
-    window::{WindowMode, WindowResizeConstraints},
+    window::{WindowResizeConstraints},
 };
 use bevy_input::ActionInputPlugin;
 use bevy_prototype_lyon::plugin::ShapePlugin;

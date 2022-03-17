@@ -2,7 +2,7 @@ use crate::{
     animation::inverse_lerp,
     ball::{Ball, BallHitEvt, BALL_MAX_SPEED, BALL_MIN_SPEED},
     level::{CourtSettings, InitialRegion, NetOffset},
-    player::{spawn_player, Player, PlayerMovement, PlayerSwing, AIM_RING_RADIUS},
+    player::{Player, PlayerMovement, PlayerSwing, AIM_RING_RADIUS},
     player_action::PlayerActionStatus,
     GameState,
 };
@@ -75,9 +75,9 @@ pub struct SwingAction;
 // swing thinker
 // dodge thinker
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<InitialRegion>) {
+fn setup(_commands: Commands, _asset_server: Res<AssetServer>, _region: Res<InitialRegion>) {
     // if cfg!(feature = "debug") {
-    let move_thinker = Thinker::build()
+    let _move_thinker = Thinker::build()
         .picker(FirstToScore::new(0.2))
         .when(MoveToBallScorer, MoveToBallAction)
         // .when(MoveDiagonallyToPlayerScorer, MoveDiagonallyToPlayerAction)
@@ -86,7 +86,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<Ini
         // .otherwise(MoveToBallAction);
         .otherwise(StandStillAction);
 
-    let swing_thinker = Thinker::build()
+    let _swing_thinker = Thinker::build()
         .picker(FirstToScore::new(0.2))
         .when(SwingScorer, SwingAction);
 

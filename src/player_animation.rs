@@ -1,4 +1,4 @@
-use crate::animation::{get_fade_out_sprite_anim, get_scale_out_anim, get_scale_out_tween};
+use crate::animation::{get_fade_out_sprite_anim, get_scale_out_tween};
 use crate::player::PLAYER_SIZE;
 use crate::GameState;
 use crate::{
@@ -10,7 +10,7 @@ use bevy::{math::Vec2, prelude::*};
 use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 use bevy_tweening::lens::{
-    SpriteColorLens, TransformPositionLens, TransformRotationLens, TransformScaleLens,
+    TransformPositionLens, TransformRotationLens, TransformScaleLens,
 };
 use bevy_tweening::*;
 use interpolation::EaseFunction;
@@ -133,7 +133,7 @@ fn animate(
                     if let Ok((_, t)) = animator_q.get_mut(anim.body_e) {
                         stop_anim_entities.push(anim.face_e);
                         stop_anim_entities.push(anim.body_e);
-                        body_root_tween = Some(get_loss_tween(&t));
+                        body_root_tween = Some(get_loss_tween(t));
                         if let Ok(sprite) = sprite_q.get(anim.face_e) {
                             face_anim = Some(get_fade_out_sprite_anim(sprite.color, 1000, None));
                         }

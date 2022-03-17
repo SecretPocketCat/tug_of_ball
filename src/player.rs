@@ -5,7 +5,7 @@ use crate::{
     ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
     extra::TransformBundle,
     impl_player_action_timer,
-    level::{CourtRegion, CourtSettings, InitialRegion, Net, NetOffset, ServingRegion},
+    level::{CourtRegion, CourtSettings, InitialRegion, NetOffset, ServingRegion},
     palette::PaletteColor,
     physics::PhysLayer,
     player_action::{ActionTimer, PlayerActionStatus},
@@ -13,7 +13,7 @@ use crate::{
     render::{PLAYER_Z, SHADOW_Z},
     score::{add_point_to_score, GameOverEvt, PlayerScore, Score, ScoreChangedEvt},
     trail::FadeOutTrail,
-    GameSetupPhase, GameState, BASE_VIEW_HEIGHT, BASE_VIEW_WIDTH,
+    GameSetupPhase, GameState, BASE_VIEW_WIDTH,
 };
 use bevy::{
     ecs::system::EntityCommands,
@@ -24,11 +24,11 @@ use bevy::{
 use bevy_extensions::Vec2Conversion;
 use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-use bevy_tweening::lens::TransformScaleLens;
+
 use bevy_tweening::*;
 use heron::*;
-use interpolation::EaseFunction;
-use std::time::Duration;
+
+
 
 pub const PLAYER_SIZE: f32 = 56.;
 pub const AIM_RING_ROTATION_DEG: f32 = 50.;

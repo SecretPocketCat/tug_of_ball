@@ -2,13 +2,13 @@ use crate::{
     animation::asymptotic_smoothing_with_delta_time,
     ball::Ball,
     level::CourtSettings,
-    player::{Player, PLAYER_SIZE},
+    player::{Player},
     reset::Persistent,
     score::Score,
 };
 use bevy::{prelude::*, window::WindowResized};
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-use std::ops::{Add, Mul};
+
 
 pub const BASE_VIEW_WIDTH: f32 = 1920.;
 pub const BASE_VIEW_HEIGHT: f32 = 1080.;
@@ -66,10 +66,8 @@ fn follow_focus_point(
                 focus = player_t.translation.truncate();
                 focus_mult = Vec2::splat(0.5);
             }
-        } else {
-            if let Ok(ball_t) = ball_q.get_single() {
-                focus = ball_t.translation.truncate();
-            }
+        } else if let Ok(ball_t) = ball_q.get_single() {
+            focus = ball_t.translation.truncate();
         }
 
         let target_pos = Vec3::new(
