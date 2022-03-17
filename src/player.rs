@@ -339,6 +339,7 @@ pub fn spawn_player<'a, 'b, 'c>(
     p
 }
 
+// todo: slight acceleration
 // nice2have: lerp dash
 fn move_player(
     mut query: Query<(
@@ -352,6 +353,7 @@ fn move_player(
     net_q: Query<&GlobalTransform, With<Net>>,
     time: ScaledTime,
     net_offset: Res<NetOffset>,
+    court: Res<CourtSettings>,
 ) {
     for (player, mut player_movement, player_dash, mut player_t, player_swing, mut p_anim) in
         query.iter_mut()
@@ -401,13 +403,13 @@ fn move_player(
         }
 
         // nice2have: get/store properly
-        let player_size = Vec2::splat(80.);
+        let player_size = Vec2::splat(PLAYER_SIZE);
         let is_left = player.is_left();
-        // nice2have: get (from resource or component)
+        let court_w_half = court.view.x / 2. + player_size.x;
         let player_area_size = if is_left {
-            Vec2::new(BASE_VIEW_WIDTH * 3. + net_offset.0, BASE_VIEW_HEIGHT)
+            Vec2::new(court_w_half + net_offset.0, court.view.y)
         } else {
-            Vec2::new(BASE_VIEW_WIDTH * 3. - net_offset.0, BASE_VIEW_HEIGHT)
+            Vec2::new(court.view.x - net_offset.0, court.view.y)
         };
         let pos_offset = Vec3::new(player_area_size.x / 2., 0., 0.);
         let player_area_pos = if is_left {
@@ -420,10 +422,10 @@ fn move_player(
         let coll = collide(final_pos, player_size, player_area_pos, player_area_size);
         if coll.is_some() {
             // need to handle side coll in case the player gets pushed by a moving net
-            player_movement.easing_time = 0.;
             player_movement.last_non_zero_raw_dir = Vec2::ZERO;
 
             if let Ok(net_t) = net_q.get_single() {
+                player_movement.easing_time = 0.;
                 let player_x = player_t.translation.x;
                 let player_half_w = player_size.x / 2.;
                 let net_x = net_t.translation.x;

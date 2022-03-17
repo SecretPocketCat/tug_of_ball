@@ -1,6 +1,11 @@
 use std::ops::{Add, Mul};
 
-use crate::{ball::Ball, player::Player, reset::Persistent};
+use crate::{
+    ball::Ball,
+    level::CourtSettings,
+    player::{Player, PLAYER_SIZE},
+    reset::Persistent,
+};
 use bevy::{prelude::*, window::WindowResized};
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 
@@ -15,6 +20,7 @@ impl Plugin for CameraPlugin {
         app.insert_resource(TargetCamScale {
             base_scale: 1.,
             focus_scale: 1.,
+            view: Default::default(),
         })
         .add_startup_system(setup)
         .add_system(on_window_resize)
@@ -30,6 +36,7 @@ struct MainCam;
 struct TargetCamScale {
     base_scale: f32,
     focus_scale: f32,
+    view: Vec2,
 }
 
 fn setup(mut commands: Commands) {
@@ -69,14 +76,18 @@ fn scale_projection(
     mut cam_q: Query<&mut OrthographicProjection, With<MainCam>>,
     cam_scale: Res<TargetCamScale>,
     time: ScaledTime,
+    mut court: ResMut<CourtSettings>,
 ) {
     if let Ok(mut cam_proj) = cam_q.get_single_mut() {
+        let scale = cam_scale.base_scale * cam_scale.focus_scale;
         cam_proj.scale = asymptotic_smoothing_with_delta_time(
             cam_proj.scale,
-            cam_scale.base_scale * cam_scale.focus_scale,
-            0.025,
+            scale,
+            0.035,
             time.scaled_delta_seconds(),
         );
+
+        court.view = cam_scale.view * scale;
     }
 }
 
@@ -98,10 +109,9 @@ fn update_focus_scale(
         }
     }
 
-    let width_scale = ((x + 350.) / (BASE_VIEW_WIDTH / 2.0)).clamp(1., 2.);
-    // let height_scale = ((y + 200.) / (BASE_VIEW_HEIGHT / 2.0)).clamp(1., 2.);
-    // cam_scale.focus_scale = width_scale.max(height_scale);
-    cam_scale.focus_scale = width_scale;
+    let width_scale = ((x + 100.) / (BASE_VIEW_WIDTH / 2.0)).clamp(1., 2.);
+    let height_scale = ((y + 60.) / (BASE_VIEW_HEIGHT / 2.0)).clamp(1., 1.75);
+    cam_scale.focus_scale = width_scale.max(height_scale);
 }
 
 fn on_window_resize(
@@ -111,6 +121,7 @@ fn on_window_resize(
     for ev in evr_resize.iter() {
         if ev.id.is_primary() {
             cam_scale.base_scale = (BASE_VIEW_WIDTH / ev.width).max(BASE_VIEW_HEIGHT / ev.height);
+            cam_scale.view = Vec2::new(ev.width, ev.height);
         }
     }
 }

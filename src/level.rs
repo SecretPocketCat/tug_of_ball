@@ -42,6 +42,7 @@ pub struct InitialRegion(pub CourtRegion);
 
 pub struct ServingRegion(pub CourtRegion);
 
+#[derive(Default)]
 pub struct CourtSettings {
     // nice2have: replace by proper bounds
     pub left: f32,
@@ -50,6 +51,7 @@ pub struct CourtSettings {
     pub bottom: f32,
     pub base_region_size: Vec3,
     pub region_x: f32,
+    pub view: Vec2,
 }
 
 #[derive(Default, Component, Inspectable, Clone, Copy, Debug, PartialEq)]
@@ -126,8 +128,8 @@ impl CourtRegion {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let x = BASE_VIEW_WIDTH / 2. - 400.;
-    let height = BASE_VIEW_HEIGHT - 420.;
+    let x = BASE_VIEW_WIDTH / 2. - 300.;
+    let height = BASE_VIEW_HEIGHT - 320.;
     let y = height / 2.;
     let thickness = 12.;
     let width = x * 2. + thickness;
@@ -142,6 +144,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         bottom: -y,
         base_region_size: region_size,
         region_x,
+        ..Default::default()
     };
 
     let lines = [
