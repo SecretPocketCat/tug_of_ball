@@ -22,7 +22,7 @@ use std::{ops::RangeInclusive, time::Duration};
 pub struct LevelPlugin;
 impl Plugin for LevelPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.insert_resource(NetOffset(0.))
+        app.init_resource::<NetOffset>()
             .add_startup_system(setup)
             .add_system(draw_court)
             .add_system_set(SystemSet::on_update(GameState::Game).with_system(handle_net_offset));
@@ -32,7 +32,11 @@ impl Plugin for LevelPlugin {
 #[derive(Component)]
 pub struct Net;
 
-pub struct NetOffset(pub f32);
+#[derive(Default)]
+pub struct NetOffset {
+    pub target: f32,
+    pub current_offset: f32,
+}
 
 #[derive(Component)]
 pub struct Court;
@@ -313,24 +317,26 @@ fn handle_net_offset(
     mut region_q: Query<(Entity, &CourtRegion, &mut Transform, &mut CollisionShape), Without<Net>>,
     settings: Res<CourtSettings>,
 ) {
-    if score.is_changed() {
-        let offset_mult = -50.;
-        offset.0 = (score.right_player.games as f32 - score.left_player.games as f32) * offset_mult;
+    if let Ok((net_e, net_t)) = net_q.get_single() {
+        if score.is_changed() {
+            let offset_mult = -50.;
+            offset.target =
+                (score.right_player.games as f32 - score.left_player.games as f32) * offset_mult;
 
-        if cfg!(feature = "debug") {
-            offset.0 =
-                (score.right_player.points as f32 - score.left_player.points as f32) * offset_mult;
-        }
+            if cfg!(feature = "debug") {
+                offset.target = (score.right_player.points as f32
+                    - score.left_player.points as f32)
+                    * offset_mult;
+            }
 
-        // tween net
-        if let Ok((net_e, net_t)) = net_q.get_single() {
+            // tween net
             commands.entity(net_e).insert(Animator::new(Tween::new(
                 EaseFunction::QuadraticInOut,
                 TweeningType::Once,
                 Duration::from_millis(400),
                 TransformPositionLens {
                     start: net_t.translation,
-                    end: Vec3::new(offset.0, net_t.translation.y, net_t.translation.z),
+                    end: Vec3::new(offset.target, net_t.translation.y, net_t.translation.z),
                 },
             )));
         }
@@ -338,16 +344,18 @@ fn handle_net_offset(
         // resize regions
         for (region_e, region, region_t, _region_coll_shape) in region_q.iter_mut() {
             let x = if region.is_left() {
-                -settings.region_x + offset.0 / 2.
+                -settings.region_x + offset.target / 2.
             } else {
-                settings.region_x + offset.0 / 2.
+                settings.region_x + offset.target / 2.
             };
             let side_mult = if region.is_left() { 1. } else { -1. };
             let mut extends = settings.base_region_size;
-            extends.x += (offset.0 / 2.) * side_mult;
+            extends.x += (offset.target / 2.) * side_mult;
             spawn_region(&mut commands, *region, x, region_t.translation.y, extends);
 
             commands.entity(region_e).despawn_recursive();
         }
+
+        offset.current_offset = net_t.translation.x;
     }
 }

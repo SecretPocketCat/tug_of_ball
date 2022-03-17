@@ -2,9 +2,7 @@ use crate::{
     animation::inverse_lerp,
     ball::{Ball, BallHitEvt, BALL_MAX_SPEED, BALL_MIN_SPEED},
     level::{CourtSettings, InitialRegion, NetOffset},
-    player::{
-        spawn_player, Player, PlayerMovement, PlayerSwing, AIM_RING_RADIUS,
-    },
+    player::{spawn_player, Player, PlayerMovement, PlayerSwing, AIM_RING_RADIUS},
     player_action::PlayerActionStatus,
     GameState,
 };
@@ -92,13 +90,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<Ini
         .picker(FirstToScore::new(0.2))
         .when(SwingScorer, SwingAction);
 
-    spawn_player(2, &mut commands, &asset_server, &region)
-        .insert(AiPlayerInputs::default())
-        .insert(AiPlayer)
-        .insert(move_thinker)
-        .with_children(|b| {
-            b.spawn().insert(swing_thinker);
-        });
+    // spawn_player(2, &mut commands, &asset_server, &region)
+    //     .insert(AiPlayerInputs::default())
+    //     .insert(AiPlayer)
+    //     .insert(move_thinker)
+    //     .with_children(|b| {
+    //         b.spawn().insert(swing_thinker);
+    //     });
     // }
 }
 
@@ -125,7 +123,8 @@ fn collect_inputs(
 
     for (mut inputs, p_t, _p) in ai_q.iter_mut() {
         // todo: fix for leftie
-        let diff = Vec2::new((court.right - net.0) / 2., 0.) - p_t.translation.truncate();
+        let diff =
+            Vec2::new((court.right - net.current_offset) / 2., 0.) - p_t.translation.truncate();
         inputs.dir_to_center = diff.normalize();
         inputs.distance_to_center = diff.length();
     }

@@ -134,7 +134,7 @@ fn move_ball(
         // move
         ball_t.translation += (ball.dir * ball.speed).to_vec3() * time.scaled_delta_seconds();
 
-        let net_x = net.0;
+        let net_x = net.current_offset;
         let ball_x = ball_t.translation.x;
         let ball_prev_x = ball.prev_pos.x;
 
@@ -182,7 +182,7 @@ fn move_ball(
                 ev_w_bounce.send(BallBouncedEvt {
                     ball_e,
                     bounce_count: ball_bounce.count,
-                    side: if ball_t.translation.x < net.0 {
+                    side: if ball_t.translation.x < net.current_offset {
                         -1.
                     } else {
                         1.
@@ -253,16 +253,19 @@ fn handle_collisions(
                             let net_offset =
                                 TARGET_X_OFFSET.lerp(&(TARGET_X_OFFSET / 2.), &height_mult);
                             let min_x = if player.is_left() {
-                                net.0 + net_offset
+                                net.current_offset + net_offset
                             } else {
-                                net.0 - net_offset
+                                net.current_offset - net_offset
                             };
 
                             let min_a = (min_x - ball_t.translation.x).abs();
                             let min_dist = (min_a / angle.cos()).max(BALL_MIN_DISTANCE);
 
-                            let net_t =
-                                inverse_lerp(court.right, 0., (ball_t.translation.x - net.0).abs());
+                            let net_t = inverse_lerp(
+                                court.right,
+                                0.,
+                                (ball_t.translation.x - net.current_offset).abs(),
+                            );
                             let dist_t = (overall_strength - height_mult * 0.25 - net_t * 0.25).clamp(0., 1.) /* * height_mult*/;
                             let dist = min_dist.lerp(&(court.right * 2.25), &dist_t);
 

@@ -171,7 +171,10 @@ impl PlayerBundle {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<InitialRegion>) {
-    spawn_player(1, &mut commands, &asset_server, &region);
+    // spawn_player(1, &mut commands, &asset_server, &region);
+    for id in 1..=2 {
+        spawn_player(id, &mut commands, &asset_server, &region);
+    }
 
     // if cfg!(feature = "debug") {
     //     spawn_player(1, &mut commands, &asset_server, &region);
@@ -350,9 +353,8 @@ fn move_player(
         &PlayerSwing,
         &mut AgentAnimationData,
     )>,
-    net_q: Query<&GlobalTransform, With<Net>>,
     time: ScaledTime,
-    net_offset: Res<NetOffset>,
+    net: Res<NetOffset>,
     court: Res<CourtSettings>,
 ) {
     for (player, mut player_movement, player_dash, mut player_t, player_swing, mut p_anim) in
@@ -377,29 +379,7 @@ fn move_player(
             dashing = true;
         }
 
-        // nice2have: get/store properly
-        let player_size = Vec2::splat(PLAYER_SIZE);
-        let court_w_half = court.view.x / 2. + player_size.x;
-        let player_area_size = if player.is_left() {
-            Vec2::new(court_w_half + net_offset.0, court.view.y)
-        } else {
-            Vec2::new(court_w_half - net_offset.0, court.view.y)
-        };
-        let pos_offset = Vec2::new(player_area_size.x / 2., 0.);
-        let player_area_pos = if player.is_left() {
-            Vec2::X * net_offset.0 - pos_offset
-        } else {
-            Vec2::X * net_offset.0 + pos_offset
-        };
-
-        let half_bounds = player_area_size / 2. - player_size / 2.;
-        let area_btm_left = player_area_pos - half_bounds;
-        let area_top_right = player_area_pos + half_bounds;
         let mut final_pos = player_t.translation + move_by * time.scaled_delta_seconds();
-        final_pos = final_pos
-            .truncate()
-            .clamp(area_btm_left, area_top_right)
-            .extend(final_pos.z);
 
         if !dashing {
             // easing
@@ -423,6 +403,29 @@ fn move_player(
             // todo: ease dash as well
             player_movement.easing_time = player_movement.time_to_max_speed;
         }
+
+        // nice2have: get/store properly
+        let player_size = Vec2::splat(PLAYER_SIZE);
+        let court_w_half = court.view.x / 2. + player_size.x;
+        let player_area_size = if player.is_left() {
+            Vec2::new(court_w_half + net.current_offset, court.view.y)
+        } else {
+            Vec2::new(court_w_half - net.current_offset, court.view.y)
+        };
+        let pos_offset = Vec2::new(player_area_size.x / 2., 0.);
+        let player_area_pos = if player.is_left() {
+            Vec2::X * net.current_offset - pos_offset
+        } else {
+            Vec2::X * net.current_offset + pos_offset
+        };
+
+        let half_bounds = player_area_size / 2. - player_size / 2.;
+        let area_btm_left = player_area_pos - half_bounds;
+        let area_top_right = player_area_pos + half_bounds;
+        final_pos = final_pos
+            .truncate()
+            .clamp(area_btm_left, area_top_right)
+            .extend(final_pos.z);
 
         if (final_pos - player_t.translation).length().abs() > 0.1 {
             if !dashing {
