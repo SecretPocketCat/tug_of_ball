@@ -83,6 +83,9 @@ pub fn is_left_player_id(id: usize) -> bool {
 #[derive(Component, Inspectable)]
 pub struct Inactive;
 
+#[derive(Component, Inspectable)]
+pub struct PlayerGui;
+
 #[derive(Default, Component, Inspectable)]
 pub struct PlayerMovement {
     speed: f32,
@@ -176,18 +179,13 @@ impl PlayerBundle {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<InitialRegion>) {
-    // spawn_player(1, &mut commands, &asset_server, &region);
-    for id in 1..=2 {
-        spawn_player(id, &mut commands, &asset_server, &region);
+    if cfg!(feature = "debug") {
+        spawn_player(1, &mut commands, &asset_server, &region);
+    } else {
+        for id in 1..=2 {
+            spawn_player(id, &mut commands, &asset_server, &region);
+        }
     }
-
-    // if cfg!(feature = "debug") {
-    //     spawn_player(1, &mut commands, &asset_server, &region);
-    // } else {
-    //     for id in 1..=2 {
-    //         spawn_player(id, &mut commands, &asset_server, &region);
-    //     }
-    // }
 }
 
 pub fn spawn_player<'a, 'b, 'c>(
@@ -240,6 +238,7 @@ pub fn spawn_player<'a, 'b, 'c>(
             dir: initial_dir,
             raw_dir: Vec2::ZERO,
         })
+        .insert(PlayerGui)
         .with_children(|b| {
             // aim arrow
             b.spawn_bundle(SpriteBundle {
@@ -262,6 +261,7 @@ pub fn spawn_player<'a, 'b, 'c>(
             ..Default::default()
         })
         .insert(PaletteColor::PlayerCharge)
+        .insert(PlayerGui)
         .id();
 
     let mut p = commands.spawn_bundle(TransformBundle {
@@ -300,6 +300,7 @@ pub fn spawn_player<'a, 'b, 'c>(
             })
             .insert(PaletteColor::PlayerAim)
             .insert(SwingRangeSprite)
+            .insert(PlayerGui)
             .insert(TransformRotation::new(rotation_speed.to_radians()));
 
             // body root

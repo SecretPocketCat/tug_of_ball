@@ -1,20 +1,19 @@
 use std::time::Duration;
 
 use crate::{
+    animation::{get_scale_out_tween, TweenDoneAction},
     level::{Net, NetOffset},
     palette::PaletteColor,
-    player::{Inactive, Player},
+    player::{Inactive, Player, PlayerGui},
     player_animation::{PlayerAnimation, PlayerAnimationData},
     reset::Persistent,
     GameState,
 };
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
-use bevy_tweening::lens::TransformPositionLens;
-use bevy_tweening::*;
 
 pub const GAME_SCORE_TARGET: u8 = 5;
-pub const NET_OFFSET_POINT: f32 = 30.;
+pub const NET_OFFSET_POINT: f32 = 3000.;
 pub const NET_OFFSET_GAME: f32 = 90.;
 
 pub struct ScorePlugin;
@@ -126,6 +125,7 @@ fn on_game_over(
     mut score: ResMut<Score>,
     mut commands: Commands,
     mut player_q: Query<(Entity, &Player, &mut PlayerAnimationData)>,
+    player_gui_q: Query<(Entity, &Transform), With<PlayerGui>>,
 ) {
     for ev in game_over_ev_r.iter() {
         for (player_e, player, mut player_anim) in player_q.iter_mut() {
@@ -139,6 +139,14 @@ fn on_game_over(
             } else {
                 // todo: loss animation
             }
+        }
+
+        for (gui_e, gui_t) in player_gui_q.iter() {
+            commands.entity(gui_e).insert(get_scale_out_tween(
+                gui_t.scale,
+                350,
+                Some(TweenDoneAction::DespawnRecursive),
+            ));
         }
 
         score.left_has_won = Some(ev.left_has_won);
