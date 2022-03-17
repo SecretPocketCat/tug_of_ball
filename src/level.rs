@@ -4,7 +4,7 @@ use crate::{
     physics::PhysLayer,
     render::{COURT_LINE_Z, COURT_Z, NET_Z, SHADOW_Z},
     reset::Persistent,
-    score::{Score, ScoreChangeType, ScoreChangedEvt},
+    score::{GameOverEvt, Score, ScoreChangeType, ScoreChangedEvt},
     GameState, BASE_VIEW_HEIGHT, BASE_VIEW_WIDTH,
 };
 use bevy::{
@@ -59,6 +59,7 @@ pub struct CourtSettings {
     pub base_region_size: Vec3,
     pub region_x: f32,
     pub view: Vec2,
+    pub win_treshold: f32,
 }
 
 #[derive(Default, Component, Inspectable, Clone, Copy, Debug, PartialEq)]
@@ -151,6 +152,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         bottom: -y,
         base_region_size: region_size,
         region_x,
+        win_treshold: x / 2.,
         ..Default::default()
     };
 
@@ -257,6 +259,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(Court)
         .insert(Persistent);
 
+    // dashed tug lines
+    let dash_line_x = settings.win_treshold;
+    for x in [-dash_line_x, dash_line_x].iter() {
+        commands
+            .spawn_bundle(SpriteBundle {
+                texture: asset_server.load("art-ish/stroke.png"),
+                transform: Transform::from_xyz(*x, 0., COURT_LINE_Z - 0.1),
+                sprite: Sprite {
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .insert(PaletteColor::CourtPost)
+            .insert(Persistent);
+    }
+
     // cheeky bg - maybe just set for camera?
     commands
         .spawn_bundle(SpriteBundle {
@@ -312,10 +330,13 @@ fn spawn_region(commands: &mut Commands, region: CourtRegion, x: f32, y: f32, re
         .insert(Persistent);
 }
 
+// todo: reset net pos on start
 fn handle_net_offset(
     mut score_ev_r: EventReader<ScoreChangedEvt>,
+    mut game_over_ev_w: EventWriter<GameOverEvt>,
     mut commands: Commands,
     mut net: ResMut<NetOffset>,
+    court: Res<CourtSettings>,
     net_q: Query<(Entity, &Transform), With<Net>>,
     mut region_q: Query<(Entity, &CourtRegion, &mut Transform, &mut CollisionShape), Without<Net>>,
     settings: Res<CourtSettings>,
@@ -324,7 +345,6 @@ fn handle_net_offset(
         let mut target_offset = 0.;
 
         for ev in score_ev_r.iter() {
-            info!("score ev!");
             let mut offset = match ev.score_type {
                 ScoreChangeType::Point => NET_OFFSET_POINT,
                 ScoreChangeType::Game => NET_OFFSET_GAME,
@@ -351,19 +371,25 @@ fn handle_net_offset(
                 },
             )));
 
-            // resize regions
-            for (region_e, region, region_t, _region_coll_shape) in region_q.iter_mut() {
-                let x = if region.is_left() {
-                    -settings.region_x + net.target / 2.
-                } else {
-                    settings.region_x + net.target / 2.
-                };
-                let side_mult = if region.is_left() { 1. } else { -1. };
-                let mut extends = settings.base_region_size;
-                extends.x += (net.target / 2.) * side_mult;
-                spawn_region(&mut commands, *region, x, region_t.translation.y, extends);
+            if net.target.abs() > court.win_treshold {
+                game_over_ev_w.send(GameOverEvt {
+                    left_has_won: net.target > 0.,
+                });
+            } else {
+                // resize regions
+                for (region_e, region, region_t, _region_coll_shape) in region_q.iter_mut() {
+                    let x = if region.is_left() {
+                        -settings.region_x + net.target / 2.
+                    } else {
+                        settings.region_x + net.target / 2.
+                    };
+                    let side_mult = if region.is_left() { 1. } else { -1. };
+                    let mut extends = settings.base_region_size;
+                    extends.x += (net.target / 2.) * side_mult;
+                    spawn_region(&mut commands, *region, x, region_t.translation.y, extends);
 
-                commands.entity(region_e).despawn_recursive();
+                    commands.entity(region_e).despawn_recursive();
+                }
             }
         }
 

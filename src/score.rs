@@ -1,14 +1,25 @@
-use crate::{palette::PaletteColor, reset::Persistent, GameState};
+use crate::{
+    level::{Net, NetOffset},
+    palette::PaletteColor,
+    player::{Inactive, Player},
+    player_animation::{PlayerAnimation, PlayerAnimationData},
+    reset::Persistent,
+    GameState,
+};
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
+
+pub const GAME_SCORE_TARGET: u8 = 5;
 
 pub struct ScorePlugin;
 impl Plugin for ScorePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<Score>()
             .add_event::<ScoreChangedEvt>()
+            .add_event::<GameOverEvt>()
             .add_startup_system(setup)
             .add_system_set(SystemSet::on_enter(GameState::Game).with_system(reset_score))
+            .add_system(on_game_over)
             .add_system(update_score_ui);
     }
 }
@@ -20,6 +31,7 @@ struct PointsText;
 pub struct Score {
     pub left_player: PlayerScore,
     pub right_player: PlayerScore,
+    pub left_has_won: Option<bool>,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -36,6 +48,10 @@ pub enum ScoreChangeType {
 pub struct ScoreChangedEvt {
     pub left_side_scored: bool,
     pub score_type: ScoreChangeType,
+}
+
+pub struct GameOverEvt {
+    pub left_has_won: bool,
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -75,16 +91,61 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn update_score_ui(score: Res<Score>, mut points_text_q: Query<&mut Text, With<PointsText>>) {
     if score.is_changed() {
-        points_text_q.single_mut().sections[0].value = format!(
-            "{} | {}",
-            score.left_player.points, score.right_player.points
-        );
+        let txt = if let Some(left_has_won) = score.left_has_won {
+            format!("{} HAS WON", if left_has_won { "LEFT" } else { "RIGHT" })
+        } else {
+            format!(
+                "{} | {}",
+                points_to_str(score.left_player.points),
+                points_to_str(score.right_player.points)
+            )
+        };
+        points_text_q.single_mut().sections[0].value = txt;
+    }
+}
+
+fn points_to_str(points: u8) -> String {
+    match points {
+        0 => "00".into(),
+        1 => "15".into(),
+        2 => "30".into(),
+        3 => "40".into(),
+        4 => "AD".into(),
+        _ => points.to_string(),
+    }
+}
+
+// todo: run last - after movement so that the final animation is kept
+fn on_game_over(
+    mut game_over_ev_r: EventReader<GameOverEvt>,
+    mut score: ResMut<Score>,
+    mut commands: Commands,
+    mut player_q: Query<(Entity, &Player, &mut PlayerAnimationData)>,
+) {
+    for ev in game_over_ev_r.iter() {
+        for (player_e, player, mut player_anim) in player_q.iter_mut() {
+            let mut e_cmds = commands.entity(player_e);
+
+            e_cmds.insert(Inactive);
+
+            // todo: tween out extra player gui (aim)
+            if player.is_left() == ev.left_has_won {
+                player_anim.animation = PlayerAnimation::Celebrating;
+            } else {
+                // todo: loss animation
+            }
+        }
+
+        score.left_has_won = Some(ev.left_has_won);
+
+        break;
     }
 }
 
 pub fn add_point_to_score(
     score: &mut Score,
     score_ev_w: &mut EventWriter<ScoreChangedEvt>,
+    game_over_ev_w: &mut EventWriter<GameOverEvt>,
     add_to_left_player: bool,
 ) -> bool {
     let (mut scoring, mut other) = if add_to_left_player {
@@ -109,7 +170,15 @@ pub fn add_point_to_score(
             left_side_scored: add_to_left_player,
             score_type: ScoreChangeType::Game,
         });
-        return true;
+
+        if scoring.games >= GAME_SCORE_TARGET {
+            game_over_ev_w.send(GameOverEvt {
+                left_has_won: add_to_left_player,
+            });
+            return false;
+        } else {
+            return true;
+        }
     } else if scoring.points == other.points && scoring.points > 3 {
         score_ev_w.send(ScoreChangedEvt {
             left_side_scored: add_to_left_player,
@@ -127,14 +196,13 @@ pub fn add_point_to_score(
         });
     }
 
-    // // todo: endgame scoring - either too high or difference high enough
-    // if scoring.games >= 6 {
-    // }
-
     false
 }
 
-fn reset_score(mut score: ResMut<Score>) {
+fn reset_score(mut score: ResMut<Score>, mut net: ResMut<NetOffset>) {
     score.left_player = PlayerScore::default();
     score.right_player = PlayerScore::default();
+    score.left_has_won = None;
+    net.current_offset = 0.;
+    net.target = 0.;
 }

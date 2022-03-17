@@ -1,4 +1,3 @@
-
 use crate::GameState;
 use crate::{
     animation::TransformRotation,
@@ -24,7 +23,7 @@ impl Plugin for PlayerAnimationPlugin {
     }
 }
 
-#[derive(Default, Component, Inspectable, PartialEq, Debug)]
+#[derive(Default, Inspectable, PartialEq, Debug)]
 pub enum PlayerAnimation {
     #[default]
     Idle,
@@ -36,7 +35,7 @@ pub enum PlayerAnimation {
 }
 
 #[derive(Component, Inspectable)]
-pub struct AgentAnimationData {
+pub struct PlayerAnimationData {
     pub animation: PlayerAnimation,
     pub face_e: Entity,
     pub body_e: Entity,
@@ -50,9 +49,9 @@ fn animate(
     mut commands: Commands,
     player_anim_q: Query<(
         Entity,
-        &AgentAnimationData,
+        &PlayerAnimationData,
         Option<&AgentAnimationBlock>,
-        ChangeTrackers<AgentAnimationData>,
+        ChangeTrackers<PlayerAnimationData>,
     )>,
     mut animator_q: Query<(&mut Animator<Transform>, &Transform)>,
 ) {
@@ -121,7 +120,7 @@ fn animate(
                 PlayerAnimation::Celebrating => {
                     stop_anim_entities.push(anim.face_e);
                     stop_anim_entities.push(anim.body_e);
-                    body_root_tween = Some(get_move_tween(500, 20., 12.));
+                    body_root_tween = Some(get_move_tween(500, 40., 12.));
                 }
             }
 

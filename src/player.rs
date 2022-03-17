@@ -7,9 +7,9 @@ use crate::{
     palette::PaletteColor,
     physics::PhysLayer,
     player_action::{ActionTimer, PlayerActionStatus},
-    player_animation::{AgentAnimationData, PlayerAnimation},
+    player_animation::{PlayerAnimation, PlayerAnimationData},
     render::{PLAYER_Z, SHADOW_Z},
-    score::{add_point_to_score, PlayerScore, Score, ScoreChangedEvt},
+    score::{add_point_to_score, GameOverEvt, PlayerScore, Score, ScoreChangedEvt},
     trail::FadeOutTrail,
     GameSetupPhase, GameState, BASE_VIEW_HEIGHT, BASE_VIEW_WIDTH,
 };
@@ -77,6 +77,9 @@ impl Player {
 pub fn is_left_player_id(id: usize) -> bool {
     id == 1
 }
+
+#[derive(Component, Inspectable)]
+pub struct Inactive;
 
 #[derive(Default, Component, Inspectable)]
 pub struct PlayerMovement {
@@ -333,7 +336,7 @@ pub fn spawn_player<'a, 'b, 'c>(
                     .id(),
             );
         })
-        .insert(AgentAnimationData {
+        .insert(PlayerAnimationData {
             animation: PlayerAnimation::Idle,
             face_e,
             body_e: body_e.unwrap(),
@@ -345,14 +348,17 @@ pub fn spawn_player<'a, 'b, 'c>(
 // todo: slight acceleration
 // nice2have: lerp dash
 fn move_player(
-    mut query: Query<(
-        &Player,
-        &mut PlayerMovement,
-        &PlayerDash,
-        &mut Transform,
-        &PlayerSwing,
-        &mut AgentAnimationData,
-    )>,
+    mut query: Query<
+        (
+            &Player,
+            &mut PlayerMovement,
+            &PlayerDash,
+            &mut Transform,
+            &PlayerSwing,
+            &mut PlayerAnimationData,
+        ),
+        Without<Inactive>,
+    >,
     time: ScaledTime,
     net: Res<NetOffset>,
     court: Res<CourtSettings>,
@@ -449,7 +455,7 @@ fn move_player(
 
 // todo: clamp angle based on Y distance from center?
 fn aim(
-    player_q: Query<(&Player, &AgentAnimationData)>,
+    player_q: Query<(&Player, &PlayerAnimationData), Without<Inactive>>,
     mut aim_q: Query<(&mut PlayerAim, &mut Transform, &Parent)>,
     mut transform_q: Query<&mut Transform, Without<PlayerAim>>,
     time: ScaledTime,
@@ -504,12 +510,15 @@ fn aim(
 }
 
 fn swing(
-    mut query: Query<(
-        &PlayerSwing,
-        ChangeTrackers<PlayerSwing>,
-        &mut CollisionLayers,
-        &mut AgentAnimationData,
-    )>,
+    mut query: Query<
+        (
+            &PlayerSwing,
+            ChangeTrackers<PlayerSwing>,
+            &mut CollisionLayers,
+            &mut PlayerAnimationData,
+        ),
+        Without<Inactive>,
+    >,
 ) {
     for (player_swing, player_swing_tracker, mut coll_layers, mut anim) in query.iter_mut() {
         if player_swing_tracker.is_changed() {
@@ -535,7 +544,8 @@ fn on_ball_bounced(
     mut commands: Commands,
     mut ev_r_ball_bounced: EventReader<BallBouncedEvt>,
     mut score_ev_w: EventWriter<ScoreChangedEvt>,
-    player_q: Query<&Player>,
+    mut game_over_ev_w: EventWriter<GameOverEvt>,
+    player_q: Query<&Player, Without<Inactive>>,
     mut ball_q: Query<(&Ball, &mut BallStatus, &Transform)>,
     asset_server: Res<AssetServer>,
     mut serving_region: ResMut<ServingRegion>,
@@ -578,8 +588,10 @@ fn on_ball_bounced(
                     swap_serve = add_point_to_score(
                         &mut score,
                         &mut score_ev_w,
+                        &mut game_over_ev_w,
                         !is_left_player_id(losing_player),
                     );
+
                     debug!(
                         "Player {} has lost a point to {}! (bounce_count: {})",
                         losing_player, reason, ev.bounce_count
