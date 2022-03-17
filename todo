@@ -1,10 +1,11 @@
 todos:
-move player to ball on swing
+more tugging
+victory condition
+on swing move player to ball & lock movement
 ball sfx
-music?
-
-sfx
 faces
-dash 'body' trail?
+
+music?
+other sfx
 fix trails to work at all angles
 ball can't be fired before it's tweened in

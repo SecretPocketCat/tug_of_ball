@@ -4,7 +4,7 @@ use crate::{
     physics::PhysLayer,
     render::{COURT_LINE_Z, COURT_Z, NET_Z, SHADOW_Z},
     reset::Persistent,
-    score::Score,
+    score::{Score, ScoreChangeType, ScoreChangedEvt},
     GameState, BASE_VIEW_HEIGHT, BASE_VIEW_WIDTH,
 };
 use bevy::{
@@ -18,6 +18,9 @@ use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, 
 use heron::*;
 use rand::*;
 use std::{ops::RangeInclusive, time::Duration};
+
+pub const NET_OFFSET_POINT: f32 = 30.;
+pub const NET_OFFSET_GAME: f32 = 90.;
 
 pub struct LevelPlugin;
 impl Plugin for LevelPlugin {
@@ -310,23 +313,32 @@ fn spawn_region(commands: &mut Commands, region: CourtRegion, x: f32, y: f32, re
 }
 
 fn handle_net_offset(
+    mut score_ev_r: EventReader<ScoreChangedEvt>,
     mut commands: Commands,
-    score: Res<Score>,
     mut net: ResMut<NetOffset>,
     net_q: Query<(Entity, &Transform), With<Net>>,
     mut region_q: Query<(Entity, &CourtRegion, &mut Transform, &mut CollisionShape), Without<Net>>,
     settings: Res<CourtSettings>,
 ) {
     if let Ok((net_e, net_t)) = net_q.get_single() {
-        if score.is_changed() {
-            let offset_mult = -50.;
-            net.target =
-                (score.right_player.games as f32 - score.left_player.games as f32) * offset_mult;
+        let mut target_offset = 0.;
 
-            if cfg!(feature = "debug") {
-                net.target = (score.right_player.points as f32 - score.left_player.points as f32)
-                    * offset_mult;
+        for ev in score_ev_r.iter() {
+            info!("score ev!");
+            let mut offset = match ev.score_type {
+                ScoreChangeType::Point => NET_OFFSET_POINT,
+                ScoreChangeType::Game => NET_OFFSET_GAME,
+            };
+
+            if !ev.left_side_scored {
+                offset *= -1.;
             }
+
+            target_offset += offset;
+        }
+
+        if target_offset != 0. {
+            net.target += target_offset;
 
             // tween net
             commands.entity(net_e).insert(Animator::new(Tween::new(

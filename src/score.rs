@@ -6,6 +6,7 @@ pub struct ScorePlugin;
 impl Plugin for ScorePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<Score>()
+            .add_event::<ScoreChangedEvt>()
             .add_startup_system(setup)
             .add_system_set(SystemSet::on_enter(GameState::Game).with_system(reset_score))
             .add_system(update_score_ui);
@@ -25,7 +26,16 @@ pub struct Score {
 pub struct PlayerScore {
     pub points: u8,
     pub games: u8,
-    // pub sets: u8,
+}
+
+pub enum ScoreChangeType {
+    Point,
+    Game,
+}
+
+pub struct ScoreChangedEvt {
+    pub left_side_scored: bool,
+    pub score_type: ScoreChangeType,
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -72,7 +82,11 @@ fn update_score_ui(score: Res<Score>, mut points_text_q: Query<&mut Text, With<P
     }
 }
 
-pub fn add_point_to_score(score: &mut Score, add_to_left_player: bool) -> bool {
+pub fn add_point_to_score(
+    score: &mut Score,
+    score_ev_w: &mut EventWriter<ScoreChangedEvt>,
+    add_to_left_player: bool,
+) -> bool {
     let (mut scoring, mut other) = if add_to_left_player {
         (&mut score.left_player, &mut score.right_player)
     } else {
@@ -90,12 +104,27 @@ pub fn add_point_to_score(score: &mut Score, add_to_left_player: bool) -> bool {
         scoring.games += 1;
         scoring.points = 0;
         other.points = 0;
+
+        score_ev_w.send(ScoreChangedEvt {
+            left_side_scored: add_to_left_player,
+            score_type: ScoreChangeType::Game,
+        });
         return true;
     } else if scoring.points == other.points && scoring.points > 3 {
+        score_ev_w.send(ScoreChangedEvt {
+            left_side_scored: add_to_left_player,
+            score_type: ScoreChangeType::Point,
+        });
+
         // hacky way to get ADV in the UI
         // nice2have: redo
         scoring.points = 3;
         other.points = 3;
+    } else {
+        score_ev_w.send(ScoreChangedEvt {
+            left_side_scored: add_to_left_player,
+            score_type: ScoreChangeType::Point,
+        });
     }
 
     // // todo: endgame scoring - either too high or difference high enough

@@ -9,7 +9,7 @@ use crate::{
     player_action::{ActionTimer, PlayerActionStatus},
     player_animation::{AgentAnimationData, PlayerAnimation},
     render::{PLAYER_Z, SHADOW_Z},
-    score::{add_point_to_score, PlayerScore, Score},
+    score::{add_point_to_score, PlayerScore, Score, ScoreChangedEvt},
     trail::FadeOutTrail,
     GameSetupPhase, GameState, BASE_VIEW_HEIGHT, BASE_VIEW_WIDTH,
 };
@@ -534,6 +534,7 @@ fn swing(
 fn on_ball_bounced(
     mut commands: Commands,
     mut ev_r_ball_bounced: EventReader<BallBouncedEvt>,
+    mut score_ev_w: EventWriter<ScoreChangedEvt>,
     player_q: Query<&Player>,
     mut ball_q: Query<(&Ball, &mut BallStatus, &Transform)>,
     asset_server: Res<AssetServer>,
@@ -574,7 +575,11 @@ fn on_ball_bounced(
                 let mut swap_serve = false;
 
                 if let Some(losing_player) = losing_player {
-                    swap_serve = add_point_to_score(&mut score, !is_left_player_id(losing_player));
+                    swap_serve = add_point_to_score(
+                        &mut score,
+                        &mut score_ev_w,
+                        !is_left_player_id(losing_player),
+                    );
                     debug!(
                         "Player {} has lost a point to {}! (bounce_count: {})",
                         losing_player, reason, ev.bounce_count

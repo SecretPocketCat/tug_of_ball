@@ -89,7 +89,7 @@ fn main() {
                 min_width: BASE_VIEW_WIDTH * MIN_SIZE_MULT,
                 ..Default::default()
             },
-            mode: WindowMode::BorderlessFullscreen,
+            // mode: WindowMode::BorderlessFullscreen,
             scale_factor_override,
             ..Default::default()
         })
