@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::{
-    animation::{get_scale_out_tween, TweenDoneAction},
+    animation::{get_scale_out_anim, TweenDoneAction},
     level::{Net, NetOffset},
     palette::PaletteColor,
     player::{Inactive, Player, PlayerGui},
@@ -133,16 +133,15 @@ fn on_game_over(
 
             e_cmds.insert(Inactive);
 
-            // todo: tween out extra player gui (aim)
             if player.is_left() == ev.left_has_won {
                 player_anim.animation = PlayerAnimation::Celebrating;
             } else {
-                // todo: loss animation
+                player_anim.animation = PlayerAnimation::Loss;
             }
         }
 
         for (gui_e, gui_t) in player_gui_q.iter() {
-            commands.entity(gui_e).insert(get_scale_out_tween(
+            commands.entity(gui_e).insert(get_scale_out_anim(
                 gui_t.scale,
                 350,
                 Some(TweenDoneAction::DespawnRecursive),

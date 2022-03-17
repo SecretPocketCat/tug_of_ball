@@ -1,3 +1,5 @@
+use crate::animation::{get_fade_out_sprite_anim, get_scale_out_anim, get_scale_out_tween};
+use crate::player::PLAYER_SIZE;
 use crate::GameState;
 use crate::{
     animation::TransformRotation,
@@ -7,7 +9,9 @@ use crate::{
 use bevy::{math::Vec2, prelude::*};
 use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-use bevy_tweening::lens::{TransformPositionLens, TransformRotationLens, TransformScaleLens};
+use bevy_tweening::lens::{
+    SpriteColorLens, TransformPositionLens, TransformRotationLens, TransformScaleLens,
+};
 use bevy_tweening::*;
 use interpolation::EaseFunction;
 use std::time::Duration;
@@ -31,6 +35,7 @@ pub enum PlayerAnimation {
     Running,
     Dashing,
     Celebrating,
+    Loss,
     Shooting,
 }
 
@@ -53,6 +58,7 @@ fn animate(
         Option<&AgentAnimationBlock>,
         ChangeTrackers<PlayerAnimationData>,
     )>,
+    sprite_q: Query<&Sprite>,
     mut animator_q: Query<(&mut Animator<Transform>, &Transform)>,
 ) {
     for (anim_e, anim, block, anim_tracker) in player_anim_q.iter() {
@@ -63,6 +69,7 @@ fn animate(
 
             let mut stop_anim_entities: Vec<Entity> = Vec::new();
             let mut body_root_tween = None;
+            let mut face_anim = None;
 
             debug!("anim change to {:?}", anim.animation);
             match anim.animation {
@@ -122,6 +129,16 @@ fn animate(
                     stop_anim_entities.push(anim.body_e);
                     body_root_tween = Some(get_move_tween(500, 40., 12.));
                 }
+                PlayerAnimation::Loss => {
+                    if let Ok((_, t)) = animator_q.get_mut(anim.body_e) {
+                        stop_anim_entities.push(anim.face_e);
+                        stop_anim_entities.push(anim.body_e);
+                        body_root_tween = Some(get_loss_tween(&t));
+                        if let Ok(sprite) = sprite_q.get(anim.face_e) {
+                            face_anim = Some(get_fade_out_sprite_anim(sprite.color, 1000, None));
+                        }
+                    }
+                }
             }
 
             for e in stop_anim_entities.iter() {
@@ -137,6 +154,10 @@ fn animate(
                     animator.set_tweenable(move_tween);
                     animator.state = AnimatorState::Playing;
                 }
+            }
+
+            if let Some(face_anim) = face_anim {
+                commands.entity(anim.face_e).insert(face_anim);
             }
         }
     }
@@ -272,6 +293,34 @@ fn get_body_scale_tween(transform: &Transform, scale: f32, dur: u64) -> (Sequenc
         },
     ));
     (t, 0.5)
+}
+
+fn get_loss_tween(transform: &Transform) -> Tracks<Transform> {
+    let dur = 3000;
+    let scale_end = Vec3::new(2.5, 0.1, transform.scale.z);
+    let scale_tween = Tween::new(
+        EaseFunction::QuadraticOut,
+        TweeningType::Once,
+        Duration::from_millis(dur),
+        TransformScaleLens {
+            start: transform.scale,
+            end: scale_end,
+        },
+    );
+    let offset_tween = Tween::new(
+        EaseFunction::QuadraticOut,
+        TweeningType::Once,
+        Duration::from_millis(dur),
+        TransformPositionLens {
+            start: transform.translation,
+            end: transform.translation - Vec3::Y * PLAYER_SIZE / 2.,
+        },
+    );
+
+    Tracks::new([
+        scale_tween.then(get_scale_out_tween(scale_end, 1500, None)),
+        Sequence::new([offset_tween]),
+    ])
 }
 
 fn animate_dash_state_ui(

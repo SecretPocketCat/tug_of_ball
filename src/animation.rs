@@ -4,7 +4,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-use bevy_tweening::lens::TransformScaleLens;
+use bevy_tweening::lens::{SpriteColorLens, TransformScaleLens};
 use bevy_tweening::*;
 
 pub struct AnimationPlugin;
@@ -74,7 +74,7 @@ pub fn get_scale_out_tween(
     start_scale: Vec3,
     duration_ms: u64,
     on_completed: Option<TweenDoneAction>,
-) -> Animator<Transform> {
+) -> Tween<Transform> {
     get_scale_tween(
         start_scale,
         Vec3::ZERO,
@@ -88,7 +88,7 @@ pub fn get_scale_in_tween(
     end_scale: Vec3,
     duration_ms: u64,
     on_completed: Option<TweenDoneAction>,
-) -> Animator<Transform> {
+) -> Tween<Transform> {
     get_scale_tween(
         Vec3::ZERO,
         end_scale,
@@ -104,7 +104,7 @@ pub fn get_scale_tween(
     ease: EaseFunction,
     duration_ms: u64,
     on_completed: Option<TweenDoneAction>,
-) -> Animator<Transform> {
+) -> Tween<Transform> {
     let mut tween = Tween::new(
         ease,
         TweeningType::Once,
@@ -119,7 +119,85 @@ pub fn get_scale_tween(
         tween = tween.with_completed_event(true, on_completed.into());
     }
 
-    Animator::new(tween)
+    tween
+}
+
+pub fn get_scale_out_anim(
+    start_scale: Vec3,
+    duration_ms: u64,
+    on_completed: Option<TweenDoneAction>,
+) -> Animator<Transform> {
+    get_scale_anim(
+        start_scale,
+        Vec3::ZERO,
+        EaseFunction::QuadraticIn,
+        duration_ms,
+        on_completed,
+    )
+}
+
+pub fn get_scale_in_anim(
+    end_scale: Vec3,
+    duration_ms: u64,
+    on_completed: Option<TweenDoneAction>,
+) -> Animator<Transform> {
+    get_scale_anim(
+        Vec3::ZERO,
+        end_scale,
+        EaseFunction::BackOut,
+        duration_ms,
+        on_completed,
+    )
+}
+
+pub fn get_scale_anim(
+    start_scale: Vec3,
+    end_scale: Vec3,
+    ease: EaseFunction,
+    duration_ms: u64,
+    on_completed: Option<TweenDoneAction>,
+) -> Animator<Transform> {
+    Animator::new(get_scale_tween(
+        start_scale,
+        end_scale,
+        ease,
+        duration_ms,
+        on_completed,
+    ))
+}
+
+pub fn get_fade_out_sprite_anim(
+    start_col: Color,
+    duration_ms: u64,
+    on_completed: Option<TweenDoneAction>,
+) -> Animator<Sprite> {
+    Animator::new(get_fade_out_sprite_tween(
+        start_col,
+        duration_ms,
+        on_completed,
+    ))
+}
+
+pub fn get_fade_out_sprite_tween(
+    start_col: Color,
+    duration_ms: u64,
+    on_completed: Option<TweenDoneAction>,
+) -> Tween<Sprite> {
+    let mut tween = Tween::new(
+        EaseFunction::QuadraticInOut,
+        TweeningType::Once,
+        Duration::from_millis(duration_ms),
+        SpriteColorLens {
+            start: start_col,
+            end: Color::NONE,
+        },
+    );
+
+    if let Some(on_completed) = on_completed {
+        tween = tween.with_completed_event(true, on_completed.into());
+    }
+
+    tween
 }
 
 pub fn asymptotic_smoothing_with_delta_time<

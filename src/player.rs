@@ -1,6 +1,6 @@
 use crate::{
     animation::{
-        get_scale_in_tween, get_scale_out_tween, inverse_lerp, TransformRotation, TweenDoneAction,
+        get_scale_in_anim, get_scale_out_anim, inverse_lerp, TransformRotation, TweenDoneAction,
     },
     ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
     extra::TransformBundle,
@@ -278,7 +278,7 @@ pub fn spawn_player<'a, 'b, 'c>(
             radius: AIM_RING_RADIUS,
         })
         .insert(CollisionLayers::none())
-        .insert(get_scale_in_tween(Vec3::ONE, 450, None))
+        .insert(get_scale_in_anim(Vec3::ONE, 450, None))
         .insert(Name::new("Player"))
         .add_child(aim_e)
         .add_child(aim_charge_e)
@@ -610,7 +610,7 @@ fn on_ball_bounced(
                 }
 
                 *status = BallStatus::Used;
-                commands.entity(ev.ball_e).insert(get_scale_out_tween(
+                commands.entity(ev.ball_e).insert(get_scale_out_anim(
                     ball_t.scale,
                     450,
                     Some(TweenDoneAction::DespawnRecursive),

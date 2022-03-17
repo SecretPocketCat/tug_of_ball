@@ -1,5 +1,5 @@
 use crate::{
-    animation::{get_scale_out_tween, TweenDoneAction},
+    animation::{get_scale_out_anim, TweenDoneAction},
     input_binding::{InputAction, PlayerInput},
     GameState,
 };
@@ -41,7 +41,7 @@ fn start_reset(
 ) {
     for (e, t) in despawn_q.iter() {
         if let Some(t) = t {
-            commands.entity(e).insert(get_scale_out_tween(
+            commands.entity(e).insert(get_scale_out_anim(
                 t.scale,
                 350,
                 Some(TweenDoneAction::DespawnRecursive),
