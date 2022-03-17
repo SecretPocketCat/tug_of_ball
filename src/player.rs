@@ -28,8 +28,6 @@ use bevy_time::{ScaledTime, ScaledTimeDelta};
 use bevy_tweening::*;
 use heron::*;
 
-
-
 pub const PLAYER_SIZE: f32 = 56.;
 pub const AIM_RING_ROTATION_DEG: f32 = 50.;
 // pub const AIM_RING_RADIUS: f32 = 350.;
@@ -543,7 +541,7 @@ fn swing(
                     *coll_layers = CollisionLayers::all::<PhysLayer>();
 
                     // 2fix: animation should fire only after collision or the timer runs out
-                    anim.animation = PlayerAnimation::Shooting;
+                    anim.animation = PlayerAnimation::Swinging;
                 }
             }
         }

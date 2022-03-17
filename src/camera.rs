@@ -1,14 +1,9 @@
 use crate::{
-    animation::asymptotic_smoothing_with_delta_time,
-    ball::Ball,
-    level::CourtSettings,
-    player::{Player},
-    reset::Persistent,
-    score::Score,
+    animation::asymptotic_smoothing_with_delta_time, ball::Ball, level::CourtSettings,
+    player::Player, reset::Persistent, score::Score,
 };
 use bevy::{prelude::*, window::WindowResized};
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-
 
 pub const BASE_VIEW_WIDTH: f32 = 1920.;
 pub const BASE_VIEW_HEIGHT: f32 = 1080.;
@@ -58,8 +53,8 @@ fn follow_focus_point(
     score: Res<Score>,
 ) {
     if let Ok(mut cam_t) = cam_q.get_single_mut() {
-        let mut focus = Vec2::ZERO;
-        let mut focus_mult = Vec2::new(0.1, 0.05);
+        let mut focus = cam_t.translation.truncate();
+        let mut focus_mult = Vec2::splat(0.9);
 
         if let Some(is_left) = score.left_has_won {
             if let Some((_, player_t)) = player_q.iter().find(|(p, ..)| p.is_left() == is_left) {
@@ -68,6 +63,7 @@ fn follow_focus_point(
             }
         } else if let Ok(ball_t) = ball_q.get_single() {
             focus = ball_t.translation.truncate();
+            focus_mult = Vec2::new(0.1, 0.01);
         }
 
         let target_pos = Vec3::new(

@@ -36,7 +36,7 @@ pub enum PlayerAnimation {
     Dashing,
     Celebrating,
     Loss,
-    Shooting,
+    Swinging,
 }
 
 #[derive(Component, Inspectable)]
@@ -73,7 +73,7 @@ fn animate(
 
             debug!("anim change to {:?}", anim.animation);
             match anim.animation {
-                PlayerAnimation::Shooting => {
+                PlayerAnimation::Swinging => {
                     stop_anim_entities.push(anim.face_e);
                     stop_anim_entities.push(anim.body_root_e);
 
