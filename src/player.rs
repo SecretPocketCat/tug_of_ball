@@ -1,5 +1,7 @@
 use crate::{
-    animation::{inverse_lerp, TransformRotation, TweenDoneAction},
+    animation::{
+        get_scale_in_tween, get_scale_out_tween, inverse_lerp, TransformRotation, TweenDoneAction,
+    },
     ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
     extra::TransformBundle,
     impl_player_action_timer,
@@ -262,13 +264,21 @@ pub fn spawn_player<'a, 'b, 'c>(
         .insert(PaletteColor::PlayerCharge)
         .id();
 
-    let mut p = commands.spawn_bundle(TransformBundle::from_xyz(x, player_y, PLAYER_Z));
+    let mut p = commands.spawn_bundle(TransformBundle {
+        transform: Transform {
+            translation: Vec3::new(x, player_y, PLAYER_Z),
+            scale: Vec2::ZERO.extend(1.),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
     p.insert_bundle(PlayerBundle::new(id, initial_dir, aim_e, aim_charge_e))
         .insert(RigidBody::KinematicPositionBased)
         .insert(CollisionShape::Sphere {
             radius: AIM_RING_RADIUS,
         })
         .insert(CollisionLayers::none())
+        .insert(get_scale_in_tween(Vec3::ONE, 450, None))
         .insert(Name::new("Player"))
         .add_child(aim_e)
         .add_child(aim_charge_e)
@@ -599,17 +609,10 @@ fn on_ball_bounced(
                 }
 
                 *status = BallStatus::Used;
-                commands.entity(ev.ball_e).insert(Animator::new(
-                    Tween::new(
-                        EaseFunction::QuadraticIn,
-                        TweeningType::Once,
-                        Duration::from_millis(450),
-                        TransformScaleLens {
-                            start: ball_t.scale,
-                            end: Vec3::ZERO,
-                        },
-                    )
-                    .with_completed_event(true, TweenDoneAction::DespawnRecursive.into()),
+                commands.entity(ev.ball_e).insert(get_scale_out_tween(
+                    ball_t.scale,
+                    450,
+                    Some(TweenDoneAction::DespawnRecursive),
                 ));
 
                 if let Ok(e) = entity_q.get(ball.trail_e.unwrap()) {
@@ -627,6 +630,7 @@ fn on_ball_bounced(
                     };
                 }
 
+                // todo: skip if game over
                 spawn_ball(
                     &mut commands,
                     &asset_server,

@@ -1,7 +1,10 @@
+use std::time::Duration;
+
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-use bevy_tweening::TweenCompleted;
+use bevy_tweening::lens::TransformScaleLens;
+use bevy_tweening::*;
 
 pub struct AnimationPlugin;
 impl Plugin for AnimationPlugin {
@@ -10,7 +13,6 @@ impl Plugin for AnimationPlugin {
     }
 }
 
-// todo: struct
 #[derive(Default, Component, Inspectable)]
 pub struct TransformRotation {
     pub rotation_rad: f32,
@@ -65,4 +67,56 @@ fn rotate(mut q: Query<(&TransformRotation, &mut Transform)>, time: ScaledTime) 
 
 pub fn inverse_lerp(a: f32, b: f32, t: f32) -> f32 {
     ((t - a) / (b - a)).clamp(0., 1.)
+}
+
+pub fn get_scale_out_tween(
+    start_scale: Vec3,
+    duration_ms: u64,
+    on_completed: Option<TweenDoneAction>,
+) -> Animator<Transform> {
+    get_scale_tween(
+        start_scale,
+        Vec3::ZERO,
+        EaseFunction::QuadraticIn,
+        duration_ms,
+        on_completed,
+    )
+}
+
+pub fn get_scale_in_tween(
+    end_scale: Vec3,
+    duration_ms: u64,
+    on_completed: Option<TweenDoneAction>,
+) -> Animator<Transform> {
+    get_scale_tween(
+        Vec3::ZERO,
+        end_scale,
+        EaseFunction::BackOut,
+        duration_ms,
+        on_completed,
+    )
+}
+
+pub fn get_scale_tween(
+    start_scale: Vec3,
+    end_scale: Vec3,
+    ease: EaseFunction,
+    duration_ms: u64,
+    on_completed: Option<TweenDoneAction>,
+) -> Animator<Transform> {
+    let mut tween = Tween::new(
+        ease,
+        TweeningType::Once,
+        Duration::from_millis(duration_ms),
+        TransformScaleLens {
+            start: start_scale,
+            end: end_scale,
+        },
+    );
+
+    if let Some(on_completed) = on_completed {
+        tween = tween.with_completed_event(true, on_completed.into());
+    }
+
+    Animator::new(tween)
 }
