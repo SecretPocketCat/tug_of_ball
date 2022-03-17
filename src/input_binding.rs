@@ -35,8 +35,9 @@ fn setup_bindings(
     let deadzone = 0.15;
 
     for id in 1..=2 {
-        map.bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger)?
-            .bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger2)?
+        map
+            // .bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger)?
+            // .bind_button_action(id, InputAction::Dash, GamepadButtonType::RightTrigger2)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::South)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::West)?
             .bind_button_action(id, InputAction::Swing, GamepadButtonType::East)?
@@ -89,7 +90,8 @@ fn setup_bindings(
         gamepad_map.map_gamepad(id - 1, id);
     }
 
-    map.bind_button_action(1, InputAction::Dash, KeyCode::Space)?
+    map
+        // .bind_button_action(1, InputAction::Dash, KeyCode::Space)?
         .bind_button_action(1, InputAction::Swing, KeyCode::J)?
         .bind_button_action(1, InputAction::Reset, KeyCode::Escape)?
         .bind_axis(
@@ -103,7 +105,8 @@ fn setup_bindings(
             AxisBinding::Buttons(KeyCode::S.into(), KeyCode::W.into()),
         );
 
-    map.bind_button_action(2, InputAction::Dash, KeyCode::Numpad0)?
+    map
+        // .bind_button_action(2, InputAction::Dash, KeyCode::Numpad0)?
         .bind_button_action(2, InputAction::Swing, KeyCode::NumpadAdd)?
         .bind_button_action(2, InputAction::ChangePalette, KeyCode::P)?
         .bind_axis(
