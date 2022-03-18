@@ -1,7 +1,7 @@
 use crate::{
     ai_player_controller::AiPlayer,
     input_binding::{InputAction, InputAxis, PlayerInput},
-    player::{Player, PlayerAim, PlayerMovement, PlayerSwing, SWING_LABEL},
+    player::{Inactive, Player, PlayerAim, PlayerMovement, PlayerSwing, SWING_LABEL},
     player_action::PlayerActionStatus,
     GameState,
 };
@@ -22,7 +22,10 @@ impl Plugin for PlayerControllerPlugin {
 
 fn process_player_input(
     input: Res<PlayerInput>,
-    mut q: Query<(&Player, &mut PlayerMovement, &mut PlayerSwing), Without<AiPlayer>>,
+    mut q: Query<
+        (&Player, &mut PlayerMovement, &mut PlayerSwing),
+        (Without<AiPlayer>, Without<Inactive>),
+    >,
     mut aim_q: Query<&mut PlayerAim>,
 ) {
     for (player, mut player_movement, mut player_swing) in q.iter_mut() {
@@ -46,7 +49,7 @@ fn process_player_input(
         }
 
         // swing
-        // nice2have: on swing down cancel prev swing?
+        // todo: disable swing cancel?
         if let Some(input_action_state) =
             input.get_button_action_state(player.id, &InputAction::Swing)
         {

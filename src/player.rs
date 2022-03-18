@@ -35,6 +35,7 @@ use heron::*;
 pub const PLAYER_SIZE: f32 = 56.;
 pub const PLAYER_GRAVITY: f32 = -3150.;
 pub const PLAYER_JUMP_VEL_BASE: f32 = 400.;
+pub const PLAYER_JUMP_HEIGHT_MIN: f32 = 60.;
 pub const AIM_RING_ROTATION_DEG: f32 = 50.;
 pub const AIM_RING_RADIUS: f32 = 115.;
 pub const PLAYER_SWING_DISTANCE: f32 = 50.;
@@ -520,7 +521,7 @@ fn handle_ball_swing_collisions(
     mut commands: Commands,
     mut ball_hit_ew: EventWriter<BallHitEvt>,
     mut ball_q: Query<(Entity, &mut Ball, &mut BallStatus, &Transform)>,
-    mut ball_bounce_q: Query<(&mut BallBounce, &Transform)>,
+    mut ball_bounce_q: Query<(&mut BallBounce, &Transform, &GlobalTransform)>,
     player_aim_q: Query<&PlayerAim>,
     mut player_q: Query<
         (
@@ -536,138 +537,174 @@ fn handle_ball_swing_collisions(
     net: Res<NetOffset>,
     court: Res<CourtSettings>,
 ) {
-    for (ball_e, mut ball, mut status, ball_t) in ball_q.iter_mut() {
-        if let Ok((mut b_bounce, bounce_t)) = ball_bounce_q.get_mut(ball.bounce_e.unwrap()) {
-            for (player_e, player, mut swing, player_t, mut player_anim, mut player_movement) in
-                player_q.iter_mut()
-            {
-                if let PlayerActionStatus::Active(strength) = swing.status {
-                    let ball_delta = (ball_t.translation - player_t.translation).truncate();
-                    let ball_dist = ball_delta.length();
-                    let ball_bounce_dist = (bounce_t.translation - player_t.translation)
-                        .truncate()
-                        .length();
+    for (player_e, player, mut swing, player_t, mut player_anim, mut player_movement) in
+        player_q.iter_mut()
+    {
+        if let Ok(aim) = player_aim_q.get(player.aim_e) {
+            if let PlayerActionStatus::Active(strength) = swing.status {
+                let mut missed = true;
 
-                    if ball_dist.min(ball_bounce_dist) < (AIM_RING_RADIUS + BALL_SIZE * 0.65)
-                        && !swing.timer.finished()
-                    {
-                        swing.start_cooldown();
-                        player_anim.animation = PlayerAnimation::Swinging;
+                if !swing.timer.finished() {
+                    for (ball_e, mut ball, mut status, ball_t) in ball_q.iter_mut() {
+                        if let Ok((mut b_bounce, bounce_t, bounce_t_global)) =
+                            ball_bounce_q.get_mut(ball.bounce_e.unwrap())
+                        {
+                            let ball_delta = (ball_t.translation - player_t.translation).truncate();
+                            let ball_dist = ball_delta.length();
+                            let ball_bounce_dist = (bounce_t_global.translation
+                                - player_t.translation)
+                                .truncate()
+                                .length();
 
-                        let dir_to_ball = ball_delta.normalize();
-                        // let jump_height_min = 200.;
-                        let jump_height_min = 60.;
-                        let jump_height = (bounce_t.translation.y).max(jump_height_min);
-                        let jump_dur = jump_height
-                            / (PLAYER_JUMP_VEL_BASE
-                                * (inverse_lerp(jump_height_min, 300., jump_height) + 1.0));
-                        let jump_vel = jump_dur * -PLAYER_GRAVITY;
-                        let invert_jump = (ball_dist - PLAYER_SWING_DISTANCE) > 0.;
-                        let dir = if invert_jump {
-                            dir_to_ball
-                        } else {
-                            -dir_to_ball
-                        };
-                        let jump_dist = if invert_jump {
-                            PLAYER_SWING_DISTANCE * 2.
-                        } else {
-                            (ball_dist - PLAYER_SWING_DISTANCE).abs() * 2.
-                        };
+                            info!("{ball_dist}, {ball_bounce_dist}");
 
-                        // todo: take distance from net into consideration!
-                        commands
-                            .entity(player_e)
-                            .insert(Inactive)
-                            .insert(PlayerSwinging {
-                                movement_speed: jump_dist / (jump_dur * 2.),
-                                movement_dir: dir,
-                                initial_jump_vel: jump_vel,
-                                current_jump_vel: jump_vel,
-                            });
-                        player_movement.easing_time = 0.;
+                            if ball_dist.min(ball_bounce_dist)
+                                < (AIM_RING_RADIUS + BALL_SIZE * 0.65)
+                            {
+                                missed = false;
+                                swing.start_cooldown();
+                                player_anim.animation = PlayerAnimation::Swinging;
 
-                        if let Ok(aim) = player_aim_q.get(player.aim_e) {
-                            ball.dir = aim.dir.normalize();
-                            // todo: possibly base min speed on distance from net? Closer to net means possible lower speed
-                            let strength = inverse_lerp(0.1, 1., strength);
-                            // carry over some of the previous velocity
-                            let carry_over_vel = ball.speed
-                                * 0.125
-                                * inverse_lerp(
-                                    BALL_MIN_SPEED / 2.,
-                                    BALL_MIN_SPEED * 2.,
-                                    ball.speed,
+                                let dir_to_ball = ball_delta.normalize();
+                                let jump_height =
+                                    (bounce_t.translation.y).max(PLAYER_JUMP_HEIGHT_MIN);
+                                let jump_dur = jump_height
+                                    / (PLAYER_JUMP_VEL_BASE
+                                        * (inverse_lerp(
+                                            PLAYER_JUMP_HEIGHT_MIN,
+                                            300.,
+                                            jump_height,
+                                        ) + 1.0));
+                                let jump_vel = jump_dur * -PLAYER_GRAVITY;
+                                let invert_jump = (ball_dist - PLAYER_SWING_DISTANCE) > 0.;
+                                let dir = if invert_jump {
+                                    dir_to_ball
+                                } else {
+                                    -dir_to_ball
+                                };
+                                let jump_dist = if invert_jump {
+                                    PLAYER_SWING_DISTANCE * 2.
+                                } else {
+                                    (ball_dist - PLAYER_SWING_DISTANCE).abs() * 2.
+                                };
+
+                                // todo: take distance from net into consideration!
+                                commands
+                                    .entity(player_e)
+                                    .insert(Inactive)
+                                    .insert(PlayerSwinging {
+                                        movement_speed: jump_dist / (jump_dur * 2.),
+                                        movement_dir: dir,
+                                        initial_jump_vel: jump_vel,
+                                        current_jump_vel: jump_vel,
+                                    });
+
+                                ball.dir = aim.dir.normalize();
+                                // todo: possibly base min speed on distance from net? Closer to net means possible lower speed
+                                let strength = inverse_lerp(0.1, 1., strength);
+                                // carry over some of the previous velocity
+                                let carry_over_vel = ball.speed
+                                    * 0.125
+                                    * inverse_lerp(
+                                        BALL_MIN_SPEED / 2.,
+                                        BALL_MIN_SPEED * 2.,
+                                        ball.speed,
+                                    );
+                                ball.speed = (BALL_MIN_SPEED.lerp(&BALL_MAX_SPEED, &strength)
+                                    + carry_over_vel)
+                                    .min(BALL_MAX_SPEED);
+                                let overall_strength =
+                                    inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed);
+
+                                let angle = Quat::from_rotation_arc_2d(
+                                    -Vec2::X * player.get_sign(),
+                                    ball.dir,
+                                )
+                                .to_euler(EulerRot::XYZ)
+                                .2;
+
+                                // todo: better calc distance/target
+                                // should be based on strength, distance to net (the closer the shorter-ish the distance?), the current height!
+                                let height_mult =
+                                    inverse_lerp(0., BALL_MAX_HEIGHT, b_bounce.height).min(1.);
+
+                                // should be further from net the lower the ball is (angle required)
+                                let net_offset =
+                                    TARGET_X_OFFSET.lerp(&(TARGET_X_OFFSET / 2.), &height_mult);
+                                let min_x = if player.is_left() {
+                                    net.current_offset + net_offset
+                                } else {
+                                    net.current_offset - net_offset
+                                };
+
+                                let min_a = (min_x - ball_t.translation.x).abs();
+                                let min_dist = (min_a / angle.cos()).max(BALL_MIN_DISTANCE);
+
+                                let net_t = inverse_lerp(
+                                    court.right,
+                                    0.,
+                                    (ball_t.translation.x - net.current_offset).abs(),
                                 );
-                            ball.speed = (BALL_MIN_SPEED.lerp(&BALL_MAX_SPEED, &strength)
-                                + carry_over_vel)
-                                .min(BALL_MAX_SPEED);
-                            let overall_strength =
-                                inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed);
+                                let dist_t = (overall_strength - height_mult * 0.25 - net_t * 0.25).clamp(0., 1.) /* * height_mult*/;
+                                let dist = min_dist.lerp(&(court.right * 2.25), &dist_t);
 
-                            let angle =
-                                Quat::from_rotation_arc_2d(-Vec2::X * player.get_sign(), ball.dir)
-                                    .to_euler(EulerRot::XYZ)
-                                    .2;
+                                let time = dist / ball.speed;
+                                let time_apex = time / 2.;
+                                b_bounce.gravity_mult =
+                                    inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed) * 1.0
+                                        + 1.;
+                                let final_grav = BALL_GRAVITY * b_bounce.gravity_mult;
 
-                            // todo: better calc distance/target
-                            // should be based on strength, distance to net (the closer the shorter-ish the distance?), the current height!
-                            let height_mult =
-                                inverse_lerp(0., BALL_MAX_HEIGHT, b_bounce.height).min(1.);
+                                b_bounce.height = (-final_grav * time_apex)
+                                    .clamp(BALL_MIN_HEIGHT, BALL_MAX_HEIGHT);
+                                b_bounce.target_height = b_bounce.height;
 
-                            // should be further from net the lower the ball is (angle required)
-                            let net_offset =
-                                TARGET_X_OFFSET.lerp(&(TARGET_X_OFFSET / 2.), &height_mult);
-                            let min_x = if player.is_left() {
-                                net.current_offset + net_offset
-                            } else {
-                                net.current_offset - net_offset
-                            };
+                                let final_time = b_bounce.height / -final_grav;
+                                let final_dist = final_time * ball.speed * 2.;
+                                ball.predicted_bounce_pos =
+                                    ball_t.translation.truncate() + (ball.dir * final_dist);
 
-                            let min_a = (min_x - ball_t.translation.x).abs();
-                            let min_dist = (min_a / angle.cos()).max(BALL_MIN_DISTANCE);
-
-                            let net_t = inverse_lerp(
-                                court.right,
-                                0.,
-                                (ball_t.translation.x - net.current_offset).abs(),
-                            );
-                            let dist_t = (overall_strength - height_mult * 0.25 - net_t * 0.25).clamp(0., 1.) /* * height_mult*/;
-                            let dist = min_dist.lerp(&(court.right * 2.25), &dist_t);
-
-                            let time = dist / ball.speed;
-                            let time_apex = time / 2.;
-                            b_bounce.gravity_mult =
-                                inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed) * 1.0 + 1.;
-                            let final_grav = BALL_GRAVITY * b_bounce.gravity_mult;
-
-                            b_bounce.height =
-                                (-final_grav * time_apex).clamp(BALL_MIN_HEIGHT, BALL_MAX_HEIGHT);
-                            b_bounce.target_height = b_bounce.height;
-
-                            let final_time = b_bounce.height / -final_grav;
-                            let final_dist = final_time * ball.speed * 2.;
-                            ball.predicted_bounce_pos =
-                                ball_t.translation.truncate() + (ball.dir * final_dist);
-
-                            match *status {
-                                BallStatus::Serve(_, _, player_id) if player_id != player.id => {
-                                    // vollied serve
-                                    *status = BallStatus::Rally(player.id);
-                                    trace!("Vollied serve");
+                                match *status {
+                                    BallStatus::Serve(_, _, player_id)
+                                        if player_id != player.id =>
+                                    {
+                                        // vollied serve
+                                        *status = BallStatus::Rally(player.id);
+                                        trace!("Vollied serve");
+                                    }
+                                    BallStatus::Rally(..) => {
+                                        // set rally player on hit
+                                        *status = BallStatus::Rally(player.id);
+                                    }
+                                    _ => {}
                                 }
-                                BallStatus::Rally(..) => {
-                                    // set rally player on hit
-                                    *status = BallStatus::Rally(player.id);
-                                }
-                                _ => {}
+
+                                ball_hit_ew.send(BallHitEvt {
+                                    ball_e,
+                                    player_id: player.id,
+                                });
                             }
                         }
-
-                        ball_hit_ew.send(BallHitEvt {
-                            ball_e,
-                            player_id: player.id,
-                        });
                     }
+                }
+
+                if missed {
+                    // missed swing
+                    swing.start_cooldown();
+                    player_anim.animation = PlayerAnimation::Swinging;
+
+                    let dist = PLAYER_SWING_DISTANCE * 2.;
+                    // todo: take distance from net into consideration!
+                    commands
+                        .entity(player_e)
+                        .insert(Inactive)
+                        .insert(PlayerSwinging {
+                            movement_speed: dist
+                                / ((PLAYER_JUMP_HEIGHT_MIN / PLAYER_JUMP_VEL_BASE) * 2.),
+                            movement_dir: player_movement.last_non_zero_raw_dir.normalize(),
+                            initial_jump_vel: PLAYER_JUMP_VEL_BASE,
+                            current_jump_vel: PLAYER_JUMP_VEL_BASE,
+                        });
                 }
             }
         }

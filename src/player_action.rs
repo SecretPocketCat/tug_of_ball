@@ -11,12 +11,12 @@ impl Plugin for PlayerActionPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_system_set(
             SystemSet::on_update(GameState::Game)
-                .with_system(handle_action_cooldown::<PlayerSwing, f32>),
+                .with_system(handle_action_cooldown::<PlayerSwing, f32, false>),
         );
     }
 }
 
-#[derive(Inspectable, Clone, Copy)]
+#[derive(Inspectable, Clone, Copy, Debug)]
 pub enum PlayerActionStatus<TActiveData: Default> {
     Ready,
     Charging(f32),
@@ -37,7 +37,7 @@ pub trait ActionTimer<TActiveData: Default> {
 
     fn get_cooldown_sec(&self) -> f32;
 
-    fn handle_action_timer(&mut self, scaled_delta_time: Duration) {
+    fn handle_action_timer(&mut self, scaled_delta_time: Duration, auto_deactivate: bool) {
         let cooldown_sec = self.get_cooldown_sec();
         let status = self.get_action_status_mut();
         let is_cooldown = matches!(status, PlayerActionStatus::Cooldown);
@@ -48,23 +48,27 @@ pub trait ActionTimer<TActiveData: Default> {
             t.tick(scaled_delta_time);
 
             if t.just_finished() {
-                *t = Timer::from_seconds(cooldown_sec, false);
-                *self.get_action_status_mut() = if is_cooldown {
-                    PlayerActionStatus::Ready
-                } else {
-                    PlayerActionStatus::Cooldown
+                if is_cooldown {
+                    *self.get_action_status_mut() = PlayerActionStatus::Ready;
+                } else if auto_deactivate {
+                    *t = Timer::from_seconds(cooldown_sec, false);
+                    *self.get_action_status_mut() = PlayerActionStatus::Cooldown;
                 };
             }
         }
     }
 }
 
-fn handle_action_cooldown<T: ActionTimer<TActiveData> + Component, TActiveData: Default>(
+fn handle_action_cooldown<
+    T: ActionTimer<TActiveData> + Component,
+    TActiveData: Default,
+    const AUTO_DEACTIVATE: bool,
+>(
     mut query: Query<&mut T>,
     time: ScaledTime,
 ) {
     for mut activity in query.iter_mut() {
-        activity.handle_action_timer(time.scaled_delta());
+        activity.handle_action_timer(time.scaled_delta(), AUTO_DEACTIVATE);
     }
 }
 
