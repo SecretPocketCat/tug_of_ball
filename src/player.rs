@@ -93,12 +93,8 @@ pub struct Inactive;
 pub struct PlayerSwinging {
     movement_speed: f32,
     movement_dir: Vec2,
-    slide_ease: f32,
-    slide_ease_dur: f32,
     initial_jump_vel: f32,
     current_jump_vel: f32,
-    jump_over: bool,
-    delay: Timer,
 }
 
 #[derive(Component, Inspectable)]
@@ -583,18 +579,10 @@ fn handle_ball_swing_collisions(
                             .entity(player_e)
                             .insert(Inactive)
                             .insert(PlayerSwinging {
-                                delay: Timer::from_seconds(strength * 0.3, false),
                                 movement_speed: jump_dist / (jump_dur * 2.),
-                                slide_ease_dur: inverse_lerp(
-                                    0.,
-                                    AIM_RING_RADIUS - PLAYER_SWING_DISTANCE,
-                                    ball_dist,
-                                ) * 0.3,
-                                slide_ease: 1.,
                                 movement_dir: dir,
                                 initial_jump_vel: jump_vel,
                                 current_jump_vel: jump_vel,
-                                jump_over: false,
                             });
                         player_movement.easing_time = 0.;
 
@@ -610,7 +598,6 @@ fn handle_ball_swing_collisions(
                                     BALL_MIN_SPEED * 2.,
                                     ball.speed,
                                 );
-                            info!("{carry_over_vel}");
                             ball.speed = (BALL_MIN_SPEED.lerp(&BALL_MAX_SPEED, &strength)
                                 + carry_over_vel)
                                 .min(BALL_MAX_SPEED);
@@ -694,70 +681,59 @@ fn swing(
         Entity,
         &mut PlayerSwinging,
         &mut PlayerAnimationData,
-        &PlayerMovement,
+        &mut PlayerMovement,
         &mut Transform,
     )>,
     mut transform_q: Query<&mut Transform, Without<PlayerSwinging>>,
     time: ScaledTime,
 ) {
-    for (player_e, mut swinging, mut player_anim, player_movement, mut player_t) in
+    for (player_e, mut swinging, mut player_anim, mut player_movement, mut player_t) in
         swinginq_q.iter_mut()
     {
         if let Ok(mut t) = transform_q.get_mut(player_anim.jump_e) {
             // movement
-            player_t.translation += (swinging.movement_dir
-                * swinging.movement_speed
-                * swinging.slide_ease
-                * time.scaled_delta_seconds())
-            .to_vec3();
+            player_t.translation +=
+                (swinging.movement_dir * swinging.movement_speed * time.scaled_delta_seconds())
+                    .to_vec3();
 
-            if swinging.jump_over {
-                swinging.slide_ease = (swinging.slide_ease
-                    - time.scaled_delta_seconds() / swinging.slide_ease_dur)
-                    .max(0.);
-                swinging.delay.tick(time.scaled_delta());
-
-                if swinging.delay.finished() && swinging.slide_ease <= 0. {
-                    commands
-                        .entity(player_e)
-                        .remove::<PlayerSwinging>()
-                        .remove::<Inactive>();
-                }
+            // jump
+            let current_jump_vel_abs = swinging.current_jump_vel.abs();
+            let stretch_vel = swinging.initial_jump_vel * 0.8;
+            let squash_vel = swinging.initial_jump_vel * 0.3;
+            let max_stretch =
+                inverse_lerp(0., PLAYER_JUMP_VEL_BASE * 2.5, swinging.initial_jump_vel) * 0.35;
+            let max_squash = max_stretch / 2.;
+            let stretch = if current_jump_vel_abs > stretch_vel {
+                inverse_lerp(swinging.initial_jump_vel, stretch_vel, current_jump_vel_abs)
+                    * max_stretch
+            } else if current_jump_vel_abs < squash_vel {
+                inverse_lerp(0., squash_vel, current_jump_vel_abs) * (max_squash + max_stretch)
+                    - max_squash
             } else {
-                // jump
-                let current_jump_vel_abs = swinging.current_jump_vel.abs();
-                let stretch_vel = swinging.initial_jump_vel * 0.8;
-                let squash_vel = swinging.initial_jump_vel * 0.3;
-                let max_stretch =
-                    inverse_lerp(0., PLAYER_JUMP_VEL_BASE * 2.5, swinging.initial_jump_vel) * 0.35;
-                let max_squash = max_stretch / 2.;
-                let stretch = if current_jump_vel_abs > stretch_vel {
-                    inverse_lerp(swinging.initial_jump_vel, stretch_vel, current_jump_vel_abs)
-                        * max_stretch
-                } else if current_jump_vel_abs < squash_vel {
-                    inverse_lerp(0., squash_vel, current_jump_vel_abs) * (max_squash + max_stretch)
-                        - max_squash
-                } else {
-                    max_stretch
-                };
+                max_stretch
+            };
 
-                // squash
-                t.scale.x = 1. - stretch;
-                // stretch
-                t.scale.y = 1. + stretch;
+            // squash
+            t.scale.x = 1. - stretch;
+            // stretch
+            t.scale.y = 1. + stretch;
 
-                // jump
-                t.translation.y += swinging.current_jump_vel * time.scaled_delta_seconds();
-                swinging.current_jump_vel += PLAYER_GRAVITY * time.scaled_delta_seconds();
+            // jump
+            t.translation.y += swinging.current_jump_vel * time.scaled_delta_seconds();
+            swinging.current_jump_vel += PLAYER_GRAVITY * time.scaled_delta_seconds();
 
-                if t.translation.y <= 0. {
-                    t.translation.y = 0.;
-                    swinging.jump_over = true;
+            if t.translation.y <= 0. {
+                t.translation.y = 0.;
+                player_movement.easing_time = 1.;
+                player_movement.raw_dir = Vec2::ZERO;
+                player_movement.last_non_zero_raw_dir = swinging.movement_dir;
 
-                    // todo: landing anim
-                    // todo: start timer
-                    player_anim.animation = PlayerAnimation::Landing;
-                }
+                player_anim.animation = PlayerAnimation::Landing;
+
+                commands
+                    .entity(player_e)
+                    .remove::<PlayerSwinging>()
+                    .remove::<Inactive>();
             }
         }
     }
