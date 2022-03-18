@@ -28,14 +28,14 @@ use bevy_tweening::*;
 use heron::*;
 use rand::*;
 
-pub const BALL_MIN_SPEED: f32 = 350.;
-pub const BALL_MAX_SPEED: f32 = 2750.;
+pub const BALL_MIN_SPEED: f32 = 400.;
+pub const BALL_MAX_SPEED: f32 = 3100.;
 pub const BALL_GRAVITY: f32 = -750.;
 pub const BALL_MIN_DISTANCE: f32 = 50.;
 // todo: calc actual value?
 pub const BALL_MIN_HEIGHT: f32 = 180.;
 pub const BALL_MAX_HEIGHT: f32 = 650.;
-pub const TARGET_X_OFFSET: f32 = 80.;
+pub const TARGET_X_OFFSET: f32 = 70.;
 pub const BALL_SIZE: f32 = 30.;
 
 pub struct BallPlugin;

@@ -578,6 +578,7 @@ fn handle_ball_swing_collisions(
                             (ball_dist - PLAYER_SWING_DISTANCE).abs() * 2.
                         };
 
+                        // todo: take distance from net into consideration!
                         commands
                             .entity(player_e)
                             .insert(Inactive)
@@ -600,9 +601,19 @@ fn handle_ball_swing_collisions(
                         if let Ok(aim) = player_aim_q.get(player.aim_e) {
                             ball.dir = aim.dir.normalize();
                             // todo: possibly base min speed on distance from net? Closer to net means possible lower speed
+                            let strength = inverse_lerp(0.1, 1., strength);
+                            // carry over some of the previous velocity
+                            let carry_over_vel = ball.speed
+                                * 0.125
+                                * inverse_lerp(
+                                    BALL_MIN_SPEED / 2.,
+                                    BALL_MIN_SPEED * 2.,
+                                    ball.speed,
+                                );
+                            info!("{carry_over_vel}");
                             ball.speed = (BALL_MIN_SPEED.lerp(&BALL_MAX_SPEED, &strength)
-                                + ball.speed * 0.125)
-                                .min(BALL_MAX_SPEED); // carry over some of the previous velocity
+                                + carry_over_vel)
+                                .min(BALL_MAX_SPEED);
                             let overall_strength =
                                 inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed);
 
@@ -701,7 +712,6 @@ fn swing(
             .to_vec3();
 
             if swinging.jump_over {
-                info!("{}", time.scaled_delta_seconds() / swinging.slide_ease_dur);
                 swinging.slide_ease = (swinging.slide_ease
                     - time.scaled_delta_seconds() / swinging.slide_ease_dur)
                     .max(0.);
