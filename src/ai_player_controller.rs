@@ -2,7 +2,7 @@ use crate::{
     animation::inverse_lerp,
     ball::{Ball, BallHitEvt, BALL_MAX_SPEED, BALL_MIN_SPEED},
     level::{CourtSettings, InitialRegion, NetOffset},
-    player::{spawn_player, Player, PlayerMovement, PlayerSwing, AIM_RING_RADIUS},
+    player::{spawn_player, Player, PlayerAim, PlayerMovement, PlayerSwing, AIM_RING_RADIUS},
     player_action::PlayerActionStatus,
     GameState,
 };
@@ -20,6 +20,8 @@ impl Plugin for AiPlayerControllerPlugin {
             .add_system_to_stage(BigBrainStage::Actions, move_to_ball_action)
             .add_system_to_stage(BigBrainStage::Scorers, score_move_to_center)
             .add_system_to_stage(BigBrainStage::Actions, move_to_center_action)
+            .add_system_to_stage(BigBrainStage::Scorers, score_aim_to_center)
+            .add_system_to_stage(BigBrainStage::Actions, aim_to_center_action)
             .add_system_to_stage(BigBrainStage::Scorers, score_swing)
             .add_system_to_stage(BigBrainStage::Actions, swing_action);
     }
@@ -69,6 +71,12 @@ pub struct SwingScorer;
 #[derive(Debug, Clone, Component)]
 pub struct SwingAction;
 
+#[derive(Debug, Clone, Component)]
+pub struct AimToCenterScorer;
+
+#[derive(Debug, Clone, Component)]
+pub struct AimToCenterAction;
+
 // what thinkers are needed?
 // movement thinker
 // aim thinker
@@ -90,12 +98,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, region: Res<Ini
             .picker(FirstToScore::new(0.2))
             .when(SwingScorer, SwingAction);
 
+        let aim_thinker = Thinker::build()
+            .picker(FirstToScore::new(0.2))
+            .when(AimToCenterScorer, AimToCenterAction);
+
         spawn_player(2, &mut commands, &asset_server, &region)
             .insert(AiPlayerInputs::default())
             .insert(AiPlayer)
             .insert(move_thinker)
             .with_children(|b| {
                 b.spawn().insert(swing_thinker);
+                b.spawn().insert(aim_thinker);
             });
     }
 }
@@ -318,6 +331,42 @@ fn swing_action(
                         *state = ActionState::Failure;
                     }
                     _ => {}
+                }
+            }
+        }
+    }
+}
+
+fn score_aim_to_center(mut score_q: Query<(&Actor, &mut Score), With<AimToCenterScorer>>) {
+    for (Actor(actor), mut score) in score_q.iter_mut() {
+        // todo:
+        score.set(1.);
+    }
+}
+
+fn aim_to_center_action(
+    mut action_q: Query<(&Actor, &mut ActionState), With<AimToCenterAction>>,
+    parent_q: Query<&Parent>,
+    player_q: Query<(&Transform, &Player)>,
+    mut aim_q: Query<&mut PlayerAim>,
+    net: Res<NetOffset>,
+) {
+    for (Actor(actor), mut state) in action_q.iter_mut() {
+        if let Ok(parent) = parent_q.get(*actor) {
+            if let Ok((p_t, p)) = player_q.get(parent.0) {
+                if let Ok(mut p_aim) = aim_q.get_mut(p.aim_e) {
+                    match *state {
+                        ActionState::Requested | ActionState::Executing => {
+                            p_aim.dir = (Vec2::new(net.current_offset, 0.)
+                                - p_t.translation.truncate())
+                            .normalize();
+                            p_aim.raw_dir = p_aim.dir;
+                        }
+                        ActionState::Cancelled => {
+                            *state = ActionState::Failure;
+                        }
+                        _ => {}
+                    }
                 }
             }
         }
