@@ -27,6 +27,13 @@
       "args": ["--features", "bevy/dynamic,debug"],
       "problemMatcher": ["$rustc"],
       "label": "bevy: run dynamic debug"
+    },
+    {
+      "type": "cargo",
+      "command": "run",
+      "args": ["--features", "bevy/dynamic,debug,collision_debug"],
+      "problemMatcher": ["$rustc"],
+      "label": "bevy: run dynamic collision debug"
     }
   ]
 }

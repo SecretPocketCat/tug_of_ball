@@ -21,5 +21,6 @@ heron = { version = "2.0.1", features = ["2d"] }
 big-brain = "0.10.0"
 
 [features]
-debug = ["heron/debug-2d"]
+debug = []
+collision_debug = ["heron/debug-2d"]
 release = []

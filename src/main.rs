@@ -89,8 +89,9 @@ fn main() {
                 min_width: BASE_VIEW_WIDTH * MIN_SIZE_MULT,
                 ..Default::default()
             },
+            position: Some(Vec2::ZERO),
             // mode: WindowMode::Fullscreen,
-            // scale_factor_override,
+            scale_factor_override,
             ..Default::default()
         })
         .insert_resource(ClearColor(Color::WHITE))
@@ -99,11 +100,13 @@ fn main() {
         // bevy plugins
         .add_plugins(DefaultPlugins);
 
-    if cfg!(feature = "debug") {
-        app.add_plugin(DebugPlugin);
-    } else {
+    if cfg!(not(feature = "collision_debug")) {
         // heron 2d-debug adds lyon plugin as well, which would cause a panic
         app.add_plugin(ShapePlugin);
+    }
+
+    if cfg!(feature = "debug") {
+        app.add_plugin(DebugPlugin);
     }
 
     // 3rd party crates
