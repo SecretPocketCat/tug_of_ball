@@ -34,9 +34,11 @@ use heron::*;
 
 pub const PLAYER_SIZE: f32 = 56.;
 pub const PLAYER_GRAVITY: f32 = -3150.;
+pub const PLAYER_JUMP_VEL_BASE: f32 = 400.;
 pub const AIM_RING_ROTATION_DEG: f32 = 50.;
 // pub const AIM_RING_RADIUS: f32 = 350.;
 pub const AIM_RING_RADIUS: f32 = 100.;
+pub const PLAYER_SWING_DISTANCE: f32 = 50.;
 // todo: get rid of this by fixing the animation system order and sue an enum label for that
 pub const SWING_LABEL: &str = "swing";
 
@@ -90,8 +92,10 @@ pub struct Inactive;
 
 #[derive(Component, Inspectable)]
 pub struct PlayerSwinging {
-    jump_vel: f32,
-    ball_e: Entity,
+    target_pos: Vec3,
+    dir: Vec2,
+    initial_jump_vel: f32,
+    current_jump_vel: f32,
 }
 
 #[derive(Component, Inspectable)]
@@ -206,6 +210,7 @@ pub fn spawn_player<'a, 'b, 'c>(
 
     let mut body_e = None;
     let mut body_root_e = None;
+    let mut jump_e = None;
 
     // face
     let face_e = commands
@@ -301,29 +306,36 @@ pub fn spawn_player<'a, 'b, 'c>(
             .insert(PlayerGui)
             .insert(TransformRotation::new(rotation_speed.to_radians()));
 
-            // body root
-            body_root_e = Some(
-                b.spawn_bundle(TransformBundle::from_xyz(0., 0., 0.))
-                    .insert(Name::new("player_body_root"))
-                    .add_child(face_e)
+            // jump
+            jump_e = Some(
+                b.spawn_bundle(TransformBundle::default())
                     .with_children(|b| {
-                        // body
-                        body_e = Some(
-                            b.spawn_bundle(SpriteBundle {
-                                texture: asset_server.load("art-ish/player_body.png"),
-                                sprite: Sprite {
-                                    custom_size: Some(player_size),
-                                    ..Default::default()
-                                },
-                                ..Default::default()
-                            })
-                            .insert(PaletteColor::Player)
-                            .insert(Animator::<Transform>::default())
-                            .insert(Name::new("player_body"))
-                            .id(),
+                        // body root
+                        body_root_e = Some(
+                            b.spawn_bundle(TransformBundle::from_xyz(0., 0., 0.))
+                                .insert(Name::new("player_body_root"))
+                                .add_child(face_e)
+                                .with_children(|b| {
+                                    // body
+                                    body_e = Some(
+                                        b.spawn_bundle(SpriteBundle {
+                                            texture: asset_server.load("art-ish/player_body.png"),
+                                            sprite: Sprite {
+                                                custom_size: Some(player_size),
+                                                ..Default::default()
+                                            },
+                                            ..Default::default()
+                                        })
+                                        .insert(PaletteColor::Player)
+                                        .insert(Animator::<Transform>::default())
+                                        .insert(Name::new("player_body"))
+                                        .id(),
+                                    );
+                                })
+                                .insert(Animator::<Transform>::default())
+                                .id(),
                         );
                     })
-                    .insert(Animator::<Transform>::default())
                     .id(),
             );
 
@@ -350,6 +362,7 @@ pub fn spawn_player<'a, 'b, 'c>(
         .insert(PlayerAnimationData {
             animation: PlayerAnimation::Idle,
             face_e,
+            jump_e: jump_e.unwrap(),
             body_e: body_e.unwrap(),
             body_root_e: body_root_e.unwrap(),
         });
@@ -503,11 +516,12 @@ fn aim(
     }
 }
 
+// todo: swing miss
 fn handle_ball_swing_collisions(
     mut commands: Commands,
     mut ball_hit_ew: EventWriter<BallHitEvt>,
     mut ball_q: Query<(Entity, &mut Ball, &mut BallStatus, &Transform)>,
-    mut ball_bounce_q: Query<(&mut BallBounce, &GlobalTransform)>,
+    mut ball_bounce_q: Query<(&mut BallBounce, &Transform)>,
     player_aim_q: Query<&PlayerAim>,
     mut player_q: Query<
         (
@@ -516,20 +530,21 @@ fn handle_ball_swing_collisions(
             &mut PlayerSwing,
             &Transform,
             &mut PlayerAnimationData,
+            &mut PlayerMovement,
         ),
         Without<Inactive>,
     >,
-    transform_q: Query<&Transform>,
     net: Res<NetOffset>,
     court: Res<CourtSettings>,
 ) {
     for (ball_e, mut ball, mut status, ball_t) in ball_q.iter_mut() {
         if let Ok((mut b_bounce, bounce_t)) = ball_bounce_q.get_mut(ball.bounce_e.unwrap()) {
-            for (player_e, player, mut swing, player_t, mut player_anim) in player_q.iter_mut() {
+            for (player_e, player, mut swing, player_t, mut player_anim, mut player_movement) in
+                player_q.iter_mut()
+            {
                 if let PlayerActionStatus::Active(strength) = swing.status {
-                    let ball_dist = (ball_t.translation - player_t.translation)
-                        .truncate()
-                        .length();
+                    let ball_delta = (ball_t.translation - player_t.translation).truncate();
+                    let ball_dist = ball_delta.length();
                     let ball_bounce_dist = (bounce_t.translation - player_t.translation)
                         .truncate()
                         .length();
@@ -538,14 +553,29 @@ fn handle_ball_swing_collisions(
                     {
                         swing.start_cooldown();
                         player_anim.animation = PlayerAnimation::Swinging;
-                        // commands
-                        //     .entity(player_e)
-                        //     .insert(Inactive)
-                        //     .insert(PlayerSwinging {
-                        //         // todo:?
-                        //         jump_vel: (-2. * PLAYER_GRAVITY * bounce_t.translation.y).sqrt(),
-                        //         ball_e: ball_e,
-                        //     });
+
+                        // todo: predict the height and pos instead of just taking the current one
+                        let dir_to_ball = ball_delta.normalize();
+                        // let jump_height_min = 200.;
+                        let jump_height_min = 60.;
+                        let jump_height = (bounce_t.translation.y).max(jump_height_min);
+                        let jump_dur = jump_height
+                            / (PLAYER_JUMP_VEL_BASE
+                                * (inverse_lerp(jump_height_min, 300., jump_height) + 1.0));
+                        let jump_vel = jump_dur * -PLAYER_GRAVITY;
+
+                        commands
+                            .entity(player_e)
+                            .insert(Inactive)
+                            .insert(PlayerSwinging {
+                                target_pos: player_t.translation
+                                    + dir_to_ball.to_vec3()
+                                        * (ball_dist - PLAYER_SWING_DISTANCE).abs(),
+                                dir: dir_to_ball,
+                                initial_jump_vel: jump_vel,
+                                current_jump_vel: jump_vel,
+                            });
+                        player_movement.easing_time = 0.;
 
                         if let Ok(aim) = player_aim_q.get(player.aim_e) {
                             ball.dir = aim.dir.normalize();
@@ -626,16 +656,46 @@ fn handle_ball_swing_collisions(
     }
 }
 
+// todo: 'tiredness' cooldown
 fn swing(
     mut commands: Commands,
-    mut swinginq_q: Query<(Entity, &mut PlayerSwinging, &PlayerAnimationData)>,
-    mut transform_q: Query<&mut Transform>,
+    mut swinginq_q: Query<(
+        Entity,
+        &mut PlayerSwinging,
+        &PlayerAnimationData,
+        &PlayerMovement,
+        &mut Transform,
+    )>,
+    mut transform_q: Query<&mut Transform, Without<PlayerSwinging>>,
     time: ScaledTime,
 ) {
-    for (player_e, mut swinging, player_anim) in swinginq_q.iter_mut() {
-        if let Ok(mut t) = transform_q.get_mut(player_anim.body_root_e) {
-            t.translation.y += swinging.jump_vel * time.scaled_delta_seconds();
-            swinging.jump_vel += PLAYER_GRAVITY * time.scaled_delta_seconds();
+    for (player_e, mut swinging, player_anim, player_movement, mut player_t) in
+        swinginq_q.iter_mut()
+    {
+        if let Ok(mut t) = transform_q.get_mut(player_anim.jump_e) {
+            let current_jump_vel_abs = swinging.current_jump_vel.abs();
+            let stretch_vel = swinging.initial_jump_vel * 0.8;
+            let squash_vel = swinging.initial_jump_vel * 0.3;
+            let max_stretch =
+                inverse_lerp(0., PLAYER_JUMP_VEL_BASE * 2.5, swinging.initial_jump_vel) * 0.35;
+            let max_squash = max_stretch / 2.;
+            let stretch = if current_jump_vel_abs > stretch_vel {
+                inverse_lerp(swinging.initial_jump_vel, stretch_vel, current_jump_vel_abs)
+                    * max_stretch
+            } else if current_jump_vel_abs < squash_vel {
+                inverse_lerp(0., squash_vel, current_jump_vel_abs) * (max_squash + max_stretch)
+                    - max_squash
+            } else {
+                max_stretch
+            };
+
+            // squash
+            t.scale.x = 1. - stretch;
+            // stretch
+            t.scale.y = 1. + stretch;
+
+            t.translation.y += swinging.current_jump_vel * time.scaled_delta_seconds();
+            swinging.current_jump_vel += PLAYER_GRAVITY * time.scaled_delta_seconds();
 
             if t.translation.y <= 0. {
                 t.translation.y = 0.;
@@ -643,7 +703,13 @@ fn swing(
                     .entity(player_e)
                     .remove::<PlayerSwinging>()
                     .remove::<Inactive>();
+
+                // todo: landing anim
+                // todo: start timer
             }
+
+            player_t.translation +=
+                (swinging.dir * player_movement.speed * time.scaled_delta_seconds()).to_vec3();
         }
     }
 }

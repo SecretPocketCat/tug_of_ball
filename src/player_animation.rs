@@ -37,6 +37,7 @@ pub enum PlayerAnimation {
 pub struct PlayerAnimationData {
     pub animation: PlayerAnimation,
     pub face_e: Entity,
+    pub jump_e: Entity,
     pub body_e: Entity,
     pub body_root_e: Entity,
 }
@@ -69,16 +70,8 @@ fn animate(
             match anim.animation {
                 PlayerAnimation::Swinging => {
                     stop_anim_entities.push(anim.face_e);
+                    stop_anim_entities.push(anim.body_e);
                     stop_anim_entities.push(anim.body_root_e);
-
-                    if let Ok((mut animator, t)) = animator_q.get_mut(anim.body_e) {
-                        let (tween, dur) = get_body_scale_tween(t, 1.8, 300);
-                        animator.set_tweenable(tween);
-                        animator.rewind();
-                        animator.state = AnimatorState::Playing;
-
-                        commands.entity(anim_e).insert(AgentAnimationBlock(dur));
-                    }
                 }
                 PlayerAnimation::Idle => {
                     stop_anim_entities.push(anim.body_root_e);
