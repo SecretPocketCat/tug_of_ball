@@ -31,6 +31,7 @@ pub enum PlayerAnimation {
     Celebrating,
     Loss,
     Swinging,
+    Landing,
 }
 
 #[derive(Component, Inspectable)]
@@ -112,6 +113,9 @@ fn animate(
                             face_anim = Some(get_fade_out_sprite_anim(sprite.color, 1000, None));
                         }
                     }
+                }
+                PlayerAnimation::Landing => {
+                    // todo:
                 }
             }
 
