@@ -2,7 +2,11 @@ use crate::{
     animation::{
         get_scale_in_anim, get_scale_out_anim, inverse_lerp, TransformRotation, TweenDoneAction,
     },
-    ball::{spawn_ball, Ball, BallBouncedEvt, BallStatus},
+    ball::{
+        spawn_ball, Ball, BallBounce, BallBouncedEvt, BallHitEvt, BallStatus, BALL_GRAVITY,
+        BALL_MAX_HEIGHT, BALL_MAX_SPEED, BALL_MIN_DISTANCE, BALL_MIN_HEIGHT, BALL_MIN_SPEED,
+        TARGET_X_OFFSET,
+    },
     extra::TransformBundle,
     impl_player_action_timer,
     level::{CourtRegion, CourtSettings, InitialRegion, NetOffset, ServingRegion},
@@ -29,6 +33,7 @@ use bevy_tweening::*;
 use heron::*;
 
 pub const PLAYER_SIZE: f32 = 56.;
+pub const PLAYER_GRAVITY: f32 = -3150.;
 pub const AIM_RING_ROTATION_DEG: f32 = 50.;
 // pub const AIM_RING_RADIUS: f32 = 350.;
 pub const AIM_RING_RADIUS: f32 = 100.;
@@ -45,9 +50,10 @@ impl Plugin for PlayerPlugin {
             SystemSet::on_update(GameState::Game)
                 .with_system(move_player.before(SWING_LABEL))
                 .with_system(aim)
-                .with_system(swing)
-                .with_system(on_ball_bounced),
+                .with_system(on_ball_bounced)
+                .with_system(swing),
         )
+        .add_system_to_stage(CoreStage::PostUpdate, handle_ball_swing_collisions)
         .add_system_to_stage(CoreStage::Last, follow_scale);
     }
 }
@@ -81,6 +87,12 @@ pub fn is_left_player_id(id: usize) -> bool {
 
 #[derive(Component, Inspectable)]
 pub struct Inactive;
+
+#[derive(Component, Inspectable)]
+pub struct PlayerSwinging {
+    jump_vel: f32,
+    ball_e: Entity,
+}
 
 #[derive(Component, Inspectable)]
 pub struct PlayerGui;
@@ -527,31 +539,146 @@ fn aim(
     }
 }
 
-fn swing(
-    mut query: Query<
+fn handle_ball_swing_collisions(
+    mut commands: Commands,
+    mut ball_hit_ew: EventWriter<BallHitEvt>,
+    mut ball_q: Query<(Entity, &mut Ball, &mut BallStatus, &Transform)>,
+    mut ball_bounce_q: Query<(&mut BallBounce, &GlobalTransform)>,
+    player_aim_q: Query<&PlayerAim>,
+    mut player_q: Query<
         (
-            &PlayerSwing,
-            ChangeTrackers<PlayerSwing>,
-            &mut CollisionLayers,
+            Entity,
+            &Player,
+            &mut PlayerSwing,
+            &Transform,
             &mut PlayerAnimationData,
         ),
         Without<Inactive>,
     >,
+    transform_q: Query<&Transform>,
+    net: Res<NetOffset>,
+    court: Res<CourtSettings>,
 ) {
-    for (player_swing, player_swing_tracker, mut coll_layers, mut anim) in query.iter_mut() {
-        if player_swing_tracker.is_changed() {
-            match player_swing.status {
-                PlayerActionStatus::Ready
-                | PlayerActionStatus::Cooldown
-                | PlayerActionStatus::Charging(_) => {
-                    *coll_layers = CollisionLayers::none();
-                }
-                PlayerActionStatus::Active(_) => {
-                    *coll_layers = CollisionLayers::all::<PhysLayer>();
+    for (ball_e, mut ball, mut status, ball_t) in ball_q.iter_mut() {
+        if let Ok((mut b_bounce, bounce_t)) = ball_bounce_q.get_mut(ball.bounce_e.unwrap()) {
+            for (player_e, player, mut swing, player_t, mut player_anim) in player_q.iter_mut() {
+                if let PlayerActionStatus::Active(strength) = swing.status {
+                    let ball_dist = (ball_t.translation - player_t.translation)
+                        .truncate()
+                        .length();
+                    let ball_bounce_dist = (bounce_t.translation - player_t.translation)
+                        .truncate()
+                        .length();
 
-                    // 2fix: animation should fire only after collision or the timer runs out
-                    anim.animation = PlayerAnimation::Swinging;
+                    if ball_dist.min(ball_bounce_dist) < AIM_RING_RADIUS && !swing.timer.finished()
+                    {
+                        swing.start_cooldown();
+                        player_anim.animation = PlayerAnimation::Swinging;
+                        // commands
+                        //     .entity(player_e)
+                        //     .insert(Inactive)
+                        //     .insert(PlayerSwinging {
+                        //         // todo:?
+                        //         jump_vel: (-2. * PLAYER_GRAVITY * bounce_t.translation.y).sqrt(),
+                        //         ball_e: ball_e,
+                        //     });
+
+                        if let Ok(aim) = player_aim_q.get(player.aim_e) {
+                            ball.dir = aim.dir.normalize();
+                            // todo: possibly base min speed on distance from net? Closer to net means possible lower speed
+                            ball.speed = (BALL_MIN_SPEED.lerp(&BALL_MAX_SPEED, &strength)
+                                + ball.speed * 0.125)
+                                .min(BALL_MAX_SPEED); // carry over some of the previous velocity
+                            let overall_strength =
+                                inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed);
+
+                            let angle =
+                                Quat::from_rotation_arc_2d(-Vec2::X * player.get_sign(), ball.dir)
+                                    .to_euler(EulerRot::XYZ)
+                                    .2;
+
+                            // todo: better calc distance/target
+                            // should be based on strength, distance to net (the closer the shorter-ish the distance?), the current height!
+                            let height_mult =
+                                inverse_lerp(0., BALL_MAX_HEIGHT, b_bounce.height).min(1.);
+
+                            // should be further from net the lower the ball is (angle required)
+                            let net_offset =
+                                TARGET_X_OFFSET.lerp(&(TARGET_X_OFFSET / 2.), &height_mult);
+                            let min_x = if player.is_left() {
+                                net.current_offset + net_offset
+                            } else {
+                                net.current_offset - net_offset
+                            };
+
+                            let min_a = (min_x - ball_t.translation.x).abs();
+                            let min_dist = (min_a / angle.cos()).max(BALL_MIN_DISTANCE);
+
+                            let net_t = inverse_lerp(
+                                court.right,
+                                0.,
+                                (ball_t.translation.x - net.current_offset).abs(),
+                            );
+                            let dist_t = (overall_strength - height_mult * 0.25 - net_t * 0.25).clamp(0., 1.) /* * height_mult*/;
+                            let dist = min_dist.lerp(&(court.right * 2.25), &dist_t);
+
+                            let time = dist / ball.speed;
+                            let time_apex = time / 2.;
+                            b_bounce.gravity_mult =
+                                inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed) * 1.0 + 1.;
+                            let final_grav = BALL_GRAVITY * b_bounce.gravity_mult;
+
+                            b_bounce.height =
+                                (-final_grav * time_apex).clamp(BALL_MIN_HEIGHT, BALL_MAX_HEIGHT);
+                            b_bounce.target_height = b_bounce.height;
+
+                            let final_time = b_bounce.height / -final_grav;
+                            let final_dist = final_time * ball.speed * 2.;
+                            ball.predicted_bounce_pos =
+                                ball_t.translation.truncate() + (ball.dir * final_dist);
+
+                            match *status {
+                                BallStatus::Serve(_, _, player_id) if player_id != player.id => {
+                                    // vollied serve
+                                    *status = BallStatus::Rally(player.id);
+                                    trace!("Vollied serve");
+                                }
+                                BallStatus::Rally(..) => {
+                                    // set rally player on hit
+                                    *status = BallStatus::Rally(player.id);
+                                }
+                                _ => {}
+                            }
+                        }
+
+                        ball_hit_ew.send(BallHitEvt {
+                            ball_e,
+                            player_id: player.id,
+                        });
+                    }
                 }
+            }
+        }
+    }
+}
+
+fn swing(
+    mut commands: Commands,
+    mut swinginq_q: Query<(Entity, &mut PlayerSwinging, &PlayerAnimationData)>,
+    mut transform_q: Query<&mut Transform>,
+    time: ScaledTime,
+) {
+    for (player_e, mut swinging, player_anim) in swinginq_q.iter_mut() {
+        if let Ok(mut t) = transform_q.get_mut(player_anim.body_root_e) {
+            t.translation.y += swinging.jump_vel * time.scaled_delta_seconds();
+            swinging.jump_vel += PLAYER_GRAVITY * time.scaled_delta_seconds();
+
+            if t.translation.y <= 0. {
+                t.translation.y = 0.;
+                commands
+                    .entity(player_e)
+                    .remove::<PlayerSwinging>()
+                    .remove::<Inactive>();
             }
         }
     }

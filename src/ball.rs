@@ -15,6 +15,7 @@ use crate::{
     physics::PhysLayer,
     player::{Player, PlayerAim, PlayerSwing, AIM_RING_RADIUS},
     player_action::PlayerActionStatus,
+    player_animation::{PlayerAnimation, PlayerAnimationData},
     render::{BALL_Z, PLAYER_Z, SHADOW_Z},
     trail::Trail,
     GameSetupPhase, GameState,
@@ -43,7 +44,6 @@ impl Plugin for BallPlugin {
         app.add_system_set(
             SystemSet::on_enter(GameState::Game).with_system(setup.label(GameSetupPhase::Ball)),
         )
-        .add_system_to_stage(CoreStage::PostUpdate, handle_collisions)
         .add_system_to_stage(CoreStage::PostUpdate, handle_regions)
         .add_system_set(SystemSet::on_update(GameState::Game).with_system(move_ball))
         .add_event::<BallBouncedEvt>()
@@ -67,9 +67,9 @@ pub struct Ball {
 #[derive(Default, Component, Inspectable)]
 pub struct BallBounce {
     pub count: usize,
-    height: f32,
-    target_height: f32,
-    gravity_mult: f32,
+    pub height: f32,
+    pub target_height: f32,
+    pub gravity_mult: f32,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -199,111 +199,6 @@ fn move_ball(
                 }
 
                 debug!("Bounced {} times", ball_bounce.count);
-            }
-        }
-    }
-}
-
-// nice2have: 'auto dash swing'?
-fn handle_collisions(
-    _coll_er: EventReader<CollisionEvent>,
-    mut ball_hit_ew: EventWriter<BallHitEvt>,
-    mut ball_q: Query<(Entity, &mut Ball, &mut BallStatus, &Transform)>,
-    mut ball_bounce_q: Query<(&mut BallBounce, &GlobalTransform)>,
-    player_aim_q: Query<&PlayerAim>,
-    mut player_q: Query<(&Player, &mut PlayerSwing, &Transform)>,
-    net: Res<NetOffset>,
-    court: Res<CourtSettings>,
-) {
-    for (ball_e, mut ball, mut status, ball_t) in ball_q.iter_mut() {
-        if let Ok((mut b_bounce, bounce_t)) = ball_bounce_q.get_mut(ball.bounce_e.unwrap()) {
-            for (player, mut swing, player_t) in player_q.iter_mut() {
-                if let PlayerActionStatus::Active(strength) = swing.status {
-                    let ball_dist = (ball_t.translation - player_t.translation)
-                        .truncate()
-                        .length();
-                    let ball_bounce_dist = (bounce_t.translation - player_t.translation)
-                        .truncate()
-                        .length();
-
-                    if ball_dist.min(ball_bounce_dist) < AIM_RING_RADIUS && !swing.timer.finished()
-                    {
-                        swing.start_cooldown();
-
-                        if let Ok(aim) = player_aim_q.get(player.aim_e) {
-                            ball.dir = aim.dir.normalize();
-                            // todo: possibly base min speed on distance from net? Closer to net means possible lower speed
-                            ball.speed = (BALL_MIN_SPEED.lerp(&BALL_MAX_SPEED, &strength)
-                                + ball.speed * 0.125)
-                                .min(BALL_MAX_SPEED); // carry over some of the previous velocity
-                            let overall_strength =
-                                inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed);
-
-                            let angle =
-                                Quat::from_rotation_arc_2d(-Vec2::X * player.get_sign(), ball.dir)
-                                    .to_euler(EulerRot::XYZ)
-                                    .2;
-
-                            // todo: better calc distance/target
-                            // should be based on strength, distance to net (the closer the shorter-ish the distance?), the current height!
-                            let height_mult =
-                                inverse_lerp(0., BALL_MAX_HEIGHT, b_bounce.height).min(1.);
-
-                            // should be further from net the lower the ball is (angle required)
-                            let net_offset =
-                                TARGET_X_OFFSET.lerp(&(TARGET_X_OFFSET / 2.), &height_mult);
-                            let min_x = if player.is_left() {
-                                net.current_offset + net_offset
-                            } else {
-                                net.current_offset - net_offset
-                            };
-
-                            let min_a = (min_x - ball_t.translation.x).abs();
-                            let min_dist = (min_a / angle.cos()).max(BALL_MIN_DISTANCE);
-
-                            let net_t = inverse_lerp(
-                                court.right,
-                                0.,
-                                (ball_t.translation.x - net.current_offset).abs(),
-                            );
-                            let dist_t = (overall_strength - height_mult * 0.25 - net_t * 0.25).clamp(0., 1.) /* * height_mult*/;
-                            let dist = min_dist.lerp(&(court.right * 2.25), &dist_t);
-
-                            let time = dist / ball.speed;
-                            let time_apex = time / 2.;
-                            b_bounce.gravity_mult =
-                                inverse_lerp(BALL_MIN_SPEED, BALL_MAX_SPEED, ball.speed) * 1.0 + 1.;
-                            let final_grav = BALL_GRAVITY * b_bounce.gravity_mult;
-
-                            b_bounce.height =
-                                (-final_grav * time_apex).clamp(BALL_MIN_HEIGHT, BALL_MAX_HEIGHT);
-                            b_bounce.target_height = b_bounce.height;
-
-                            let final_time = b_bounce.height / -final_grav;
-                            let final_dist = final_time * ball.speed * 2.;
-                            ball.predicted_bounce_pos =
-                                ball_t.translation.truncate() + (ball.dir * final_dist);
-
-                            match *status {
-                                BallStatus::Serve(_, _, player_id) if player_id != player.id => {
-                                    // vollied serve
-                                    *status = BallStatus::Rally(player.id);
-                                    trace!("Vollied serve");
-                                }
-                                BallStatus::Rally(..) => {
-                                    // set rally player on hit
-                                    *status = BallStatus::Rally(player.id);
-                                }
-                                _ => {}
-                            }
-                        }
-
-                        ball_hit_ew.send(BallHitEvt {
-                            ball_e,
-                            player_id: player.id,
-                        });
-                    }
-                }
             }
         }
     }
