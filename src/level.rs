@@ -228,10 +228,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // posts
             let post_offset = 11.;
             for (y, z_offset) in [(y + post_offset, -0.1), (-y + post_offset, 0.1)].iter() {
-                let z = NET_Z + z_offset;
                 b.spawn_bundle(SpriteBundle {
                     texture: asset_server.load("art-ish/net_post.png"),
-                    transform: Transform::from_xyz(0., *y, z),
+                    transform: Transform::from_xyz(0., *y, *z_offset),
                     sprite: Sprite {
                         ..Default::default()
                     },
@@ -239,6 +238,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .insert(PaletteColor::CourtPost)
                 .with_children(|b| {
+                    let z = NET_Z + z_offset;
                     b.spawn_bundle(SpriteBundle {
                         texture: asset_server.load("art-ish/net_post.png"),
                         transform: Transform {
