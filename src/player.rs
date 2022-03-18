@@ -556,8 +556,6 @@ fn handle_ball_swing_collisions(
                                 .truncate()
                                 .length();
 
-                            info!("{ball_dist}, {ball_bounce_dist}");
-
                             if ball_dist.min(ball_bounce_dist)
                                 < (AIM_RING_RADIUS + BALL_SIZE * 0.65)
                             {
