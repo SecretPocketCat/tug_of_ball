@@ -3,15 +3,13 @@ use crate::player::PLAYER_SIZE;
 use crate::GameState;
 use crate::{
     animation::TransformRotation,
-    player::{PlayerDash, SwingRangeSprite, SWING_LABEL},
+    player::{SwingRangeSprite, SWING_LABEL},
     player_action::PlayerActionStatus,
 };
 use bevy::{math::Vec2, prelude::*};
 use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
-use bevy_tweening::lens::{
-    TransformPositionLens, TransformRotationLens, TransformScaleLens,
-};
+use bevy_tweening::lens::{TransformPositionLens, TransformRotationLens, TransformScaleLens};
 use bevy_tweening::*;
 use interpolation::EaseFunction;
 use std::time::Duration;
@@ -20,10 +18,7 @@ pub struct PlayerAnimationPlugin;
 impl Plugin for PlayerAnimationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_system(animate.after(SWING_LABEL))
-            .add_system(unblock_animation)
-            .add_system_set(
-                SystemSet::on_update(GameState::Game).with_system(animate_dash_state_ui),
-            );
+            .add_system(unblock_animation);
     }
 }
 
@@ -33,7 +28,6 @@ pub enum PlayerAnimation {
     Idle,
     Walking,
     Running,
-    Dashing,
     Celebrating,
     Loss,
     Swinging,
@@ -79,19 +73,6 @@ fn animate(
 
                     if let Ok((mut animator, t)) = animator_q.get_mut(anim.body_e) {
                         let (tween, dur) = get_body_scale_tween(t, 1.8, 300);
-                        animator.set_tweenable(tween);
-                        animator.rewind();
-                        animator.state = AnimatorState::Playing;
-
-                        commands.entity(anim_e).insert(AgentAnimationBlock(dur));
-                    }
-                }
-                PlayerAnimation::Dashing => {
-                    stop_anim_entities.push(anim.face_e);
-                    stop_anim_entities.push(anim.body_root_e);
-
-                    if let Ok((mut animator, t)) = animator_q.get_mut(anim.body_e) {
-                        let (tween, dur) = get_body_scale_tween(t, 1.3, 220);
                         animator.set_tweenable(tween);
                         animator.rewind();
                         animator.state = AnimatorState::Playing;
@@ -321,28 +302,4 @@ fn get_loss_tween(transform: &Transform) -> Tracks<Transform> {
         scale_tween.then(get_scale_out_tween(scale_end, 1500, None)),
         Sequence::new([offset_tween]),
     ])
-}
-
-fn animate_dash_state_ui(
-    mut q: Query<(&Parent, &mut TransformRotation), With<SwingRangeSprite>>,
-    dash_q: Query<&PlayerDash>,
-    time: ScaledTime,
-) {
-    for (parent, mut rot) in q.iter_mut() {
-        if let Ok(dash) = dash_q.get(parent.0) {
-            match dash.status {
-                PlayerActionStatus::Ready | PlayerActionStatus::Charging(..) => {
-                    rot.rotation_rad += time.scaled_delta_seconds() * rot.rotation_max_rad * 3.;
-                    if rot.rotation_rad.abs() > rot.rotation_max_rad.abs() {
-                        rot.rotation_rad = rot.rotation_max_rad;
-                    }
-                }
-                PlayerActionStatus::Active(..) => {
-                    let mult = 1. - dash.timer.percent();
-                    rot.rotation_rad = rot.rotation_max_rad * mult * rot.rotation_max_rad.signum();
-                }
-                PlayerActionStatus::Cooldown => rot.rotation_rad = 0.,
-            };
-        }
-    }
 }

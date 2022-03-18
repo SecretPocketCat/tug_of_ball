@@ -114,18 +114,6 @@ pub struct PlayerMovement {
 }
 
 #[derive(Default, Component, Inspectable)]
-pub struct PlayerDash {
-    pub status: PlayerActionStatus<Vec2>,
-    #[inspectable(ignore)]
-    pub timer: Timer,
-    pub duration_sec: f32,
-    cooldown_sec: f32,
-    speed: f32,
-}
-
-impl_player_action_timer!(PlayerDash, Vec2);
-
-#[derive(Default, Component, Inspectable)]
 pub struct PlayerAim {
     pub raw_dir: Vec2,
     pub dir: Vec2,
@@ -156,7 +144,6 @@ impl_player_action_timer!(PlayerSwing, f32);
 pub struct PlayerBundle {
     player: Player,
     movement: PlayerMovement,
-    dash: PlayerDash,
     swing: PlayerSwing,
     score: PlayerScore,
 }
@@ -175,12 +162,6 @@ impl PlayerBundle {
                 speed: 550.,
                 charging_speed: 125.,
                 time_to_max_speed: 0.11,
-                ..Default::default()
-            },
-            dash: PlayerDash {
-                speed: 2200.,
-                duration_sec: 0.085,
-                cooldown_sec: 0.5,
                 ..Default::default()
             },
             swing: PlayerSwing {
@@ -376,13 +357,11 @@ pub fn spawn_player<'a, 'b, 'c>(
 }
 
 // todo: slight acceleration
-// nice2have: lerp dash
 fn move_player(
     mut query: Query<
         (
             &Player,
             &mut PlayerMovement,
-            &PlayerDash,
             &mut Transform,
             &PlayerSwing,
             &mut PlayerAnimationData,
@@ -393,9 +372,7 @@ fn move_player(
     net: Res<NetOffset>,
     court: Res<CourtSettings>,
 ) {
-    for (player, mut player_movement, player_dash, mut player_t, player_swing, mut p_anim) in
-        query.iter_mut()
-    {
+    for (player, mut player_movement, mut player_t, player_swing, mut p_anim) in query.iter_mut() {
         let charging = matches!(player_swing.status, PlayerActionStatus::Charging(_));
         let speed = if charging {
             player_movement.charging_speed
@@ -407,38 +384,27 @@ fn move_player(
         } else {
             player_movement.last_non_zero_raw_dir
         };
+
         let mut move_by = (dir * speed).to_vec3();
-        let mut dashing = false;
-
-        if let PlayerActionStatus::Active(dash_dir) = player_dash.status {
-            move_by = (dash_dir * player_dash.speed).to_vec3();
-            dashing = true;
-        }
-
         let mut final_pos = player_t.translation + move_by * time.scaled_delta_seconds();
 
-        if !dashing {
-            // easing
-            let ease_time_delta = if player_movement.raw_dir == Vec2::ZERO {
-                -time.scaled_delta_seconds()
-            } else {
-                time.scaled_delta_seconds()
-            };
-            player_movement.easing_time += ease_time_delta;
-            player_movement.easing_time = player_movement
-                .easing_time
-                .clamp(0., player_movement.time_to_max_speed);
-
-            let ease_t = inverse_lerp(
-                0.,
-                player_movement.time_to_max_speed,
-                player_movement.easing_time,
-            );
-            final_pos = player_t.translation.lerp(final_pos, ease_t);
+        // easing
+        let ease_time_delta = if player_movement.raw_dir == Vec2::ZERO {
+            -time.scaled_delta_seconds()
         } else {
-            // todo: ease dash as well
-            player_movement.easing_time = player_movement.time_to_max_speed;
-        }
+            time.scaled_delta_seconds()
+        };
+        player_movement.easing_time += ease_time_delta;
+        player_movement.easing_time = player_movement
+            .easing_time
+            .clamp(0., player_movement.time_to_max_speed);
+
+        let ease_t = inverse_lerp(
+            0.,
+            player_movement.time_to_max_speed,
+            player_movement.easing_time,
+        );
+        final_pos = player_t.translation.lerp(final_pos, ease_t);
 
         // nice2have: get/store properly
         let player_size = Vec2::splat(PLAYER_SIZE);
@@ -464,12 +430,10 @@ fn move_player(
             .extend(final_pos.z);
 
         if (final_pos - player_t.translation).length().abs() > 0.1 {
-            if !dashing {
-                if charging && p_anim.animation != PlayerAnimation::Walking {
-                    p_anim.animation = PlayerAnimation::Walking;
-                } else if !charging && p_anim.animation != PlayerAnimation::Running {
-                    p_anim.animation = PlayerAnimation::Running;
-                }
+            if charging && p_anim.animation != PlayerAnimation::Walking {
+                p_anim.animation = PlayerAnimation::Walking;
+            } else if !charging && p_anim.animation != PlayerAnimation::Running {
+                p_anim.animation = PlayerAnimation::Running;
             }
         } else if p_anim.animation != PlayerAnimation::Idle {
             p_anim.animation = PlayerAnimation::Idle;

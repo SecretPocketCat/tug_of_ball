@@ -2,7 +2,7 @@ use crate::{
     ai_player_controller::AiPlayerInputs,
     ball::{Ball, BallBounce},
     level::CourtRegion,
-    player::{Player, PlayerDash, PlayerMovement, PlayerSwing},
+    player::{Player, PlayerMovement, PlayerSwing},
 };
 use bevy::prelude::*;
 use bevy_inspector_egui::{RegisterInspectable, WorldInspectorPlugin};
@@ -15,7 +15,6 @@ impl Plugin for DebugPlugin {
         app.add_plugin(WorldInspectorPlugin::new())
             .register_inspectable::<Player>()
             .register_inspectable::<PlayerMovement>()
-            .register_inspectable::<PlayerDash>()
             .register_inspectable::<PlayerSwing>()
             .register_inspectable::<Ball>()
             .register_inspectable::<BallBounce>()

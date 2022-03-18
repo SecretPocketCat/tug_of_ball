@@ -1,7 +1,7 @@
 use crate::{
     ai_player_controller::AiPlayer,
     input_binding::{InputAction, InputAxis, PlayerInput},
-    player::{Player, PlayerAim, PlayerDash, PlayerMovement, PlayerSwing, SWING_LABEL},
+    player::{Player, PlayerAim, PlayerMovement, PlayerSwing, SWING_LABEL},
     player_action::PlayerActionStatus,
     GameState,
 };
@@ -22,18 +22,10 @@ impl Plugin for PlayerControllerPlugin {
 
 fn process_player_input(
     input: Res<PlayerInput>,
-    mut q: Query<
-        (
-            &Player,
-            &mut PlayerMovement,
-            &mut PlayerDash,
-            &mut PlayerSwing,
-        ),
-        Without<AiPlayer>,
-    >,
+    mut q: Query<(&Player, &mut PlayerMovement, &mut PlayerSwing), Without<AiPlayer>>,
     mut aim_q: Query<&mut PlayerAim>,
 ) {
-    for (player, mut player_movement, mut player_dash, mut player_swing) in q.iter_mut() {
+    for (player, mut player_movement, mut player_swing) in q.iter_mut() {
         // movement
         player_movement.raw_dir = if input.held(player.id, InputAction::LockPosition) {
             Vec2::ZERO
@@ -50,19 +42,6 @@ fn process_player_input(
                 // fallback to movement dir
                 player_aim.raw_dir =
                     input.get_xy_axes_raw(player.id, &InputAxis::MoveX, &InputAxis::MoveY);
-            }
-
-            // dash
-            if input.just_pressed(player.id, InputAction::Dash) {
-                if let PlayerActionStatus::Ready = player_dash.status {
-                    let dir = player_movement.raw_dir.normalize_or_zero();
-                    player_dash.status = PlayerActionStatus::Active(if dir != Vec2::ZERO {
-                        dir
-                    } else {
-                        player_aim.dir
-                    });
-                    player_dash.timer = Timer::from_seconds(player_dash.duration_sec, false);
-                }
             }
         }
 

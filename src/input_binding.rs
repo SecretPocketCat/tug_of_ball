@@ -12,7 +12,6 @@ impl Plugin for InputBindingPlugin {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InputAction {
     Swing,
-    Dash,
     LockPosition,
     ChangePalette,
     Reset,
