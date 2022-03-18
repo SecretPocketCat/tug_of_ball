@@ -276,11 +276,6 @@ pub fn spawn_player<'a, 'b, 'c>(
         ..Default::default()
     });
     p.insert_bundle(PlayerBundle::new(id, initial_dir, aim_e, aim_charge_e))
-        .insert(RigidBody::KinematicPositionBased)
-        .insert(CollisionShape::Sphere {
-            radius: AIM_RING_RADIUS,
-        })
-        .insert(CollisionLayers::none())
         .insert(get_scale_in_anim(Vec3::ONE, 450, None))
         .insert(Name::new("Player"))
         .add_child(aim_e)
@@ -586,7 +581,6 @@ fn handle_ball_swing_collisions(
                                     (ball_dist - PLAYER_SWING_DISTANCE).abs() * 2.
                                 };
 
-                                // todo: take distance from net into consideration!
                                 commands
                                     .entity(player_e)
                                     .insert(Inactive)
@@ -692,14 +686,17 @@ fn handle_ball_swing_collisions(
                     player_anim.animation = PlayerAnimation::Swinging;
 
                     let dist = PLAYER_SWING_DISTANCE * 2.;
-                    // todo: take distance from net into consideration!
                     commands
                         .entity(player_e)
                         .insert(Inactive)
                         .insert(PlayerSwinging {
                             movement_speed: dist
                                 / ((PLAYER_JUMP_HEIGHT_MIN / PLAYER_JUMP_VEL_BASE) * 2.),
-                            movement_dir: player_movement.last_non_zero_raw_dir.normalize(),
+                            movement_dir: if player_movement.raw_dir != Vec2::ZERO {
+                                player_movement.raw_dir.normalize()
+                            } else {
+                                aim.dir
+                            },
                             initial_jump_vel: PLAYER_JUMP_VEL_BASE,
                             current_jump_vel: PLAYER_JUMP_VEL_BASE,
                         });
@@ -714,6 +711,7 @@ fn swing(
     mut commands: Commands,
     mut swinginq_q: Query<(
         Entity,
+        &Player,
         &mut PlayerSwinging,
         &mut PlayerAnimationData,
         &mut PlayerMovement,
@@ -721,8 +719,9 @@ fn swing(
     )>,
     mut transform_q: Query<&mut Transform, Without<PlayerSwinging>>,
     time: ScaledTime,
+    net: Res<NetOffset>,
 ) {
-    for (player_e, mut swinging, mut player_anim, mut player_movement, mut player_t) in
+    for (player_e, player, mut swinging, mut player_anim, mut player_movement, mut player_t) in
         swinginq_q.iter_mut()
     {
         if let Ok(mut t) = transform_q.get_mut(player_anim.jump_e) {
@@ -730,6 +729,18 @@ fn swing(
             player_t.translation +=
                 (swinging.movement_dir * swinging.movement_speed * time.scaled_delta_seconds())
                     .to_vec3();
+
+            player_t.translation.x = if player.is_left() {
+                player_t
+                    .translation
+                    .x
+                    .min(net.current_offset - PLAYER_SIZE / 2.)
+            } else {
+                player_t
+                    .translation
+                    .x
+                    .max(net.current_offset + PLAYER_SIZE / 2.)
+            };
 
             // jump
             let current_jump_vel_abs = swinging.current_jump_vel.abs();
