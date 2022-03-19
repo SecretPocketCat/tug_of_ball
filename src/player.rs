@@ -113,8 +113,10 @@ pub struct PlayerMovement {
     charging_speed: f32,
     easing_time: f32,
     time_to_max_speed: f32,
+    velocity: Vec2,
     pub raw_dir: Vec2,
-    last_non_zero_raw_dir: Vec2,
+    last_non_zero_raw_dir_sign: Vec2,
+    decceleration_sign: Vec2,
 }
 
 #[derive(Default, Component, Inspectable)]
@@ -388,33 +390,30 @@ fn move_player(
             player_movement.speed
         };
         let dir = if player_movement.raw_dir != Vec2::ZERO {
-            player_movement.raw_dir
+            player_movement.decceleration_sign = Vec2::ZERO;
+            player_movement.raw_dir.normalize()
+        } else if player_movement.velocity.signum() == -player_movement.decceleration_sign
+            || player_movement.decceleration_sign == Vec2::ZERO
+        {
+            player_movement.decceleration_sign = -player_movement.velocity.signum();
+            -player_movement.velocity.normalize_or_zero()
         } else {
-            player_movement.last_non_zero_raw_dir
+            Vec2::ZERO
         };
 
-        let move_by = (dir * speed).to_vec3();
-        let mut final_pos = player_t.translation + move_by * time.scaled_delta_seconds();
+        if dir == Vec2::ZERO {
+            continue;
+        }
 
-        // easing
-        let ease_time_delta = if player_movement.raw_dir == Vec2::ZERO {
-            -time.scaled_delta_seconds()
-        } else {
-            time.scaled_delta_seconds()
-        };
-        player_movement.easing_time += ease_time_delta;
-        player_movement.easing_time = player_movement
-            .easing_time
-            .clamp(0., player_movement.time_to_max_speed);
+        let accel = 0.07;
+        let move_by = dir * speed;
+        let vel = (player_movement.velocity + move_by * accel).clamp_length(0.1, speed);
 
-        let ease_t = inverse_lerp(
-            0.,
-            player_movement.time_to_max_speed,
-            player_movement.easing_time,
-        );
-        final_pos = player_t.translation.lerp(final_pos, ease_t);
+        // if player.is_left() {
+        //     info!("{vel}, {}", vel.length());
+        // }
+        let mut final_pos = player_t.translation + vel.to_vec3() * time.scaled_delta_seconds();
 
-        // nice2have: get/store properly
         let player_size = Vec2::splat(PLAYER_SIZE);
         let court_w_half = court.view.x / 2. + player_size.x;
         let player_area_size = if player.is_left() {
@@ -448,10 +447,7 @@ fn move_player(
         }
 
         player_t.translation = final_pos;
-
-        if player_movement.raw_dir != Vec2::ZERO {
-            player_movement.last_non_zero_raw_dir = player_movement.raw_dir;
-        }
+        player_movement.velocity = vel;
     }
 }
 
@@ -772,7 +768,6 @@ fn swing(
                 t.translation.y = 0.;
                 player_movement.easing_time = 1.;
                 player_movement.raw_dir = Vec2::ZERO;
-                player_movement.last_non_zero_raw_dir = swinging.movement_dir;
 
                 player_anim.animation = PlayerAnimation::Landing;
 
