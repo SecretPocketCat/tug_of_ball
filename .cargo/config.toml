@@ -3,6 +3,15 @@
 # linker = "rust-lld.exe"
 rustflags = ["-Zshare-generics=n"]
 
+# RasPi2-4
+[target.armv7-unknown-linux-gnueabihf]
+linker = "arm-linux-gnueabihf-gcc"
+
+# RasPi2-4
+[target.aarch64-unknown-linux-gnu]
+linker = "aarch64-linux-gnu-gcc"
+# https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz
+
 # Optimization
 [profile.dev.package."*"]
 opt-level = 3

@@ -7,7 +7,6 @@ use crate::{
     player_action::PlayerActionStatus,
 };
 use bevy::{math::Vec2, prelude::*};
-use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 use bevy_tweening::lens::{TransformPositionLens, TransformRotationLens, TransformScaleLens};
 use bevy_tweening::*;
@@ -22,7 +21,7 @@ impl Plugin for PlayerAnimationPlugin {
     }
 }
 
-#[derive(Default, Inspectable, PartialEq, Debug)]
+#[derive(Default, PartialEq, Debug)]
 pub enum PlayerAnimation {
     #[default]
     Idle,
@@ -34,7 +33,7 @@ pub enum PlayerAnimation {
     Landing,
 }
 
-#[derive(Component, Inspectable)]
+#[derive(Component)]
 pub struct PlayerAnimationData {
     pub animation: PlayerAnimation,
     pub face_e: Entity,
@@ -43,7 +42,7 @@ pub struct PlayerAnimationData {
     pub body_root_e: Entity,
 }
 
-#[derive(Component, Inspectable)]
+#[derive(Component)]
 pub struct AgentAnimationBlock(pub f32);
 
 fn animate(

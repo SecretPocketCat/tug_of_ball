@@ -1,0 +1,2 @@
+[target.aarch64-unknown-linux-gnu]
+image = "spc/bevy-cross-rpi4:latest"

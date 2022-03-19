@@ -5,7 +5,6 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-bevy = "0.6"
 bevy_input = { git = "https://github.com/SecretPocketCat/bevy_input", features = [
     "multiplayer",
 ] }
@@ -16,11 +15,24 @@ rand = "0.8.5"
 bevy_tweening = "0.3.2"
 bevy_prototype_lyon = "0.4.0"
 interpolation = "0.2.0"
-bevy-inspector-egui = { version = "0.8.2" }
 heron = { version = "2.0.1", features = ["2d"] }
 big-brain = "0.10.0"
 
+[dependencies.bevy]
+version = "0.6"
+default-features = false
+# These are the remaining default features other than `bevy_audio` and `mp3`
+features = [
+    "render",
+    "bevy_winit",
+    "bevy_gilrs",
+    "png",
+    # "hdr",
+    "filesystem_watcher",
+    "x11",
+]
+
 [features]
 debug = []
-collision_debug = ["heron/debug-2d"]
+collision_debug = ["debug", "heron/debug-2d"]
 release = []

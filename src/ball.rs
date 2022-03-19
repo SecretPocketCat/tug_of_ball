@@ -20,7 +20,6 @@ use crate::{
     trail::Trail,
     GameSetupPhase, GameState,
 };
-use bevy_inspector_egui::Inspectable;
 use bevy_prototype_lyon::prelude::*;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 use bevy_tweening::lens::{SpriteColorLens, TransformScaleLens};
@@ -51,7 +50,7 @@ impl Plugin for BallPlugin {
     }
 }
 
-#[derive(Default, Component, Inspectable)]
+#[derive(Default, Component)]
 pub struct Ball {
     pub dir: Vec2,
     pub speed: f32,
@@ -64,7 +63,7 @@ pub struct Ball {
     size: f32,
 }
 
-#[derive(Default, Component, Inspectable)]
+#[derive(Default, Component)]
 pub struct BallBounce {
     pub count: usize,
     pub height: f32,
@@ -72,7 +71,7 @@ pub struct BallBounce {
     pub gravity_mult: f32,
 }
 
-#[derive(Default, Component, Inspectable)]
+#[derive(Default, Component)]
 pub enum BallStatus {
     Serve(CourtRegion, u8, usize),
     Fault(u8, usize),
