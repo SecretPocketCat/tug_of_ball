@@ -7,6 +7,7 @@ use crate::{
     GameState,
 };
 use bevy::prelude::*;
+use bevy_inspector_egui::Inspectable;
 use big_brain::prelude::*;
 
 pub struct AiPlayerControllerPlugin;
@@ -29,7 +30,7 @@ impl Plugin for AiPlayerControllerPlugin {
 #[derive(Debug, Clone, Component)]
 pub struct AiPlayer;
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Inspectable)]
 pub struct AiPlayerInputs {
     ball_is_approaching: bool,
     predicted_swing_pos: Vec2,

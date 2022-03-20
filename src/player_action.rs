@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use bevy::prelude::*;
+use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 
 use crate::{player::PlayerSwing, GameState};
@@ -15,7 +16,7 @@ impl Plugin for PlayerActionPlugin {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Inspectable, Clone, Copy, Debug)]
 pub enum PlayerActionStatus<TActiveData: Default> {
     Ready,
     Charging(f32),

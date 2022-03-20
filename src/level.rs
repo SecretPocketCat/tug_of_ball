@@ -12,6 +12,7 @@ use bevy::{
     prelude::*,
     sprite::{Sprite, SpriteBundle},
 };
+use bevy_inspector_egui::Inspectable;
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningType};
 use heron::*;
@@ -67,7 +68,7 @@ pub struct CourtSettings {
     pub win_treshold: f32,
 }
 
-#[derive(Default, Component, Clone, Copy, Debug, PartialEq)]
+#[derive(Default, Component, Inspectable, Clone, Copy, Debug, PartialEq)]
 pub enum CourtRegion {
     #[default]
     OutOfBounds,

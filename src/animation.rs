@@ -2,6 +2,7 @@ use std::ops::{Add, Mul};
 use std::time::Duration;
 
 use bevy::prelude::*;
+use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 use bevy_tweening::lens::{SpriteColorLens, TransformScaleLens};
 use bevy_tweening::*;
@@ -13,7 +14,7 @@ impl Plugin for AnimationPlugin {
     }
 }
 
-#[derive(Default, Component)]
+#[derive(Default, Component, Inspectable)]
 pub struct TransformRotation {
     pub rotation_rad: f32,
     pub rotation_max_rad: f32,

@@ -26,6 +26,7 @@ use bevy::{
     sprite::{Sprite, SpriteBundle},
 };
 use bevy_extensions::Vec2Conversion;
+use bevy_inspector_egui::Inspectable;
 use bevy_time::{ScaledTime, ScaledTimeDelta};
 
 use bevy_tweening::*;
@@ -59,7 +60,7 @@ impl Plugin for PlayerPlugin {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 pub struct Player {
     pub id: usize,
     pub aim_e: Entity,
@@ -86,7 +87,7 @@ pub fn is_left_player_id(id: usize) -> bool {
     id == 1
 }
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 pub struct Inactive;
 
 #[derive(Component)]
@@ -97,16 +98,16 @@ pub struct PlayerSwinging {
     current_jump_vel: f32,
 }
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 pub struct PlayerGui;
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 pub struct FollowScale {
     followed_e: Entity,
     scale_multiplier: Vec3,
 }
 
-#[derive(Default, Component)]
+#[derive(Default, Component, Inspectable)]
 pub struct PlayerMovement {
     speed: f32,
     charging_speed: f32,
@@ -118,20 +119,21 @@ pub struct PlayerMovement {
     decceleration_sign: Vec2,
 }
 
-#[derive(Default, Component)]
+#[derive(Default, Component, Inspectable)]
 pub struct PlayerAim {
     pub raw_dir: Vec2,
     pub dir: Vec2,
 }
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 pub struct SwingRangeSprite;
 
-#[derive(Default, Component)]
+#[derive(Default, Component, Inspectable)]
 pub struct PlayerSwing {
     pub status: PlayerActionStatus<f32>,
     pub duration_sec: f32,
     pub cooldown_sec: f32,
+    #[inspectable(ignore)]
     pub timer: Timer,
 }
 

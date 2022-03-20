@@ -8,6 +8,7 @@ use crate::{
     GameState,
 };
 use bevy::prelude::*;
+use bevy_inspector_egui::Inspectable;
 
 pub const GAME_SCORE_TARGET: u8 = 5;
 pub const NET_OFFSET_POINT: f32 = 30.;
@@ -26,7 +27,7 @@ impl Plugin for ScorePlugin {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 struct PointsText;
 
 #[derive(Default)]
@@ -36,7 +37,7 @@ pub struct Score {
     pub left_has_won: Option<bool>,
 }
 
-#[derive(Default, Component)]
+#[derive(Default, Component, Inspectable)]
 pub struct PlayerScore {
     pub points: u8,
     pub games: u8,
