@@ -21,16 +21,28 @@ big-brain = "0.10.0"
 [dependencies.bevy]
 version = "0.6"
 default-features = false
+# https://bevy-cheatbook.github.io/setup/bevy-config.html?highlight=audio#bevy-cargo-features
 # These are the remaining default features other than `bevy_audio` and `mp3`
 features = [
-    "render",
     "bevy_winit",
     "bevy_gilrs",
     "png",
-    # "hdr",
     "filesystem_watcher",
     "x11",
+    # render-related features
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_sprite",
+    "bevy_text",
+    "bevy_ui",
 ]
+
+[dependencies.bevy_kira_audio]
+version = "0.8.0"
+# `ogg` format support is enabled by default, disable if you don't want it
+default-features = false
+# enable the features you care about
+features = ["mp3", "ogg"]
 
 [features]
 debug = []
